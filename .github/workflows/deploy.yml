@@ -40,6 +40,15 @@ jobs:
       - name: Generate report
         env:
           CUSTIMOO_DB_PASSWORD: ${{ secrets.CUSTIMOO_DB_PASSWORD }}
-        run: |
-          python3 scripts/html_report.py 2>&1 || true
-          echo "Report generation attempted — check output above"
+          CUSTIMOO_GRAPH_TENANT_ID: ${{ secrets.CUSTIMOO_GRAPH_TENANT_ID }}
+          CUSTIMOO_GRAPH_CLIENT_ID: ${{ secrets.CUSTIMOO_GRAPH_CLIENT_ID }}
+          CUSTIMOO_GRAPH_CLIENT_SECRET: ${{ secrets.CUSTIMOO_GRAPH_CLIENT_SECRET }}
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: python3 scripts/html_report.py
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to fly.io
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy -a custimoo-defect-report-lars --remote-only
