@@ -966,8 +966,8 @@ REMAKE_MGMT_JSON = json.dumps(REMAKE_MGMT, cls=factory_data.DecimalEncoder)
 # ── Remake Mgmt SAS token for universal save ──
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
 from datetime import datetime, timedelta, timezone
-AZURE_ACCOUNT = 'custimoolivedata'
-AZURE_KEY = '1jTFp/HYqniRxqmHPHJRli5IbumGmnwVUNB6XEij54I4Vjv3dasznDmsty9EvSBODsxYaa8R14Xz+AStto1TYA=='
+AZURE_ACCOUNT = os.environ.get("AZURE_STORAGE_ACCOUNT", "custimoolivedata")
+AZURE_KEY = os.environ.get("AZURE_STORAGE_KEY", "")
 REMAKE_SAS_URL = ''
 try:
     sas_token = generate_blob_sas(
