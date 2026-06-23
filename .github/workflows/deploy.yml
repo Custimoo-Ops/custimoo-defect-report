@@ -17,7 +17,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install dependencies
         run: pip install pymysql azure-storage-blob requests
@@ -25,20 +24,21 @@ jobs:
       - name: Set up SSH tunnel
         uses: nicklasxyz/ssh-tunnel@v1
         with:
-          ssh_host: ${ { secrets.TUNNEL_HOST } }
-          ssh_port: ${ { secrets.TUNNEL_PORT } }
-          ssh_user: ${ { secrets.TUNNEL_USER } }
-          ssh_private_key: ${ { secrets.SSH_PRIVATE_KEY } }
+          ssh_host: ${{ secrets.TUNNEL_HOST }}
+          ssh_port: ${{ secrets.TUNNEL_PORT }}
+          ssh_user: ${{ secrets.TUNNEL_USER }}
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
           local_port: '3307'
-          remote_host: ${ { secrets.RDS_HOST } }
+          remote_host: ${{ secrets.RDS_HOST }}
           remote_port: '3306'
 
       - name: Generate report
         env:
-          CUSTIMOO_DB_PASSWORD: ${ { secrets.CUSTIMOO_DB_PASSWORD } }
-          CUSTIMOO_GRAPH_TENANT_ID: ${ { secrets.CUSTIMOO_GRAPH_TENANT_ID } }
-          CUSTIMOO_GRAPH_CLIENT_ID: ${ { secrets.CUSTIMOO_GRAPH_CLIENT_ID } }
-          CUSTIMOO_GRAPH_CLIENT_SECRET: ${ { secrets.CUSTIMOO_GRAPH_CLIENT_SECRET } }
+          CUSTIMOO_DB_PASSWORD: ${{ secrets.CUSTIMOO_DB_PASSWORD }}
+          CUSTIMOO_GRAPH_TENANT_ID: ${{ secrets.CUSTIMOO_GRAPH_TENANT_ID }}
+          CUSTIMOO_GRAPH_CLIENT_ID: ${{ secrets.CUSTIMOO_GRAPH_CLIENT_ID }}
+          CUSTIMOO_GRAPH_CLIENT_SECRET: ${{ secrets.CUSTIMOO_GRAPH_CLIENT_SECRET }}
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
         run: python3 scripts/html_report.py
 
       - name: Setup Fly
@@ -46,7 +46,7 @@ jobs:
 
       - name: Deploy to fly.io
         env:
-          FLY_API_TOKEN: ${ { secrets.FLY_API_TOKEN } }
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          cp report.html /tmp/deploy-report.html
+          cp report.html /usr/share/nginx/html/index.html
           flyctl deploy -a custimoo-defect-report-lars --remote-only
