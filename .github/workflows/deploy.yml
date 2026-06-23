@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '0 8,16 * * 1-5'
+    - cron: '0 8 * * 1-5'
+    - cron: '0 16 * * 1-5'
   workflow_dispatch:
 
 jobs:
@@ -12,8 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install deps
         run: pip install pymysql azure-storage-blob requests
+
       - name: Set up SSH tunnel
         uses: nicklasxyz/ssh-tunnel@v1
         with:
@@ -24,7 +27,8 @@ jobs:
           local_port: '3307'
           remote_host: ${{ secrets.RDS_HOST }}
           remote_port: '3306'
-      - name: Gen report
+
+      - name: Generate report
         env:
           CUSTIMOO_DB_PASSWORD: ${{ secrets.CUSTIMOO_DB_PASSWORD }}
           CUSTIMOO_GRAPH_TENANT_ID: ${{ secrets.CUSTIMOO_GRAPH_TENANT_ID }}
@@ -32,6 +36,8 @@ jobs:
           CUSTIMOO_GRAPH_CLIENT_SECRET: ${{ secrets.CUSTIMOO_GRAPH_CLIENT_SECRET }}
           AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
         run: python3 scripts/html_report.py
+
       - uses: superfly/flyctl-actions/setup-flyctl@master
+
       - name: Deploy
         run: flyctl deploy -a custimoo-defect-report-lars --remote-only
