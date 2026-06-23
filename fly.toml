@@ -1,0 +1,28 @@
+# fly.toml app configuration file for custimoo-failure-report
+app = 'custimoo-defect-report-lars'
+primary_region = 'ams'
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 80
+  force_https = true
+  auto_stop_machines = 'off'
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'
+
+[env]
+  DB_HOST = "127.0.0.1"
+  DB_PORT = "3307"
+  DB_NAME = "custimoo_backend_prod"
+  DB_USER = "custimoo_backend_usr"
+  TUNNEL_HOST = "34.230.173.72"
+  TUNNEL_PORT = "13003"
+  TUNNEL_USER = "powerbi_ssh_user"
+  RDS_HOST = "custimoo.cluster-ro-cbmocqcg23hg.us-east-1.rds.amazonaws.com"
+  REGENERATE_CRON = "0 8,16 * * 1-5"
