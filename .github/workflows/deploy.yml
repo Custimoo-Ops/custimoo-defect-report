@@ -3,15 +3,36 @@ name: Generate & Deploy Report
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '0 8 * * 1-5'
+    - cron: '0 16 * * 1-5'
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install deps
-        run: pip install pymysql azure-storage-blob requests
-      - name: Gen report
+        run: sudo apt-get update && sudo apt-get install -y openssh-client && pip install pymysql azure-storage-blob requests
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p ${{ secrets.TUNNEL_PORT }} ${{ secrets.TUNNEL_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Start SSH tunnel
+        run: |
+          ssh -f -N -L 3307:${{ secrets.RDS_HOST }}:3306 \
+            -p ${{ secrets.TUNNEL_PORT }} \
+            ${{ secrets.TUNNEL_USER }}@${{ secrets.TUNNEL_HOST }} \
+            -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=60
+
+      - name: Generate report
         env:
           CUSTIMOO_DB_PASSWORD: ${{ secrets.CUSTIMOO_DB_PASSWORD }}
           CUSTIMOO_GRAPH_TENANT_ID: ${{ secrets.CUSTIMOO_GRAPH_TENANT_ID }}
@@ -19,5 +40,3 @@ jobs:
           CUSTIMOO_GRAPH_CLIENT_SECRET: ${{ secrets.CUSTIMOO_GRAPH_CLIENT_SECRET }}
           AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
         run: python3 scripts/html_report.py
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: echo "done"
