@@ -11,16 +11,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install deps
         run: pip install pymysql azure-storage-blob requests
-      - name: Set up SSH tunnel
-        uses: nicklasxyz/ssh-tunnel@v1
-        with:
-          ssh_host: ${{ secrets.TUNNEL_HOST }}
-          ssh_port: ${{ secrets.TUNNEL_PORT }}
-          ssh_user: ${{ secrets.TUNNEL_USER }}
-          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
-          local_port: '3307'
-          remote_host: ${{ secrets.RDS_HOST }}
-          remote_port: '3306'
       - name: Gen report
         env:
           CUSTIMOO_DB_PASSWORD: ${{ secrets.CUSTIMOO_DB_PASSWORD }}
@@ -30,5 +20,4 @@ jobs:
           AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
         run: python3 scripts/html_report.py
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy
-        run: echo "would deploy"
+      - run: echo "done"
