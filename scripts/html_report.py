@@ -1655,11 +1655,11 @@ function updatePeriodKpis() {{
   if (YTD_MEASURE === 'orders') {{
     document.getElementById('ytdVolume').textContent = (DATA.orders || 0).toLocaleString();
     document.getElementById('periodKpiValue').textContent = ((d.totalDefectOrders || 0)).toLocaleString();
-    document.getElementById('periodKpiSub').textContent = (d.totalOrderRate || 0).toFixed(2) + '% defect orders / total orders · ' + (d.totalDefectOrders || 0).toLocaleString() + ' orders with defects';
+    document.getElementById('periodKpiSub').textContent = label + ' · ' + (d.totalOrderRate || 0).toFixed(2) + '% of ' + (d.totalOrders || 0).toLocaleString() + ' orders · ' + (d.totalDefectOrders || 0).toLocaleString() + ' orders with defects';
   }} else {{
     document.getElementById('ytdVolume').textContent = (DATA.volume || 0).toLocaleString();
     document.getElementById('periodKpiValue').textContent = ((d.totalDefects || 0)).toLocaleString();
-    document.getElementById('periodKpiSub').textContent = (d.totalRate || 0).toFixed(2) + '% defects / total order qty · ' + (d.totalDefectOrders || 0).toLocaleString() + ' orders with defects (' + (d.totalOrderRate || 0).toFixed(2) + '% orders)';
+    document.getElementById('periodKpiSub').textContent = label + ' · ' + (d.totalRate || 0).toFixed(2) + '% of ' + (d.totalVolume || 0).toLocaleString() + ' items · ' + (d.totalDefectOrders || 0).toLocaleString() + ' orders with defects' + ' (' + (d.totalOrderRate || 0).toFixed(2) + '% orders)';
   }}
   document.getElementById('periodKpiLabel').textContent = label + ' Defects';
 }}
