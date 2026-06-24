@@ -50,7 +50,11 @@ jobs:
           AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
         run: |
           python3 scripts/html_report.py || true
+          cp report.html /usr/share/nginx/html/index.html 2>/dev/null || true
           echo "Report: $(wc -c < report.html 2>/dev/null || echo 0) bytes"
+
+      - name: Copy generated report for deploy
+        run: cp report.html report-generated.html
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
