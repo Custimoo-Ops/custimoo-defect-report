@@ -1135,7 +1135,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
   <section id="ytd" class="page">
     <div class="exec-grid">
       <div class="card metric"><div class="label">YTD 2026 Total Order QTY</div><div class="value" id="ytdVolume"></div><div class="sub">Jan – Jun 2026*</div></div>
-      <div class="card metric"><div class="label">YTD 2026 Defects</div><div class="value" id="ytdDefects"></div><div class="sub" id="ytdRateSub"></div></div>
+      <div class="card metric"><div class="label" id="periodKpiLabel">YTD 2026 Defects</div><div class="value" id="periodKpiValue"></div><div class="sub" id="periodKpiSub"></div></div>
     </div>
     <div class="card">
       <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="ytdMeasureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="ytdMeasureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select></div></div>
@@ -1538,6 +1538,7 @@ function applyPeriod(key) {{
   ACTIVE_MONTH_KEYS = ACTIVE_DATA.monthKeys || MONTH_KEYS;
   ACTIVE_GROUPINGS = ACTIVE_DATA.groupings || GROUPINGS;
   updateSummaryStats();
+  updatePeriodKpis();
   var reset = document.getElementById('resetBtn');
   if (reset && reset.classList.contains('show')) reset.click();
   renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value);
@@ -1646,17 +1647,28 @@ document.getElementById('factoryMonthBody').innerHTML = DATA.factoryMonthly.map(
 
 // ── YTD KPI cards / measure view ──
 let YTD_MEASURE = 'qty';
-document.getElementById('ytdVolume').textContent = YTD.volume.toLocaleString();
-document.getElementById('ytdDefects').textContent = YTD.defects.toLocaleString();
-function updateYtdKpis() {{
+document.getElementById('ytdVolume').textContent = DATA.totalVolume.toLocaleString();
+
+function updatePeriodKpis() {{
+  var d = ACTIVE_DATA;
+  var label = d.name || 'YTD 2026';
   if (YTD_MEASURE === 'orders') {{
-    document.getElementById('ytdVolume').textContent = (YTD.orders || 0).toLocaleString();
-    document.querySelector('#ytdVolume').closest('.metric').querySelector('.label').textContent = 'YTD 2026 No of Orders';
-    document.getElementById('ytdRateSub').textContent = (YTD.orderRate || 0).toFixed(2) + '% defect orders / total orders · ' + (YTD.defectOrders || 0).toLocaleString() + ' orders with defects';
+    document.getElementById('ytdVolume').textContent = (DATA.orders || 0).toLocaleString();
+    document.getElementById('periodKpiValue').textContent = ((d.totalDefectOrders || 0)).toLocaleString();
+    document.getElementById('periodKpiSub').textContent = (d.totalOrderRate || 0).toFixed(2) + '% defect orders / total orders · ' + (d.totalDefectOrders || 0).toLocaleString() + ' orders with defects';
   }} else {{
-    document.getElementById('ytdVolume').textContent = (YTD.volume || 0).toLocaleString();
+    document.getElementById('ytdVolume').textContent = (DATA.volume || 0).toLocaleString();
+    document.getElementById('periodKpiValue').textContent = ((d.totalDefects || 0)).toLocaleString();
+    document.getElementById('periodKpiSub').textContent = (d.totalRate || 0).toFixed(2) + '% defects / total order qty · ' + (d.totalDefectOrders || 0).toLocaleString() + ' orders with defects (' + (d.totalOrderRate || 0).toFixed(2) + '% orders)';
+  }}
+  document.getElementById('periodKpiLabel').textContent = label + ' Defects';
+}}
+function updateYtdKpis() {{
+  updatePeriodKpis();
+  if (YTD_MEASURE === 'orders') {{
+    document.querySelector('#ytdVolume').closest('.metric').querySelector('.label').textContent = 'YTD 2026 No of Orders';
+  }} else {{
     document.querySelector('#ytdVolume').closest('.metric').querySelector('.label').textContent = 'YTD 2026 Total Order QTY';
-    document.getElementById('ytdRateSub').textContent = (YTD.rate || 0).toFixed(2) + '% defects / total order qty · ' + (YTD.defectOrders || 0).toLocaleString() + ' orders with defects (' + (YTD.orderRate || 0).toFixed(2) + '% orders)';
   }}
 }}
 updateYtdKpis();
