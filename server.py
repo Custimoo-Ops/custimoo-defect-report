@@ -21,12 +21,13 @@ class H(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def _call(self, url, method="GET", body=None):
-        req = urllib.request.Request(url, data=body, method=method,
-            headers={"Authorization": "Bearer " + TOK, "Accept": "application/vnd.github+json",
-                     "Content-Type": "application/json"} if body else
-                    {"Authorization": "Bearer " + TOK, "Accept": "application/vnd.github+json"})
+        headers = {"Authorization": "Bearer " + TOK, "Accept": "application/vnd.github+json"}
+        if body:
+            headers["Content-Type"] = "application/json"
+        req = urllib.request.Request(url, data=body, method=method, headers=headers)
         with urllib.request.urlopen(req) as r:
-            return json.loads(r.read())
+            raw = r.read()
+            return json.loads(raw) if raw else {}
 
     def _refresh(self):
         try:
