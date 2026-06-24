@@ -306,34 +306,44 @@ pw = os.environ.get("CUSTIMOO_DB_PASSWORD", "")
 conn = pymysql.connect(host="127.0.0.1", port=3307, database="custimoo_backend_prod", user="custimoo_backend_usr", password=pw, connect_timeout=10)
 cur = conn.cursor()
 
-# Fetch fu messages
-tenant = os.environ["CUSTIMOO_GRAPH_TENANT_ID"]
-client_id = os.environ["CUSTIMOO_GRAPH_CLIENT_ID"]
-client_secret = os.environ["CUSTIMOO_GRAPH_CLIENT_SECRET"]
-url = "https://login.microsoftonline.com/%s/oauth2/v2.0/token" % (tenant,)
-body = "client_id=%s&client_secret=%s&scope=https://graph.microsoft.com/.default&grant_type=client_credentials" % (client_id, client_secret)
-req = urllib.request.Request(url, data=body.encode(), headers={"Content-Type": "application/x-www-form-urlencoded"})
-token = json.loads(urllib.request.urlopen(req).read().decode())["access_token"]
+# Fetch fu messages (skip if no Graph credentials)
+if os.environ.get("CUSTIMOO_GRAPH_TENANT_ID"):
+    tenant = os.environ["CUSTIMOO_GRAPH_TENANT_ID"]
+    client_id = os.environ["CUSTIMOO_GRAPH_CLIENT_ID"]
+    client_secret = os.environ["CUSTIMOO_GRAPH_CLIENT_SECRET"]
+    url = "https://login.microsoftonline.com/%s/oauth2/v2.0/token" % (tenant,)
+    body = "client_id=%s&client_secret=%s&scope=https://graph.microsoft.com/.default&grant_type=client_credentials" % (client_id, client_secret)
+    req = urllib.request.Request(url, data=body.encode(), headers={"Content-Type": "application/x-www-form-urlencoded"})
+    try:
+        token = json.loads(urllib.request.urlopen(req).read().decode())["access_token"]
 
-url = "https://graph.microsoft.com/v1.0/users/fu@custimoo.com/messages?$filter=receivedDateTime%20ge%202025-10-28T00:00:00Z&$top=100&$select=subject,receivedDateTime,body&$orderby=receivedDateTime%20asc"
-all_msgs = []
-while url:
-    req = urllib.request.Request(url, headers={"Authorization": "Bearer " + token, "Prefer": "outlook.body-content-type=text"})
-    resp = json.loads(urllib.request.urlopen(req).read().decode())
-    all_msgs.extend(resp.get("value", []))
-    url = resp.get("@odata.nextLink")
+        url = "https://graph.microsoft.com/v1.0/users/fu@custimoo.com/messages?$filter=receivedDateTime%20ge%202025-10-28T00:00:00Z&$top=100&$select=subject,receivedDateTime,body&$orderby=receivedDateTime%20asc"
+        all_msgs = []
+        while url:
+            req = urllib.request.Request(url, headers={"Authorization": "Bearer " + token, "Prefer": "outlook.body-content-type=text"})
+            resp = json.loads(urllib.request.urlopen(req).read().decode())
+            all_msgs.extend(resp.get("value", []))
+            url = resp.get("@odata.nextLink")
 
-first_fu_month = {}
-groups = defaultdict(list)
-for m in all_msgs:
-    subj = m["subject"]
-    content = m.get("body", {}).get("content", "")[:2000]
-    dt = m["receivedDateTime"][:7]
-    nums = re.findall(r"(?:order|Order|ORDER)?\s*#?\s*(\d{4,6})", subj + " " + content)
-    for n in set(n for n in nums if 10000 <= int(n) <= 99999):
-        groups[n].append({"subject": subj, "body": content})
-        if n not in first_fu_month:
-            first_fu_month[n] = dt
+        first_fu_month = {}
+        groups = defaultdict(list)
+        for m in all_msgs:
+            subj = m["subject"]
+            content = m.get("body", {}).get("content", "")[:2000]
+            dt = m["receivedDateTime"][:7]
+            nums = re.findall(r"(?:order|Order|ORDER)?\\s*#?\\s*(\\d{4,6})", subj + " " + content)
+            for n in set(n for n in nums if 10000 <= int(n) <= 99999):
+                groups[n].append({"subject": subj, "body": content})
+                if n not in first_fu_month:
+                    first_fu_month[n] = dt
+    except Exception as e:
+        print("Graph API call in html_report.py failed:", e)
+        first_fu_month = {}
+        groups = defaultdict(list)
+else:
+    print("Skipping Microsoft Graph in html_report — no credentials")
+    first_fu_month = {}
+    groups = defaultdict(list)
 
 ALL_ORDER_NUMS = set(list(first_fu_month.keys()) + list(factory_data.MANUAL.keys()))
 qs = ",".join(["%s"] * len(ALL_ORDER_NUMS))
