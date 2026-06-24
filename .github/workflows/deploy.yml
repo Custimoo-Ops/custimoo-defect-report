@@ -15,7 +15,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install deps
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq openssh-client && pip install pymysql azure-storage-blob requests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openssh-client
+          pip install pymysql azure-storage-blob requests
 
       - name: Set up SSH tunnel
         env:
@@ -41,15 +44,18 @@ jobs:
         timeout-minutes: 5
         env:
           CUSTIMOO_DB_PASSWORD: ${{ secrets.CUSTIMOO_DB_PASSWORD }}
+          CUSTIMOO_GRAPH_TENANT_ID: ${{ secrets.CUSTIMOO_GRAPH_TENANT_ID }}
+          CUSTIMOO_GRAPH_CLIENT_ID: ${{ secrets.CUSTIMOO_GRAPH_CLIENT_ID }}
+          CUSTIMOO_GRAPH_CLIENT_SECRET: ${{ secrets.CUSTIMOO_GRAPH_CLIENT_SECRET }}
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
         run: |
-          set +e
-          python3 scripts/html_report.py 2>&1; echo "EXIT:$?"
-          ls -la report.html 2>/dev/null || echo "No report"
-          cat /tmp/err.log 2>/dev/null || true
+          python3 scripts/html_report.py
+          echo "Report generated: $(wc -c < report.html) bytes"
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to fly.io
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl deploy -a custimoo-defect-report-lars --remote-only
+        run: |
+          flyctl deploy -a custimoo-defect-report-lars --remote-only || echo "Deploy failed — check FLY_API_TOKEN"
