@@ -1,84 +1,54 @@
 #!/usr/bin/env python3
-"""Single HTTP server: serves report + /api/refresh endpoint."""
-import http.server
-import json
-import os
-import sys
-import urllib.request
-import socketserver
+import http.server, json, os, urllib.request, socketserver, sys
 
 TOK = os.environ.get("GH_WORKFLOW_TOKEN", "")
 REPO = "lars-lakr/custimoo-defect-report"
 PORT = int(os.environ.get("PORT", 8080))
-REPORT = "/app/report.html"
-WF = "deploy.yml"
 
-class H(http.server.BaseHTTPRequestHandler):
-    def _file(self, path, ct="text/html"):
-        try:
-            with open(path, "rb") as f:
-                data = f.read()
-            self.send_response(200)
-            self.send_header("Content-Type", ct)
-            self.send_header("Content-Length", str(len(data)))
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(data)
-        except Exception:
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b"404")
+class H(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory="/app", **kwargs)
 
     def do_GET(self):
         if self.path == "/api/refresh":
-            return self._refresh()
-        if self.path == "/api/status":
-            return self._status()
-        if self.path in ("/", "/index.html"):
-            return self._file(REPORT)
-        return self._file(self.path.lstrip("/"), "text/plain")
+            self._refresh()
+        elif self.path == "/api/status":
+            self._status()
+        elif self.path == "/":
+            self.path = "/index.html"
+            super().do_GET()
+        else:
+            super().do_GET()
 
-    def do_POST(self):
-        self.do_GET()
+    def _call(self, url, method="GET", body=None):
+        req = urllib.request.Request(url, data=body, method=method,
+            headers={"Authorization": "Bearer " + TOK, "Accept": "application/vnd.github+json",
+                     "Content-Type": "application/json"} if body else
+                    {"Authorization": "Bearer " + TOK, "Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req) as r:
+            return json.loads(r.read())
 
     def _refresh(self):
-        if self._running():
-            return self._json(429, {"ok": False, "error": "Already running"})
         try:
-            u = f"https://api.github.com/repos/{REPO}/actions/workflows/{WF}/dispatches"
-            d = json.dumps({"ref": "main"}).encode()
-            r = urllib.request.Request(u, data=d, method="POST",
-                headers={"Authorization": "Bearer " + TOK,
-                         "Accept": "application/vnd.github+json",
-                         "Content-Type": "application/json"})
-            urllib.request.urlopen(r)
-            self._json(200, {"ok": True, "message": "Triggered"})
+            runs = self._call(f"https://api.github.com/repos/{REPO}/actions/runs?per_page=1&status=in_progress")
+            if runs.get("workflow_runs"):
+                return self._json(429, {"ok": False, "error": "Already running"})
+            self._call(f"https://api.github.com/repos/{REPO}/actions/workflows/deploy.yml/dispatches",
+                       method="POST", body=json.dumps({"ref": "main"}).encode())
+            self._json(200, {"ok": True, "message": "Refresh triggered"})
         except Exception as e:
             self._json(500, {"ok": False, "error": str(e)[:200]})
 
     def _status(self):
         try:
-            u = f"https://api.github.com/repos/{REPO}/actions/runs?per_page=1"
-            r = urllib.request.Request(u,
-                headers={"Authorization": "Bearer " + TOK, "Accept": "application/vnd.github+json"})
-            data = json.loads(urllib.request.urlopen(r).read())
+            data = self._call(f"https://api.github.com/repos/{REPO}/actions/runs?per_page=1&event=push&status=completed")
             runs = data.get("workflow_runs", [])
-            self._json(200, {
-                "conclusion": runs[0]["conclusion"] if runs else "unknown",
-                "ts": runs[0]["updated_at"] if runs else None
-            })
+            if runs:
+                self._json(200, {"conclusion": runs[0]["conclusion"], "updated_at": runs[0]["updated_at"]})
+            else:
+                self._json(200, {"conclusion": "unknown"})
         except Exception as e:
             self._json(500, {"error": str(e)[:200]})
-
-    def _running(self):
-        try:
-            u = f"https://api.github.com/repos/{REPO}/actions/runs?per_page=1&status=in_progress"
-            r = urllib.request.Request(u,
-                headers={"Authorization": "Bearer " + TOK, "Accept": "application/vnd.github+json"})
-            data = json.loads(urllib.request.urlopen(r).read())
-            return len(data.get("workflow_runs", [])) > 0
-        except Exception:
-            return False
 
     def _json(self, code, data):
         b = json.dumps(data).encode()
@@ -92,12 +62,7 @@ class H(http.server.BaseHTTPRequestHandler):
     def log_message(self, f, *a):
         pass
 
-print("Serving on port", PORT, flush=True)
-try:
-    httpd = socketserver.TCPServer(("0.0.0.0", PORT), H)
-    httpd.serve_forever()
-except Exception as e:
-    print("FATAL:", e, flush=True)
-    import traceback
-    traceback.print_exc()
-    sys.exit(1)
+print(f"Server on :{PORT}", flush=True)
+socketserver.TCPServer.allow_reuse_address = True
+httpd = socketserver.TCPServer(("0.0.0.0", PORT), H)
+httpd.serve_forever()
