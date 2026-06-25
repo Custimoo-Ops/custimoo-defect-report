@@ -1109,6 +1109,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <button class="tab" data-target="methodology">Methodology</button>
     <button class="tab" data-target="error-tracking">Error Tracking</button>
     <button class="tab" data-target="remake-mgmt">Remake Mgmt</button>
+    <button class="tab" data-target="dqc-usage">DQC Usage</button>
   </div>
   <section id="summary" class="page active">
     <div class="exec-grid">
@@ -1216,6 +1217,26 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       </div>
     </div>
   </section>
+  <section id="dqc-usage" class="page">
+    <div class="card">
+      <div class="section-head"><h3 class="section-title">Digital QC Usage</h3><div style="display:flex;align-items:center;gap:8px;margin:0;flex-wrap:wrap"><label class="muted" style="font-size:13px;font-weight:700">From:</label><input id="dqcFrom" type="date" class="filter-select" style="max-width:150px"><label class="muted" style="font-size:13px;font-weight:700">To:</label><input id="dqcTo" type="date" class="filter-select" style="max-width:150px"><button class="reset-btn" id="dqcRefreshBtn">Refresh</button><button class="reset-btn" id="dqcCsvBtn">CSV</button><button class="reset-btn" id="dqcXlsxBtn">Excel</button></div></div>
+      <div class="hint" id="dqcGenerated">Loads audit runs from the central DQC logging API. Each row is one plugin audit run.</div>
+    </div>
+    <div class="exec-grid">
+      <div class="card metric"><div class="label">Total Audits</div><div class="value" id="dqcTotal">–</div><div class="sub">Selected period</div></div>
+      <div class="card metric"><div class="label">PASSED</div><div class="value" id="dqcPassed">–</div><div class="sub">Audit verdicts marked passed</div></div>
+      <div class="card metric"><div class="label">REJECTED</div><div class="value" id="dqcRejected">–</div><div class="sub">Audit verdicts marked rejected</div></div>
+      <div class="card metric"><div class="label">Users</div><div class="value" id="dqcUsers">–</div><div class="sub">Unique users running DQC</div></div>
+    </div>
+    <div class="card">
+      <h3 class="section-title">Per-user Count</h3>
+      <table><thead><tr><th>User</th><th class="right">Audits</th></tr></thead><tbody id="dqcUserBody"><tr><td colspan="2">Loading…</td></tr></tbody></table>
+    </div>
+    <div class="card">
+      <h3 class="section-title">All DQC Runs</h3>
+      <table><thead><tr><th>Date</th><th>User</th><th>Order</th><th>Verdict</th><th>Plugin Version</th><th>Timestamp UTC</th></tr></thead><tbody id="dqcRunBody"><tr><td colspan="6">Loading…</td></tr></tbody></table>
+    </div>
+  </section>
 
 <!-- Drill-down overlay -->
 <div class="drill-overlay" id="drillOverlay">
@@ -1261,9 +1282,60 @@ document.querySelectorAll('.tab[data-target]').forEach(function(btn) {{
     btn.classList.add('active');
     document.getElementById(btn.dataset.target).classList.add('active');
     if (btn.dataset.target === 'ytd') setTimeout(renderYtdChart, 0);
+    if (btn.dataset.target === 'dqc-usage') setTimeout(loadDqcUsage, 0);
     if (trendChart) setTimeout(function() {{ trendChart.resize(); }}, 0);
   }});
 }});
+
+// ── Drill-down ──
+function dqcQs() {{
+  var p = new URLSearchParams();
+  var f = document.getElementById('dqcFrom');
+  var t = document.getElementById('dqcTo');
+  if (f && f.value) p.set('from', f.value);
+  if (t && t.value) p.set('to', t.value);
+  var s = p.toString();
+  return s ? '?' + s : '';
+}}
+function dqcDownload(path) {{ window.location.href = path + dqcQs(); }}
+async function loadDqcUsage() {{
+  var msg = document.getElementById('dqcGenerated');
+  if (!msg) return;
+  msg.textContent = 'Loading DQC usage…';
+  try {{
+    var r = await fetch('/api/dqc/events' + dqcQs());
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.error || r.statusText);
+    var ev = d.events || [];
+    var vc = {{PASSED:0, REJECTED:0, UNKNOWN:0}};
+    var uc = {{}};
+    ev.forEach(function(e) {{
+      var v = (e.verdict || 'UNKNOWN').toUpperCase();
+      vc[v] = (vc[v] || 0) + 1;
+      var u = e.user || '(unknown)';
+      uc[u] = (uc[u] || 0) + 1;
+    }});
+    document.getElementById('dqcTotal').textContent = ev.length.toLocaleString();
+    document.getElementById('dqcPassed').textContent = (vc.PASSED || 0).toLocaleString();
+    document.getElementById('dqcRejected').textContent = (vc.REJECTED || 0).toLocaleString();
+    document.getElementById('dqcUsers').textContent = Object.keys(uc).length.toLocaleString();
+    msg.textContent = 'API generated: ' + (d.generated_at || 'n/a') + ' · ' + ev.length.toLocaleString() + ' audit runs' + (d.stale_error ? ' · Warning: ' + d.stale_error : '');
+    var users = Object.entries(uc).sort(function(a,b) {{ return b[1] - a[1]; }});
+    document.getElementById('dqcUserBody').innerHTML = users.length ? users.map(function(x) {{ return '<tr><td>' + x[0] + '</td><td class="right">' + x[1].toLocaleString() + '</td></tr>'; }}).join('') : '<tr><td colspan="2">No users</td></tr>';
+    document.getElementById('dqcRunBody').innerHTML = ev.length ? ev.map(function(e) {{
+      var verdict = e.verdict || 'UNKNOWN';
+      return '<tr><td>' + ((e.ts || '').slice(0,10)) + '</td><td>' + (e.user || '') + '</td><td>' + (e.order || '') + '</td><td><strong>' + verdict + '</strong></td><td>' + (e.plugin_version || '') + '</td><td>' + (e.ts || '') + '</td></tr>';
+    }}).join('') : '<tr><td colspan="6">No audits logged</td></tr>';
+  }} catch(e) {{
+    msg.innerHTML = '<span style="color:#b42318;font-weight:700">' + e.message + '</span>';
+  }}
+}}
+var dqcRefreshBtn = document.getElementById('dqcRefreshBtn');
+if (dqcRefreshBtn) dqcRefreshBtn.addEventListener('click', loadDqcUsage);
+var dqcCsvBtn = document.getElementById('dqcCsvBtn');
+if (dqcCsvBtn) dqcCsvBtn.addEventListener('click', function() {{ dqcDownload('/api/dqc.csv'); }});
+var dqcXlsxBtn = document.getElementById('dqcXlsxBtn');
+if (dqcXlsxBtn) dqcXlsxBtn.addEventListener('click', function() {{ dqcDownload('/api/dqc.xlsx'); }});
 
 // ── Drill-down ──
 function showDrill(title, orders) {{
