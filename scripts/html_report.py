@@ -1092,6 +1092,7 @@ html = f"""<!DOCTYPE html>
 <div id="refresh-bar" style="text-align:center;padding:8px 16px;background:#1a1a2e;border-bottom:1px solid #2a2a4e;font-size:13px;color:#aaa;">
   <span id="last-update">Generated: {generation_time}</span>
   <button id="refresh-btn" onclick="doRefresh()" style="margin-left:12px;padding:4px 16px;background:#0f3460;color:white;border:1px solid #16213e;border-radius:4px;cursor:pointer;">Refresh Report</button>
+  <a href="/dqc" style="margin-left:12px;color:#4ecca3;font-weight:700;text-decoration:none;">Open Digital QC Usage</a>
   <span id="refresh-msg" style="margin-left:10px;"></span>
 </div>
 <script>
