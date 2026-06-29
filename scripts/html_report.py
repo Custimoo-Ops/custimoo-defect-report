@@ -1119,8 +1119,8 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     </div>
     <div class="card">
       <div class="section-head"><h3 class="section-title" id="breakdownTitle">Error Rate Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="breakdownFilter" class="muted" style="font-size:13px;font-weight:700">Filter:</label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
-      <div class="hint" id="breakdownHint">Factory view includes Qarma physical QC and FU customer feedback.</div>
-      <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">% of QTY Checked Qarma</th><th class="right">No of Orders</th><th class="right">Qarma No of Orders Checked</th><th class="right">% of Orders Checked Qarma</th><th class="right">Qarma ERR%</th><th class="right">FU Defects QTY</th><th class="right">FU Orders W/Defect</th><th class="right">FU ERR% (QTY)</th><th class="right">FU ERR% (Orders)</th></tr></thead><tbody id="factoryBody"></tbody></table>
+      <div class="hint" id="breakdownHint">Factory view shows FU customer feedback only. Physical QC measures are temporarily hidden while the data is being reviewed.</div>
+      <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th></tr></thead><tbody id="factoryBody"></tbody></table>
     </div>
     <div class="card">
       <div class="section-head"><h3 class="section-title" id="trendTitle">Monthly Trend &mdash; All Factories</h3><button class="reset-btn" id="resetBtn">&larr; Show all factories</button></div>
@@ -1179,7 +1179,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         <li>Defects are tracked from <strong>fu@custimoo.com</strong> customer feedback emails, with manual overrides for exact counts confirmed by order admins.</li>
         <li>When email does not specify the exact count, the full order quantity is used as the upper-bound estimate.</li>
         <li>Factory comparisons use total shipped order quantity per factory from the backend database, bucketed by <strong>order_items.status_updated_at</strong> for shipped/completed/shipping-status rows.</li>
-        <li>Qarma comparisons use approved, own, final inspection reports bucketed by <strong>Inspection end time</strong>.</li>
+        <li>Physical QC comparison measures are temporarily hidden while that data is being reviewed.</li>
         <li>Defects are bucketed by the month the customer <strong>first reported</strong> the issue (fu email received date), not the order creation date.</li>
         <li>{report_month_labels[-1]} is <span class="in-progress">still in progress</span>.</li>
         <li>Click any number in the report to drill into the specific orders behind it.</li>
@@ -1417,14 +1417,8 @@ function factoryRow(f, opts) {{
   opts = opts || {{}};
   const cls = opts.cls || '';
   const p = opts.prev || null;
-  const q = f.qarma || {{sample_qty:0, defects:0, rate:0, orders_checked:0, rejected_orders:0, order_rate:0}};
-  const pq = (p && p.qarma) || {{}};
   const clickable = opts.clickable ? ' clickable' : '';
   const dataFactory = opts.clickable ? ' data-factory="' + f.name + '"' : '';
-  const qOrdersPct = (f.orders || 0) > 0 ? (q.orders_checked || 0) / f.orders * 100 : 0;
-  const pQOrdersPct = p && (p.orders || 0) > 0 ? (pq.orders_checked || 0) / p.orders * 100 : null;
-  const qQtyPct = (f.volume || 0) > 0 ? (q.sample_qty || 0) / f.volume * 100 : 0;
-  const pQQtyPct = p && (p.volume || 0) > 0 ? (pq.sample_qty || 0) / p.volume * 100 : null;
   const remakeQtyPct = (f.volume || 0) > 0 ? (f.remake_qty || 0) / f.volume * 100 : 0;
   const pRemakeQtyPct = p && (p.volume || 0) > 0 ? (p.remake_qty || 0) / p.volume * 100 : null;
   const remakeOrderPct = (f.orders || 0) > 0 ? (f.remake_orders || 0) / f.orders * 100 : 0;
@@ -1432,10 +1426,6 @@ function factoryRow(f, opts) {{
   let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td><strong>' + f.name + '</strong></td>';
   if (ACTIVE_MEASURE === 'orders') {{
     row += '<td class="right">' + valWithDelta((f.orders || 0).toLocaleString(), f.orders || 0, p ? p.orders || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta((q.orders_checked || 0).toLocaleString(), q.orders_checked || 0, pq.orders_checked, 'good') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(qOrdersPct), qOrdersPct, pQOrdersPct, 'good') + '</td>'
-      + '<td class="right">' + valWithDelta((q.rejected_orders || 0).toLocaleString(), q.rejected_orders || 0, pq.rejected_orders, 'bad') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(q.order_rate || 0), q.order_rate || 0, pq.order_rate, 'bad') + '</td>'
       + '<td class="right">' + valWithDelta((f.defect_orders || 0).toLocaleString(), f.defect_orders || 0, p ? p.defect_orders || 0 : null, 'bad') + '</td>'
       + '<td class="right">' + valWithDelta(pctPill(f.order_rate || 0), f.order_rate || 0, p ? p.order_rate || 0 : null, 'bad') + '</td>'
       + '<td class="right">' + valWithDelta((f.remake_orders || 0).toLocaleString(), f.remake_orders || 0, p ? p.remake_orders || 0 : null, 'neutral') + '</td>'
@@ -1443,9 +1433,6 @@ function factoryRow(f, opts) {{
       + '<td class="right">' + valWithDelta(pctPill(remakeOrderPct), remakeOrderPct, pRemakeOrderPct, 'bad') + '</td>';
   }} else {{
     row += '<td class="right">' + valWithDelta((f.volume || 0).toLocaleString(), f.volume || 0, p ? p.volume || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta((q.sample_qty || 0).toLocaleString(), q.sample_qty || 0, pq.sample_qty, 'good') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(qQtyPct), qQtyPct, pQQtyPct, 'good') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(q.rate || 0), q.rate || 0, pq.rate, 'bad') + '</td>'
       + '<td class="right">' + valWithDelta((f.defects || 0).toLocaleString(), f.defects || 0, p ? p.defects || 0 : null, 'bad') + '</td>'
       + '<td class="right">' + valWithDelta(pctPill(f.rate || 0), f.rate || 0, p ? p.rate || 0 : null, 'bad') + '</td>'
       + '<td class="right">' + valWithDelta((f.remake_orders || 0).toLocaleString(), f.remake_orders || 0, p ? p.remake_orders || 0 : null, 'neutral') + '</td>'
@@ -1458,20 +1445,11 @@ function factoryRow(f, opts) {{
 function groupingRow(g, opts) {{
   opts = opts || {{}};
   const cls = opts.cls || '';
-  const p = opts.prev || null;
-  const q = g.qarma || {{sample_qty:0, defects:0, rate:0, orders_checked:0, rejected_orders:0, order_rate:0}};
-  const pq = (p && p.qarma) || {{}};
-  const qOrdersPct = (g.orders || 0) > 0 ? (q.orders_checked || 0) / g.orders * 100 : 0;
-  const qQtyPct = (g.volume || 0) > 0 ? (q.sample_qty || 0) / g.volume * 100 : 0;
   const remakeOrderPct = (g.orders || 0) > 0 ? (g.remake_orders || 0) / g.orders * 100 : 0;
   const remakeQtyPct = (g.volume || 0) > 0 ? (g.remake_qty || 0) / g.volume * 100 : 0;
   let row = '<tr class="' + cls + '"><td><strong>' + g.name + '</strong></td>';
   if (ACTIVE_MEASURE === 'orders') {{
     row += '<td class="right">' + (g.orders || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (q.orders_checked || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + pctPill(qOrdersPct) + '</td>'
-      + '<td class="right">' + (q.rejected_orders || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + pctPill(q.order_rate || 0) + '</td>'
       + '<td class="right">' + (g.defect_orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + pctPill(g.order_rate || 0) + '</td>'
       + '<td class="right">' + (g.remake_orders || 0).toLocaleString() + '</td>'
@@ -1479,9 +1457,6 @@ function groupingRow(g, opts) {{
       + '<td class="right">' + pctPill(remakeOrderPct) + '</td>';
   }} else {{
     row += '<td class="right">' + (g.volume || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (q.sample_qty || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + pctPill(qQtyPct) + '</td>'
-      + '<td class="right">' + pctPill(q.rate || 0) + '</td>'
       + '<td class="right">' + (g.defects || 0).toLocaleString() + '</td>'
       + '<td class="right">' + pctPill(g.rate || 0) + '</td>'
       + '<td class="right">' + (g.remake_orders || 0).toLocaleString() + '</td>'
@@ -1495,12 +1470,12 @@ function setBreakdownHeader(mode) {{
   const thead = document.querySelector('#factoryTable thead tr');
   const first = mode === 'all' ? 'All' : (mode === 'factory' ? 'Factory' : (mode === 'sku' ? 'SKU / Series' : (mode === 'sport' ? 'Sport' : (mode === 'category' ? 'Category' : 'Order Admin'))));
   if (ACTIVE_MEASURE === 'orders') {{
-    thead.innerHTML = '<th>' + first + '</th><th class="right">No of Orders</th><th class="right">Qarma No of Orders Checked</th><th class="right">% of Orders Checked Qarma</th><th class="right">Qarma Rejected Orders</th><th class="right">Qarma ERR% (Orders)</th><th class="right">FU Orders W/Defect</th><th class="right">FU ERR% (Orders)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th>';
+    thead.innerHTML = '<th>' + first + '</th><th class="right">No of Orders</th><th class="right">FU Orders W/Defect</th><th class="right">FU ERR% (Orders)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th>';
   }} else {{
-    thead.innerHTML = '<th>' + first + '</th><th class="right">Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">% of QTY Checked Qarma</th><th class="right">Qarma ERR%</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th>';
+    thead.innerHTML = '<th>' + first + '</th><th class="right">Total Order QTY</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th>';
   }}
   document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Error Rate Breakdown — All' : (mode === 'factory' ? 'Error Rate Breakdown — Factories' : (mode === 'sku' ? 'Error Rate Breakdown — SKU' : (mode === 'sport' ? 'Error Rate Breakdown — Sports' : (mode === 'category' ? 'Error Rate Breakdown — Category' : 'Error Rate Breakdown — Order Admin'))));
-  document.getElementById('breakdownHint').textContent = mode === 'all' ? 'All selected period data in one total row.' : (mode === 'factory' ? 'Factory view includes Qarma physical QC and FU customer feedback.' : (mode === 'category' ? 'Category view groups matched FU orders by high-confidence Qarma root-cause category; uncertain matches are Uncategorized.' : 'Same measure view as factory view; grouped by ' + (mode === 'sku' ? 'SKU / series' : (mode === 'sport' ? 'sport' : 'order admin')) + '.'));
+  document.getElementById('breakdownHint').textContent = mode === 'all' ? 'All selected period data in one total row.' : (mode === 'factory' ? 'Factory view shows FU customer feedback only. Physical QC measures are temporarily hidden while the data is being reviewed.' : (mode === 'category' ? 'Category view groups matched FU orders by high-confidence root-cause category; uncertain matches are Uncategorized. Physical QC measures are hidden for now.' : 'Same measure view as factory view; grouped by ' + (mode === 'sku' ? 'SKU / series' : (mode === 'sport' ? 'sport' : 'order admin')) + '. Physical QC measures are hidden for now.'));
 }}
 
 function renderFactoryTable(tbodyId, list, clickable, opts) {{
@@ -1532,8 +1507,6 @@ function renderGroupingTable(mode) {{
       html += '<tr class="prev-row"><td><strong>Previous period (' + (prev.months || []).join(' \u2013 ') + ')</strong></td>';
       if (ACTIVE_MEASURE === 'orders') {{
         html += '<td class="right">' + (prev.totalOrders || 0).toLocaleString() + '</td>'
-          + '<td class="right">\u2014</td><td class="right">\u2014</td>'
-          + '<td class="right">\u2014</td><td class="right">\u2014</td>'
           + '<td class="right">' + (prev.totalDefectOrders || 0).toLocaleString() + '</td>'
           + '<td class="right">' + (prev.totalOrderRate || 0).toFixed(2) + '%</td>'
           + '<td class="right">' + (prevAgg.remake_orders || 0).toLocaleString() + '</td>'
@@ -1541,8 +1514,6 @@ function renderGroupingTable(mode) {{
           + '<td class="right">' + pctPill((prevAgg.orders || 0) > 0 ? (prevAgg.remake_orders || 0) / prevAgg.orders * 100 : 0) + '</td>';
       }} else {{
         html += '<td class="right">' + (prev.totalVolume || 0).toLocaleString() + '</td>'
-          + '<td class="right">\u2014</td><td class="right">\u2014</td>'
-          + '<td class="right">\u2014</td>'
           + '<td class="right">' + (prev.totalDefects || 0).toLocaleString() + '</td>'
           + '<td class="right">' + (prev.totalRate || 0).toFixed(2) + '%</td>'
           + '<td class="right">' + (prevAgg.remake_orders || 0).toLocaleString() + '</td>'
@@ -1559,8 +1530,6 @@ function renderGroupingTable(mode) {{
         var dRemakeOrd = (total.remake_orders || 0) - (prevAgg.remake_orders || 0);
         var dRemakeQty = (total.remake_qty || 0) - (prevAgg.remake_qty || 0);
         html += '<td class="right">' + (dOrd >= 0 ? '+' : '') + dOrd.toLocaleString() + '</td>'
-          + '<td class="right">\u2014</td><td class="right">\u2014</td>'
-          + '<td class="right">\u2014</td><td class="right">\u2014</td>'
           + '<td class="right">' + (dDefOrd >= 0 ? '+' : '') + dDefOrd.toLocaleString() + '</td>'
           + '<td class="right">\u2014</td>'
           + '<td class="right">' + (dRemakeOrd >= 0 ? '+' : '') + dRemakeOrd.toLocaleString() + '</td>'
@@ -1570,8 +1539,6 @@ function renderGroupingTable(mode) {{
         var dRemakeOrd = (total.remake_orders || 0) - (prevAgg.remake_orders || 0);
         var dRemakeQty = (total.remake_qty || 0) - (prevAgg.remake_qty || 0);
         html += '<td class="right">' + (dVol >= 0 ? '+' : '') + dVol.toLocaleString() + '</td>'
-          + '<td class="right">\u2014</td><td class="right">\u2014</td>'
-          + '<td class="right">\u2014</td>'
           + '<td class="right">' + (dDef >= 0 ? '+' : '') + dDef.toLocaleString() + '</td>'
           + '<td class="right">\u2014</td>'
           + '<td class="right">' + (dRemakeOrd >= 0 ? '+' : '') + dRemakeOrd.toLocaleString() + '</td>'
@@ -1842,14 +1809,14 @@ function ytdCumulativeTable() {{
 function renderYtdFactoryTable() {{
   const head = document.getElementById('ytdFactoryHead');
   if (YTD_MEASURE === 'orders') {{
-    head.innerHTML = '<th>Factory</th><th class="right">No of Orders</th><th class="right">Qarma No of Orders Checked</th><th class="right">% of Orders Checked Qarma</th><th class="right">Qarma Rejected Orders</th><th class="right">Qarma ERR% (Orders)</th><th class="right">FU Orders W/Defect</th><th class="right">FU ERR% (Orders)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th>';
+    head.innerHTML = '<th>Factory</th><th class="right">No of Orders</th><th class="right">FU Orders W/Defect</th><th class="right">FU ERR% (Orders)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th>';
   }} else {{
-    head.innerHTML = '<th>Factory</th><th class="right">Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">% of QTY Checked Qarma</th><th class="right">Qarma ERR%</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th>';
+    head.innerHTML = '<th>Factory</th><th class="right">Total Order QTY</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th>';
   }}
-  const oldMeasure = ACTIVE_MEASURE;
+  const prev = ACTIVE_MEASURE;
   ACTIVE_MEASURE = YTD_MEASURE;
   renderFactoryTable('ytdFactoryBody', YTD.factories || [], false, {{}});
-  ACTIVE_MEASURE = oldMeasure;
+  ACTIVE_MEASURE = prev;
 }}
 
 let ytdChart = null;
