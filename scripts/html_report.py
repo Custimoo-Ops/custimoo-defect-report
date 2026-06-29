@@ -331,7 +331,8 @@ if os.environ.get("CUSTIMOO_GRAPH_TENANT_ID"):
             subj = m["subject"]
             content = m.get("body", {}).get("content", "")[:2000]
             dt = m["receivedDateTime"][:7]
-            nums = re.findall(r"(?:order|Order|ORDER)?\\s*#?\\s*(\\d{4,6})", subj + " " + content)
+            nums_text = re.sub(r"https?://\S+", " ", subj + " " + content)
+            nums = re.findall(r"(?:order|Order|ORDER)?\s*#?\s*(\d{4,6})", nums_text)
             for n in set(n for n in nums if 10000 <= int(n) <= 99999):
                 groups[n].append({"subject": subj, "body": content})
                 if n not in first_fu_month:
@@ -437,12 +438,19 @@ ISSUE_CATEGORIES = load_issue_categories()
 
 order_details = []
 for ono in ALL_ORDER_NUMS:
+    related_msgs = groups.get(ono, [])
     if ono in factory_data.MANUAL:
         affected = factory_data.MANUAL[ono]
         if affected == 0:
             continue
+        source = 'manual'
     else:
-        continue  # Only show orders with manual overrides for accurate drill-down
+        if factory_data.is_non_defect_fu(related_msgs):
+            continue
+        affected = extract_qty(related_msgs)
+        if affected is None:
+            continue
+        source = 'parsed_fu'
 
     fu_month = first_fu_month.get(ono, "?")
     factory = order_factory.get(ono, "(unknown)")
@@ -452,9 +460,10 @@ for ono in ALL_ORDER_NUMS:
     if factory == "(unknown)": continue
     if ono not in db_order_nums: continue  # phantom ID from email URL, not a real order
     qty = order_qty.get(ono, 0)
+    if source == 'parsed_fu' and qty and affected > qty:
+        continue
     pt = product_types.get(ono, "Unknown")
     
-    related_msgs = groups.get(ono, [])
     subjects = " | ".join(set(m["subject"] for m in related_msgs))[:200]
     snippet = (related_msgs[0]["body"][:300] if related_msgs else "")[:300]
 
@@ -470,9 +479,44 @@ for ono in ALL_ORDER_NUMS:
         "category": ISSUE_CATEGORIES.get(ono, {}).get("category", "Uncategorized"),
         "root_cause": ISSUE_CATEGORIES.get(ono, {}).get("root_cause", ""),
         "category_confidence": ISSUE_CATEGORIES.get(ono, {}).get("confidence", 0),
+        "source": source,
     })
 
 order_details.sort(key=lambda x: -x["affected"])
+
+counted_orders = {d['order'] for d in order_details}
+fu_review_rows = []
+for ono in sorted(db_order_nums, key=lambda n: (first_fu_month.get(n, ''), n), reverse=True):
+    related_msgs = groups.get(ono, [])
+    if not related_msgs:
+        continue
+    if ono in counted_orders:
+        status = 'Counted in FU defects'
+        affected_review = next((d['affected'] for d in order_details if d['order'] == ono), '')
+    elif ono in factory_data.MANUAL_ZERO:
+        status = 'Excluded — manual non-defect'
+        affected_review = ''
+    elif factory_data.is_non_defect_fu(related_msgs):
+        status = 'Excluded — delay/process, not physical defect'
+        affected_review = ''
+    else:
+        parsed_qty = extract_qty(related_msgs)
+        if parsed_qty is None:
+            status = 'Needs affected qty review'
+            affected_review = ''
+        else:
+            status = 'Parsed but not counted — check product/factory filter'
+            affected_review = parsed_qty
+    fu_review_rows.append({
+        'order': ono,
+        'fu_month': first_fu_month.get(ono, '?'),
+        'status': status,
+        'affected': affected_review,
+        'factory': order_factory.get(ono, '(unknown)'),
+        'total_qty': order_qty.get(ono, 0),
+        'subjects': ' | '.join(set(m['subject'] for m in related_msgs))[:200],
+        'snippet': (related_msgs[0]['body'][:300] if related_msgs else '')[:300],
+    })
 
 def collect_sku_text(obj):
     parts = []
@@ -972,6 +1016,7 @@ ORDER BY qty DESC
 REMAKE_MGMT = [{"order": str(r[0]), "qty": int(r[1]) if r[1] else 0, "admin": r[2], "month": str(r[3])[:7] if r[3] else "?", "factory": r[4]} for r in remake_cur.fetchall()]
 remake_cur.close()
 REMAKE_MGMT_JSON = json.dumps(REMAKE_MGMT, cls=factory_data.DecimalEncoder)
+conn.close()
 
 # ── Remake Mgmt SAS token for universal save ──
 from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
@@ -998,7 +1043,8 @@ except Exception as e:
 
 ORDERS_JSON = json.dumps(order_details, default=str)
 ORDERS_JSON_SAFE = ORDERS_JSON.replace('<', '\\u003C').replace('>', '\\u003E')
-conn.close()
+FU_REVIEW_JSON = json.dumps(fu_review_rows, default=str)
+FU_REVIEW_JSON_SAFE = FU_REVIEW_JSON.replace('<', '\\u003C').replace('>', '\\u003E')
 
 MONTH_KEYS = json.dumps(all_months_sorted)
 generation_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
@@ -1165,6 +1211,11 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <table><thead><tr><th>Factory</th><th class="right" id="hdr1"></th><th class="right" id="hdr2"></th><th class="right" id="hdr3"></th><th class="right" id="hdr4"></th><th class="right" id="hdr5"></th><th class="right" id="hdr6"></th><th class="right" id="hdr7"></th><th class="right" id="hdr8"></th><th class="right" id="hdr9"></th></tr></thead><tbody id="factoryMonthBody"></tbody></table>
       <div class="footnote">{report_month_labels[-1]} still in progress</div>
     </div>
+    <div class="card">
+      <h3 class="section-title">FU Inbox Review</h3>
+      <div class="hint">Orders read from fu@custimoo.com. Rows marked Counted affect the defect rate; delay/process or missing-quantity rows are tracked but not counted.</div>
+      <table><thead><tr><th>FU Month</th><th>Order</th><th>Status</th><th class="right">Affected</th><th class="right">Total QTY</th><th>Factory</th><th>Subject</th></tr></thead><tbody id="fuReviewBody"></tbody></table>
+    </div>
   </section>
   <section id="methodology" class="page">
     <div class="card">
@@ -1255,6 +1306,7 @@ const YTD = {YTD_DATA_JSON};
 const FACTORY_COLORS = {FACTORY_COLORS};
 const MONTH_KEYS = {MONTH_KEYS};
 const ORDERS = {ORDERS_JSON_SAFE};
+const FU_REVIEW = {FU_REVIEW_JSON_SAFE};
 const GROUPINGS = {GROUPING_JSON_SAFE};
 const ERROR_TRACKING = {ERROR_TRACKING_JSON_SAFE};
 const PERIODS = {PERIODS_JSON_SAFE};
@@ -1355,10 +1407,21 @@ document.getElementById('drillClose').addEventListener('click', function() {{
   document.getElementById('drillOverlay').classList.remove('show');
 }});
 document.getElementById('drillOverlay').addEventListener('click', function(e) {{
-  if (e.target === this) this.classList.remove('show');
+  if (e.target.id === 'drillOverlay') document.getElementById('drillOverlay').classList.remove('show');
 }});
 
-// ── Stats ──
+function esc(s) {{ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {{ return {{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c]; }}); }}
+function renderFuReview() {{
+  const body = document.getElementById('fuReviewBody');
+  if (!body) return;
+  const rows = (FU_REVIEW || []).slice(0, 250);
+  body.innerHTML = rows.length ? rows.map(function(r) {{
+    return '<tr><td>' + esc(r.fu_month) + '</td><td><strong>#' + esc(r.order) + '</strong></td><td>' + esc(r.status) + '</td><td class="right">' + esc(r.affected || '') + '</td><td class="right">' + (r.total_qty || 0).toLocaleString() + '</td><td>' + esc(r.factory) + '</td><td><div class="drill-snippet">' + esc(r.subjects || r.snippet || '') + '</div></td></tr>';
+  }}).join('') : '<tr><td colspan="7">No FU messages read</td></tr>';
+}}
+renderFuReview();
+
+// ── YTD KPI cards / measure view ──
 function updateSummaryStats() {{
   const d = ACTIVE_DATA;
   const label = d.label || (d.months[0] + ' – ' + d.months[d.months.length-1]);

@@ -74,6 +74,23 @@ MANUAL_ZERO = {
 
 MANUAL = {**MANUAL_EXACT, **MANUAL_ZERO}
 
+NON_DEFECT_KEYWORDS = (
+    'delay', 'delayed', 'late', 'not shipped', 'ship the next day', 'shipping delay',
+    'samples have been quite delayed', 'sample delay', 'communication', 'update missed'
+)
+DEFECT_KEYWORDS = (
+    'wrong', 'missing', 'defect', 'defective', 'incorrect', 'broken', 'damaged',
+    'remake', 'rejected', 'quality', 'size', 'number', 'logo', 'branding'
+)
+
+def is_non_defect_fu(mentions):
+    """Return True for FU emails that are operational/delay reports, not physical defects."""
+    text = ' '.join((m.get('subject', '') + ' ' + m.get('body', '')) for m in mentions).lower()
+    has_non_defect = any(k in text for k in NON_DEFECT_KEYWORDS)
+    has_defect = any(k in text for k in DEFECT_KEYWORDS)
+    # If it is explicitly a delay/process report and has no concrete product defect wording, do not count it.
+    return has_non_defect and not has_defect
+
 # Factory overrides — for multi-factory orders, specify which factory the defect belongs to
 # Default is the first matching factory from order_items
 MANUAL_FACTORY = {
@@ -119,7 +136,8 @@ def generate(defects_only=False):
         subj = m["subject"]
         content = m.get("body", {}).get("content", "")[:2000]
         received_dt = m["receivedDateTime"][:7]
-        nums = re.findall(r"(?:order|Order|ORDER)?\s*#?\s*(\d{4,6})", subj + " " + content)
+        nums_text = re.sub(r"https?://\S+", " ", subj + " " + content)
+        nums = re.findall(r"(?:order|Order|ORDER)?\s*#?\s*(\d{4,6})", nums_text)
         for n in set(n for n in nums if 10000 <= int(n) <= 99999):
             all_order_nums.add(n)
             all_msgs_formatted.append({"ono": n, "subject": subj, "body": content})
@@ -131,7 +149,7 @@ def generate(defects_only=False):
     if order_nums_list:
         qs = ",".join(["%s"] * len(order_nums_list))
 
-        cur.execute("SELECT o.order_no, o.created_at, COALESCE(oi.factory_name, '(unknown)') as raw_factory FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id WHERE o.order_no IN (%s)" % qs, order_nums_list)
+        cur.execute("SELECT o.order_no, o.created_at, COALESCE(oi.factory_name, '(unknown)') as raw_factory, CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED) as qty FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id WHERE o.order_no IN (%s)" % qs, order_nums_list)
         rows = cur.fetchall()
     else:
         rows = []
@@ -140,7 +158,7 @@ def generate(defects_only=False):
     for r in rows:
         ono = str(r[0])
         month = str(r[1])[:7] if r[1] else "?"
-        order_map[ono] = {'month': month, 'factory': norm_factory(r[2])}
+        order_map[ono] = {'month': month, 'factory': norm_factory(r[2]), 'qty': r[3] or 0}
 
     factory_defects = defaultdict(int)
     factory_orders_set = defaultdict(set)
@@ -165,7 +183,17 @@ def generate(defects_only=False):
             if ono in MANUAL_FACTORY:
                 f = MANUAL_FACTORY[ono]
         else:
-            continue  # Only manual overrides included
+            mentions = [m for m in all_msgs_formatted if m.get("ono") == ono]
+            if is_non_defect_fu(mentions):
+                continue
+            affected = extract_qty(mentions)
+            if affected is None:
+                continue
+            if o.get('qty') and affected > o.get('qty'):
+                continue
+            _ptype, is_product = classify_product(ono, conn)
+            if not is_product:
+                continue
         if f in EXCLUDED_FACTORIES:
             continue
 

@@ -243,6 +243,7 @@ def extract_qty(mentions):
     """Extract affected quantity from all messages mentioning an order.
     Returns int (qty) or None."""
     all_text = "".join(m["subject"] + " " + m["body"] for m in mentions)[:5000]
+    all_text = re.sub(r"https?://\S+", " ", all_text)
 
     # Pattern 1: digit + optional adjectives + product word
     pat1 = re.findall(r'(\d+)\s+(?:\w+\s+){0,3}' + PRODUCT_WORDS, all_text, re.IGNORECASE)
