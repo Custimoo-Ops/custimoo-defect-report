@@ -1325,7 +1325,7 @@ async function loadDqcUsage() {{
     document.getElementById('dqcUserBody').innerHTML = users.length ? users.map(function(x) {{ return '<tr><td>' + x[0] + '</td><td class="right">' + x[1].toLocaleString() + '</td></tr>'; }}).join('') : '<tr><td colspan="2">No users</td></tr>';
     document.getElementById('dqcRunBody').innerHTML = ev.length ? ev.map(function(e) {{
       var verdict = e.verdict || 'UNKNOWN';
-      var reason = e.rejection_reason || e.reject_reason || e.reason || e.failure_reason || e.qc_reason || e.notes || e.message || '';
+      var reason = e.rejection_reason || e.reject_reason || e.reason || e.failure_reason || e.qc_reason || e.notes || e.message || '—';
       return '<tr><td>' + ((e.ts || '').slice(0,10)) + '</td><td>' + (e.user || '') + '</td><td>' + (e.order || '') + '</td><td><strong>' + verdict + '</strong></td><td>' + reason + '</td><td>' + (e.plugin_version || '') + '</td><td>' + (e.ts || '') + '</td></tr>';
     }}).join('') : '<tr><td colspan="7">No audits logged</td></tr>';
   }} catch(e) {{
