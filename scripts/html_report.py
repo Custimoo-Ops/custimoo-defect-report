@@ -1647,6 +1647,9 @@ function applyPeriod(key) {{
   var reset = document.getElementById('resetBtn');
   if (reset && reset.classList.contains('show')) reset.click();
   renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value);
+  document.querySelectorAll('#factoryBody tr[data-factory]').forEach(function(row) {{
+    row.addEventListener('click', function() {{ renderTrendChart(row.dataset.factory); }});
+  }});
   renderTrendChart(null);
 }}
 var periodFilter = document.getElementById('periodFilter');
@@ -1849,9 +1852,7 @@ function renderTrendChart(factoryName) {{
   }});
 }}
 document.getElementById('resetBtn').addEventListener('click', function() {{ renderTrendChart(null); }});
-document.querySelectorAll('#factoryBody tr[data-factory]').forEach(function(row) {{
-  row.addEventListener('click', function() {{ renderTrendChart(row.dataset.factory); }});
-}});
+applyPeriod(ACTIVE_PERIOD);
 
 function ytdCumulativeTable() {{
   const head = document.getElementById('ytdMonthlyHead');
