@@ -192,8 +192,11 @@ rolling_volume = sum(total_monthly.get(m, {}).get('qty', 0) for m in last_3)
 rolling_orders = sum(total_monthly.get(m, {}).get('orders', 0) for m in last_3)
 rolling_defects = sum(monthly_defects.get(m, 0) for m in last_3)
 rolling_defect_orders = sum(defect_order_count.get(m, 0) for m in last_3)
+rolling_remake_orders = sum(remake_by_month.get(m, {}).get('orders', 0) for m in last_3)
+rolling_remake_qty = sum(remake_by_month.get(m, {}).get('qty', 0) for m in last_3)
 rolling_rate = round(rolling_defects / rolling_volume * 100, 2) if rolling_volume > 0 else 0
 rolling_order_rate = round(rolling_defect_orders / rolling_orders * 100, 2) if rolling_orders > 0 else 0
+rolling_remake_order_rate = round(rolling_remake_orders / rolling_orders * 100, 2) if rolling_orders > 0 else 0
 last_month_label = month_labels.get(last_3[-1], last_3[-1]) if last_3 else ""
 
 all_months_sorted = sorted(total_monthly.keys())
@@ -222,10 +225,16 @@ report_data = {
     'totalOrders': total_orders,
     'totalDefects': total_defects,
     'totalDefectOrders': total_defect_orders,
+    'totalRemakeOrders': sum(remake_by_month.get(m, {}).get('orders', 0) for m in months),
+    'totalRemakeQty': sum(remake_by_month.get(m, {}).get('qty', 0) for m in months),
     'totalRate': total_rate,
     'totalOrderRate': total_order_rate,
     'rollingRate': rolling_rate,
     'rollingOrderRate': rolling_order_rate,
+    'rollingRemakeOrderRate': rolling_remake_order_rate,
+    'rollingRemakeOrders': rolling_remake_orders,
+    'rollingRemakeQty': rolling_remake_qty,
+    'rollingOrders': rolling_orders,
     'rollingLabel': (month_labels.get(last_3[0], last_3[0]) + " – " + month_labels.get(last_3[-1], last_3[-1])) if len(last_3) >= 2 else '',
     'factories': factories,
     'factoryMonthly': factory_monthly_data,
@@ -945,6 +954,7 @@ def build_period_payload(key, display_name):
     remake_qty = [remake_by_month.get(m, {}).get('qty', 0) for m in mkeys]
     rates = [round(defs[i] / vol[i] * 100, 2) if vol[i] > 0 else 0 for i in range(len(mkeys))]
     total_vol = sum(vol); total_orders_p = sum(ords); total_defs = sum(defs); total_def_orders = sum(def_orders)
+    total_remake_orders_p = sum(remake_orders); total_remake_qty_p = sum(remake_qty)
     rows = factory_rows_for_months(mkeys)
     # Prev period
     prev = {}
@@ -972,6 +982,7 @@ def build_period_payload(key, display_name):
                 'monthlyRemakeOrders': pro, 'monthlyRemakeQty': prq,
                 'totalVolume': total_v, 'totalOrders': total_o,
                 'totalDefects': total_d, 'totalDefectOrders': total_do,
+                'totalRemakeOrders': sum(pro), 'totalRemakeQty': sum(prq),
                 'totalRate': round(total_d/total_v*100,2) if total_v>0 else 0,
                 'totalOrderRate': round(total_do/total_o*100,2) if total_o>0 else 0,
                 'factories': factory_rows_for_months(pm),
@@ -982,6 +993,7 @@ def build_period_payload(key, display_name):
         'monthlyVolume': vol, 'monthlyOrders': ords, 'monthlyDefects': defs, 'monthlyDefectOrders': def_orders, 'monthlyRate': rates,
         'monthlyRemakeOrders': remake_orders, 'monthlyRemakeQty': remake_qty,
         'totalVolume': total_vol, 'totalOrders': total_orders_p, 'totalDefects': total_defs, 'totalDefectOrders': total_def_orders,
+        'totalRemakeOrders': total_remake_orders_p, 'totalRemakeQty': total_remake_qty_p,
         'totalRate': round(total_defs / total_vol * 100, 2) if total_vol > 0 else 0,
         'totalOrderRate': round(total_def_orders / total_orders_p * 100, 2) if total_orders_p > 0 else 0,
         'factories': rows,
@@ -1167,7 +1179,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
   <section id="summary" class="page active">
     <div class="exec-grid">
       <div class="card metric"><div class="label">3-Month Rolling Error Rate</div><div class="value" id="rollingRate"></div><div class="sub" id="rollingSub"></div></div>
-      <div class="card metric"><div class="label">Total Error Rate (Since Measurement Started)</div><div class="value" id="totalRate"></div><div class="sub" id="totalSub"></div></div>
+      <div class="card metric"><div class="label" id="selectedRateLabel">Selected Period Error Rate</div><div class="value" id="totalRate"></div><div class="sub" id="totalSub"></div></div>
     </div>
     <div class="card">
       <div class="section-head"><h3 class="section-title" id="breakdownTitle">Error Rate Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="breakdownFilter" class="muted" style="font-size:13px;font-weight:700">Filter:</label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
@@ -1432,10 +1444,13 @@ renderFuReview();
 function updateSummaryStats() {{
   const d = ACTIVE_DATA;
   const label = d.label || (d.months[0] + ' – ' + d.months[d.months.length-1]);
-  document.getElementById('rollingRate').textContent = (d.totalRate || 0).toFixed(2) + '%';
-  document.getElementById('rollingSub').textContent = (d.name || 'Selected period') + ' · ' + label;
-  document.getElementById('totalRate').textContent = (d.totalRate || 0).toFixed(2) + '%';
-  document.getElementById('totalSub').textContent = label + ' · ' + (d.totalDefects || 0).toLocaleString() + ' defects / ' + (d.totalVolume || 0).toLocaleString() + ' items';
+  const rollingRemakeRate = DATA.rollingRemakeOrderRate || 0;
+  const selectedRemakeRate = (d.totalOrders || 0) > 0 ? ((d.totalRemakeOrders || 0) / d.totalOrders * 100) : 0;
+  document.getElementById('rollingRate').textContent = rollingRemakeRate.toFixed(2) + '%';
+  document.getElementById('rollingSub').textContent = 'Fixed 3-month rolling window · ' + (DATA.rollingLabel || '') + ' · ' + (DATA.rollingRemakeOrders || 0).toLocaleString() + ' remake orders / ' + (DATA.rollingOrders || 0).toLocaleString() + ' total orders';
+  document.getElementById('selectedRateLabel').textContent = 'Selected Period Error Rate';
+  document.getElementById('totalRate').textContent = selectedRemakeRate.toFixed(2) + '%';
+  document.getElementById('totalSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · ' + (d.totalRemakeOrders || 0).toLocaleString() + ' remake orders / ' + (d.totalOrders || 0).toLocaleString() + ' total orders';
 }}
 
 
