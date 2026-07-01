@@ -608,32 +608,77 @@ def windows_login_from_email(email, fallback='(unknown)'):
         return fb.split('@', 1)[0].lower()
     return fb or '(unknown)'
 
-# Build per-order SKU text, admin login, and Digital QC user login for all backend orders in report window.
+NON_DESIGNER_LOGINS = {'factory', 'orders', 'sales', 'super', 'admin', 'support', 'no-reply', 'noreply'}
+
+def collect_product_design_ids(raw):
+    ids = set()
+    if not raw:
+        return ids
+    try:
+        parsed = json.loads(raw)
+    except Exception:
+        return ids
+    def walk(x):
+        if isinstance(x, dict):
+            for k, v in x.items():
+                if k == 'design_id' and isinstance(v, int):
+                    ids.add(v)
+                else:
+                    walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+    walk(parsed)
+    return ids
+
+# Map product design ids to actual designer Windows logins via design file creators.
+cur.execute("""
+SELECT df.id, u.email, u.name
+FROM design_files df
+LEFT JOIN container_files cf ON cf.id = df.file_id
+LEFT JOIN users u ON u.id = cf.created_by
+""")
+design_file_creators = {str(df_id): windows_login_from_email(email, name) for df_id, email, name in cur.fetchall() if email or name}
+cur.execute("""
+SELECT id, front_design_id, back_design_id, production_design_id, frontsafezone_design_id, backsafezone_design_id,
+       productionsafezone_design_id, frontboundary_design_id, backboundary_design_id, sizes_design_id
+FROM product_designs
+""")
+product_design_creators = defaultdict(set)
+for row in cur.fetchall():
+    pd_id = str(row[0])
+    for df_id in row[1:]:
+        login = design_file_creators.get(str(df_id)) if df_id is not None else None
+        if login and login != '(unknown)' and login not in NON_DESIGNER_LOGINS:
+            product_design_creators[pd_id].add(login)
+
+# Build per-order SKU text, admin login, and actual designer login(s) for all backend orders in report window.
 cur.execute("""
 SELECT o.order_no, CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED) AS qty,
        oi.status_updated_at AS shipping_date,
        COALESCE(u.name, u.email, '(unknown)') AS admin_name,
        u.email AS admin_email,
-       COALESCE(NULLIF(o.dqc_user_name, ''), du.name, du.email, '(unknown)') AS designer_name,
-       du.email AS designer_email,
        COALESCE(oi.factory_name, '(unknown)') AS raw_factory,
        oi.factory_products, oi.order_line
 FROM orders o
 LEFT JOIN users u ON u.id = o.order_administrator_id
-LEFT JOIN users du ON du.id = o.dqc_user_id
 LEFT JOIN order_items oi ON oi.order_id = o.id
 WHERE oi.status_updated_at >= '2025-10-01'
   AND oi.status_updated_at < '2026-07-01'
   AND (oi.status IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
 """)
-all_order_meta = defaultdict(lambda: {'qty': 0, 'admin': '(unknown)', 'designer': '(unknown)', 'texts': [], 'month': '?'})
-for ono, qty, shipping_date, admin_name, admin_email, designer_name, designer_email, raw_factory, factory_products, order_line in cur.fetchall():
+all_order_meta = defaultdict(lambda: {'qty': 0, 'admin': '(unknown)', 'designers': set(), 'texts': [], 'month': '?'})
+for ono, qty, shipping_date, admin_name, admin_email, raw_factory, factory_products, order_line in cur.fetchall():
     if factory_data.norm_factory(raw_factory) in getattr(factory_data, 'EXCLUDED_FACTORIES', set()):
         continue
     ono = str(ono)
     all_order_meta[ono]['qty'] = max(all_order_meta[ono]['qty'], int(qty or 0))
     all_order_meta[ono]['admin'] = windows_login_from_email(admin_email, admin_name)
-    all_order_meta[ono]['designer'] = windows_login_from_email(designer_email, designer_name)
+    designer_logins = set()
+    for raw_design_source in (factory_products, order_line):
+        for pd_id in collect_product_design_ids(raw_design_source):
+            designer_logins.update(product_design_creators.get(str(pd_id), set()))
+    all_order_meta[ono]['designers'].update(designer_logins)
     all_order_meta[ono]['month'] = str(shipping_date)[:7] if shipping_date else '?'
     for raw in (factory_products, order_line):
         if not raw:
@@ -967,16 +1012,20 @@ def build_exception_leaders(month_keys):
             continue
         is_remake = ono in REMAKE_ORDERS
         qty = meta.get('qty', 0) or 0
-        for mode, key in (('admin', 'admin'), ('designer', 'designer')):
-            name = str(meta.get(key) or '(unknown)').strip()
-            if not name or name == '(unknown)':
-                continue
-            g = groups[mode][name]
-            g['orders_set'].add(ono)
-            g['qty'] += qty
-            if is_remake:
-                g['remake_orders_set'].add(ono)
-                g['remake_qty'] += qty
+        admin_name = str(meta.get('admin') or '(unknown)').strip()
+        designers = meta.get('designers') if isinstance(meta.get('designers'), (set, list, tuple)) else []
+        people_by_mode = {'admin': [admin_name] if admin_name and admin_name != '(unknown)' else [],
+                          'designer': sorted(designers)}
+        for mode, names in people_by_mode.items():
+            for name in names:
+                if not name or name == '(unknown)':
+                    continue
+                g = groups[mode][name]
+                g['orders_set'].add(ono)
+                g['qty'] += qty
+                if is_remake:
+                    g['remake_orders_set'].add(ono)
+                    g['remake_qty'] += qty
     out = {}
     for mode, people in groups.items():
         rows = []
@@ -1256,8 +1305,8 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
           <table><thead><tr><th>Rank</th><th>Order Admin</th><th class="right">Exception Rate</th><th class="right">Remake Orders</th><th class="right">Total Orders</th></tr></thead><tbody id="adminLeadersBody"></tbody></table>
         </div>
         <div>
-          <h4 style="margin:0 0 10px">🏆 Digital QC Users</h4>
-          <table><thead><tr><th>Rank</th><th>Digital QC User</th><th class="right">Exception Rate</th><th class="right">Remake Orders</th><th class="right">Total Orders</th></tr></thead><tbody id="designerLeadersBody"></tbody></table>
+          <h4 style="margin:0 0 10px">🏆 Designers</h4>
+          <table><thead><tr><th>Rank</th><th>Designer</th><th class="right">Exception Rate</th><th class="right">Remake Orders</th><th class="right">Total Orders</th></tr></thead><tbody id="designerLeadersBody"></tbody></table>
         </div>
       </div>
     </div>
@@ -1546,7 +1595,7 @@ function renderExceptionLeaders() {{
   const label = d.label || ((d.months || [])[0] + ' – ' + (d.months || [])[(d.months || []).length - 1]);
   document.getElementById('exceptionLeadersSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · exception rate = remake orders / total orders. Minimum volume is applied before ranking.';
   document.getElementById('adminLeadersBody').innerHTML = renderLeaderRows(leaders.admin || [], 'order admins');
-  document.getElementById('designerLeadersBody').innerHTML = renderLeaderRows(leaders.designer || [], 'Digital QC users');
+  document.getElementById('designerLeadersBody').innerHTML = renderLeaderRows(leaders.designer || [], 'designers');
 }}
 
 
