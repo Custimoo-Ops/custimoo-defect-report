@@ -1654,18 +1654,22 @@ renderFuReview();
 function updateSummaryStats() {{
   const d = ACTIVE_DATA;
   const label = d.label || (d.months[0] + ' – ' + d.months[d.months.length-1]);
-  const rollingRemakeRate = DATA.rollingRemakeOrderRate || 0;
-  const selectedRemakeRate = (d.totalOrders || 0) > 0 ? ((d.totalRemakeOrders || 0) / d.totalOrders * 100) : 0;
+  const rollingData = PERIODS.last_3 || DATA;
+  const rollingAgg = aggregateFactories(rollingData.factories || []);
+  const selectedAgg = aggregateFactories(d.factories || []);
+  const rollingRemakeRate = (rollingAgg.volume || 0) > 0 ? ((rollingAgg.remake_qty || 0) / rollingAgg.volume * 100) : 0;
+  const selectedRemakeRate = (selectedAgg.volume || 0) > 0 ? ((selectedAgg.remake_qty || 0) / selectedAgg.volume * 100) : 0;
   document.getElementById('rollingRate').textContent = rollingRemakeRate.toFixed(2) + '%';
-  document.getElementById('rollingSub').textContent = 'Fixed 3-month rolling window · ' + (DATA.rollingLabel || '') + ' · ' + (DATA.rollingRemakeOrders || 0).toLocaleString() + ' remake orders / ' + (DATA.rollingOrders || 0).toLocaleString() + ' total orders';
+  document.getElementById('rollingSub').textContent = 'Fixed 3-month rolling window · ' + (DATA.rollingLabel || '') + ' · ' + (rollingAgg.remake_qty || 0).toLocaleString() + ' remake qty / ' + (rollingAgg.volume || 0).toLocaleString() + ' total order qty';
   document.getElementById('selectedRateLabel').textContent = 'Selected Period Error Rate';
   document.getElementById('totalRate').textContent = selectedRemakeRate.toFixed(2) + '%';
-  document.getElementById('totalSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · ' + (d.totalRemakeOrders || 0).toLocaleString() + ' remake orders / ' + (d.totalOrders || 0).toLocaleString() + ' total orders';
+  document.getElementById('totalSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · ' + (selectedAgg.remake_qty || 0).toLocaleString() + ' remake qty / ' + (selectedAgg.volume || 0).toLocaleString() + ' total order qty';
   const ytd = PERIODS.ytd || DATA;
-  const ytdRate = (ytd.totalOrders || 0) > 0 ? ((ytd.totalRemakeOrders || 0) / ytd.totalOrders * 100) : 0;
+  const ytdAgg = aggregateFactories(ytd.factories || []);
+  const ytdRate = (ytdAgg.volume || 0) > 0 ? ((ytdAgg.remake_qty || 0) / ytdAgg.volume * 100) : 0;
   const gap = ytdRate - 0.5;
   const goalText = gap <= 0 ? 'On target' : (gap.toFixed(2) + ' percentage points above goal');
-  document.getElementById('goalSub').textContent = 'Goal for 2026: ≤0.50% remake-order error rate. Current YTD: ' + ytdRate.toFixed(2) + '% (' + (ytd.totalRemakeOrders || 0).toLocaleString() + ' remake orders / ' + (ytd.totalOrders || 0).toLocaleString() + ' total orders) · ' + goalText;
+  document.getElementById('goalSub').textContent = 'Goal for 2026: ≤0.50% remake-order error rate. Current YTD: ' + ytdRate.toFixed(2) + '% (' + (ytdAgg.remake_qty || 0).toLocaleString() + ' remake qty / ' + (ytdAgg.volume || 0).toLocaleString() + ' total order qty) · ' + goalText;
 }}
 
 function leaderRank(i) {{ return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : String(i + 1); }}
