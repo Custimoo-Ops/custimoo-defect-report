@@ -645,6 +645,15 @@ def teams_windows_login_from_path_user(path_user):
     return re.sub(r'[^a-z0-9]+', '', raw.lower())
 
 
+def title_from_windows_login(path_user):
+    raw = str(path_user or '').strip()
+    if not raw:
+        return ''
+    spaced = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', raw)
+    spaced = re.sub(r'[^A-Za-z0-9]+', ' ', spaced).strip()
+    return spaced.title() if spaced else raw
+
+
 def load_production_file_designers_from_teams():
     """Map order_no -> Windows login(s) from Daily Tasks production-file upload paths.
 
@@ -676,19 +685,22 @@ def load_production_file_designers_from_teams():
                 content = clean_teams_html((msg.get('body') or {}).get('content', ''))
                 if 'production' not in content.lower():
                     continue
+                sender = ((msg.get('from') or {}).get('user') or {})
+                sender_name = str(sender.get('displayName') or '').strip()
                 for login_raw, order_no in path_re.findall(content):
                     login = teams_windows_login_from_path_user(login_raw)
                     if login and login not in NON_DESIGNER_LOGINS:
-                        out[str(order_no)].add(login)
+                        display_name = sender_name or title_from_windows_login(login_raw)
+                        out[str(order_no)].add(display_name)
                 # Fallback for messages like "26080 Production file as per previous orders.";
                 # use Teams sender email/userIdentity if no C:\\Users path exists.
                 if not path_re.search(content):
-                    sender = ((msg.get('from') or {}).get('user') or {})
-                    sender_login = windows_login_from_email(str(sender.get('email') or ''), str(sender.get('displayName') or ''))
+                    sender_login = windows_login_from_email(str(sender.get('email') or ''), sender_name)
                     sender_login = teams_windows_login_from_path_user(sender_login)
                     if sender_login and sender_login not in NON_DESIGNER_LOGINS:
+                        display_name = sender_name or title_from_windows_login(sender_login)
                         for order_no in loose_re.findall(content):
-                            out[str(order_no)].add(sender_login)
+                            out[str(order_no)].add(display_name)
             if stop:
                 break
             url = data.get('@odata.nextLink')
@@ -762,7 +774,7 @@ for ono, qty, shipping_date, admin_name, admin_email, raw_factory, factory_produ
         continue
     ono = str(ono)
     all_order_meta[ono]['qty'] = max(all_order_meta[ono]['qty'], int(qty or 0))
-    all_order_meta[ono]['admin'] = windows_login_from_email(admin_email, admin_name)
+    all_order_meta[ono]['admin'] = admin_name or '(unknown)'
     designer_logins = set(production_file_designers_by_order.get(ono, set()))
     all_order_meta[ono]['designers'].update(designer_logins)
     all_order_meta[ono]['month'] = str(shipping_date)[:7] if shipping_date else '?'
@@ -1127,13 +1139,17 @@ def build_exception_leaders(month_keys):
                 'remake_qty': g['remake_qty'],
                 'rate': round(remake_orders / orders * 100, 2),
             })
-        qualified = [r for r in rows if r['orders'] >= 10]
-        if len(qualified) < 3:
-            qualified = [r for r in rows if r['orders'] >= 5]
-        if len(qualified) < 3:
+        if mode == 'designer':
+            # Teams/OneDrive production-upload coverage is sparse, so keep lower-volume designers visible.
             qualified = rows
+        else:
+            qualified = [r for r in rows if r['orders'] >= 10]
+            if len(qualified) < 3:
+                qualified = [r for r in rows if r['orders'] >= 5]
+            if len(qualified) < 3:
+                qualified = rows
         qualified.sort(key=lambda r: (r['rate'], r['remake_orders'], -r['orders'], r['name']))
-        out[mode] = qualified[:5]
+        out[mode] = qualified[:10]
     return out
 
 
@@ -1683,7 +1699,7 @@ function renderExceptionLeaders() {{
   const d = ACTIVE_DATA || {{}};
   const leaders = d.exceptionLeaders || {{admin: [], designer: []}};
   const label = d.label || ((d.months || [])[0] + ' – ' + (d.months || [])[(d.months || []).length - 1]);
-  document.getElementById('exceptionLeadersSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · exception rate = remake orders / total orders. Minimum volume is applied before ranking.';
+  document.getElementById('exceptionLeadersSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · exception rate = remake orders / total orders. Designers are identified from OneDrive production-file upload messages; zero means no linked remake order in this period.';
   document.getElementById('adminLeadersBody').innerHTML = renderLeaderRows(leaders.admin || [], 'order admins');
   document.getElementById('designerLeadersBody').innerHTML = renderLeaderRows(leaders.designer || [], 'designers');
 }}
