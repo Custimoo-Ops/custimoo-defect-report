@@ -599,29 +599,41 @@ def classify_sport_text(text):
     return sorted(set(found)) or ['No sport found']
 
 
-# Build per-order SKU text and admin name for all backend orders in report window.
+def windows_login_from_email(email, fallback='(unknown)'):
+    email = str(email or '').strip()
+    if '@' in email:
+        return email.split('@', 1)[0].lower()
+    fb = str(fallback or '').strip()
+    if '@' in fb:
+        return fb.split('@', 1)[0].lower()
+    return fb or '(unknown)'
+
+# Build per-order SKU text, admin login, and designer login for all backend orders in report window.
 cur.execute("""
 SELECT o.order_no, CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED) AS qty,
        oi.status_updated_at AS shipping_date,
        COALESCE(u.name, u.email, '(unknown)') AS admin_name,
-       COALESCE(NULLIF(o.dqc_user_name, ''), '(unknown)') AS designer_name,
+       u.email AS admin_email,
+       COALESCE(NULLIF(o.dqc_user_name, ''), du.name, du.email, '(unknown)') AS designer_name,
+       du.email AS designer_email,
        COALESCE(oi.factory_name, '(unknown)') AS raw_factory,
        oi.factory_products, oi.order_line
 FROM orders o
 LEFT JOIN users u ON u.id = o.order_administrator_id
+LEFT JOIN users du ON du.id = o.dqc_user_id
 LEFT JOIN order_items oi ON oi.order_id = o.id
 WHERE oi.status_updated_at >= '2025-10-01'
   AND oi.status_updated_at < '2026-07-01'
   AND (oi.status IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
 """)
 all_order_meta = defaultdict(lambda: {'qty': 0, 'admin': '(unknown)', 'designer': '(unknown)', 'texts': [], 'month': '?'})
-for ono, qty, shipping_date, admin_name, designer_name, raw_factory, factory_products, order_line in cur.fetchall():
+for ono, qty, shipping_date, admin_name, admin_email, designer_name, designer_email, raw_factory, factory_products, order_line in cur.fetchall():
     if factory_data.norm_factory(raw_factory) in getattr(factory_data, 'EXCLUDED_FACTORIES', set()):
         continue
     ono = str(ono)
     all_order_meta[ono]['qty'] = max(all_order_meta[ono]['qty'], int(qty or 0))
-    all_order_meta[ono]['admin'] = admin_name or '(unknown)'
-    all_order_meta[ono]['designer'] = designer_name or '(unknown)'
+    all_order_meta[ono]['admin'] = windows_login_from_email(admin_email, admin_name)
+    all_order_meta[ono]['designer'] = windows_login_from_email(designer_email, designer_name)
     all_order_meta[ono]['month'] = str(shipping_date)[:7] if shipping_date else '?'
     for raw in (factory_products, order_line):
         if not raw:
@@ -1230,6 +1242,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <div class="card metric"><div class="label">3-Month Rolling Error Rate</div><div class="value" id="rollingRate"></div><div class="sub" id="rollingSub"></div></div>
       <div class="card metric"><div class="label" id="selectedRateLabel">Selected Period Error Rate</div><div class="value" id="totalRate"></div><div class="sub" id="totalSub"></div></div>
     </div>
+    <div class="card metric"><div class="label">2026 Goal — Remake Order Error Rate</div><div class="value">0.50%</div><div class="sub" id="goalSub">Goal for 2026: keep remake orders at or below 0.5% of total orders.</div></div>
     <div class="card">
       <div class="section-head"><h3 class="section-title" id="breakdownTitle">Error Rate Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="breakdownFilter" class="muted" style="font-size:13px;font-weight:700">Filter:</label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
       <div class="hint" id="breakdownHint">Factory view shows FU customer feedback only. Physical QC measures are temporarily hidden while the data is being reviewed.</div>
@@ -1513,6 +1526,11 @@ function updateSummaryStats() {{
   document.getElementById('selectedRateLabel').textContent = 'Selected Period Error Rate';
   document.getElementById('totalRate').textContent = selectedRemakeRate.toFixed(2) + '%';
   document.getElementById('totalSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · ' + (d.totalRemakeOrders || 0).toLocaleString() + ' remake orders / ' + (d.totalOrders || 0).toLocaleString() + ' total orders';
+  const ytd = PERIODS.ytd || DATA;
+  const ytdRate = (ytd.totalOrders || 0) > 0 ? ((ytd.totalRemakeOrders || 0) / ytd.totalOrders * 100) : 0;
+  const gap = ytdRate - 0.5;
+  const goalText = gap <= 0 ? 'On target' : (gap.toFixed(2) + ' percentage points above goal');
+  document.getElementById('goalSub').textContent = 'Goal for 2026: ≤0.50% remake-order error rate. Current YTD: ' + ytdRate.toFixed(2) + '% (' + (ytd.totalRemakeOrders || 0).toLocaleString() + ' remake orders / ' + (ytd.totalOrders || 0).toLocaleString() + ' total orders) · ' + goalText;
 }}
 
 function leaderRank(i) {{ return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : String(i + 1); }}
