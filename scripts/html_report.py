@@ -604,6 +604,7 @@ cur.execute("""
 SELECT o.order_no, CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED) AS qty,
        oi.status_updated_at AS shipping_date,
        COALESCE(u.name, u.email, '(unknown)') AS admin_name,
+       COALESCE(NULLIF(o.dqc_user_name, ''), '(unknown)') AS designer_name,
        COALESCE(oi.factory_name, '(unknown)') AS raw_factory,
        oi.factory_products, oi.order_line
 FROM orders o
@@ -613,13 +614,14 @@ WHERE oi.status_updated_at >= '2025-10-01'
   AND oi.status_updated_at < '2026-07-01'
   AND (oi.status IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
 """)
-all_order_meta = defaultdict(lambda: {'qty': 0, 'admin': '(unknown)', 'texts': [], 'month': '?'})
-for ono, qty, shipping_date, admin_name, raw_factory, factory_products, order_line in cur.fetchall():
+all_order_meta = defaultdict(lambda: {'qty': 0, 'admin': '(unknown)', 'designer': '(unknown)', 'texts': [], 'month': '?'})
+for ono, qty, shipping_date, admin_name, designer_name, raw_factory, factory_products, order_line in cur.fetchall():
     if factory_data.norm_factory(raw_factory) in getattr(factory_data, 'EXCLUDED_FACTORIES', set()):
         continue
     ono = str(ono)
     all_order_meta[ono]['qty'] = max(all_order_meta[ono]['qty'], int(qty or 0))
     all_order_meta[ono]['admin'] = admin_name or '(unknown)'
+    all_order_meta[ono]['designer'] = designer_name or '(unknown)'
     all_order_meta[ono]['month'] = str(shipping_date)[:7] if shipping_date else '?'
     for raw in (factory_products, order_line):
         if not raw:
@@ -943,6 +945,51 @@ def build_groupings_for_months(month_keys):
             category_groups[cat]['qarma_order_set'].add(ono)
     return {'sku': finalize_groups(sku_groups), 'sport': finalize_groups(sport_groups), 'admin': finalize_groups(admin_groups), 'category': finalize_groups(category_groups)}
 
+def build_exception_leaders(month_keys):
+    month_set = set(month_keys)
+    def empty_person():
+        return {'orders_set': set(), 'remake_orders_set': set(), 'qty': 0, 'remake_qty': 0}
+    groups = {'admin': defaultdict(empty_person), 'designer': defaultdict(empty_person)}
+    for ono, meta in all_order_meta.items():
+        if meta.get('month') not in month_set:
+            continue
+        is_remake = ono in REMAKE_ORDERS
+        qty = meta.get('qty', 0) or 0
+        for mode, key in (('admin', 'admin'), ('designer', 'designer')):
+            name = str(meta.get(key) or '(unknown)').strip()
+            if not name or name == '(unknown)':
+                continue
+            g = groups[mode][name]
+            g['orders_set'].add(ono)
+            g['qty'] += qty
+            if is_remake:
+                g['remake_orders_set'].add(ono)
+                g['remake_qty'] += qty
+    out = {}
+    for mode, people in groups.items():
+        rows = []
+        for name, g in people.items():
+            orders = len(g['orders_set'])
+            remake_orders = len(g['remake_orders_set'])
+            if orders <= 0:
+                continue
+            rows.append({
+                'name': name,
+                'orders': orders,
+                'remake_orders': remake_orders,
+                'remake_qty': g['remake_qty'],
+                'rate': round(remake_orders / orders * 100, 2),
+            })
+        qualified = [r for r in rows if r['orders'] >= 10]
+        if len(qualified) < 3:
+            qualified = [r for r in rows if r['orders'] >= 5]
+        if len(qualified) < 3:
+            qualified = rows
+        qualified.sort(key=lambda r: (r['rate'], r['remake_orders'], -r['orders'], r['name']))
+        out[mode] = qualified[:5]
+    return out
+
+
 def build_period_payload(key, display_name):
     mkeys = period_months_for(key)
     labels = [month_labels.get(m, m) for m in mkeys]
@@ -987,6 +1034,7 @@ def build_period_payload(key, display_name):
                 'totalOrderRate': round(total_do/total_o*100,2) if total_o>0 else 0,
                 'factories': factory_rows_for_months(pm),
                 'groupings': build_groupings_for_months(pm),
+                'exceptionLeaders': build_exception_leaders(pm),
             }
     return {
         'key': key, 'name': display_name, 'label': period_label(mkeys), 'monthKeys': mkeys, 'months': labels,
@@ -998,6 +1046,7 @@ def build_period_payload(key, display_name):
         'totalOrderRate': round(total_def_orders / total_orders_p * 100, 2) if total_orders_p > 0 else 0,
         'factories': rows,
         'groupings': build_groupings_for_months(mkeys),
+        'exceptionLeaders': build_exception_leaders(mkeys),
         'prev': prev,
     }
 
@@ -1185,6 +1234,19 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <div class="section-head"><h3 class="section-title" id="breakdownTitle">Error Rate Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="breakdownFilter" class="muted" style="font-size:13px;font-weight:700">Filter:</label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
       <div class="hint" id="breakdownHint">Factory view shows FU customer feedback only. Physical QC measures are temporarily hidden while the data is being reviewed.</div>
       <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th></tr></thead><tbody id="factoryBody"></tbody></table>
+    </div>
+    <div class="card">
+      <div class="section-head"><div><h3 class="section-title" id="exceptionLeadersTitle">Exception Leaders — Fewest Remake Orders</h3><div class="hint" id="exceptionLeadersSub">Based on selected period. Exception rate = remake orders / total orders.</div></div></div>
+      <div class="exec-grid">
+        <div>
+          <h4 style="margin:0 0 10px">🏆 Order Admins</h4>
+          <table><thead><tr><th>Rank</th><th>Order Admin</th><th class="right">Exception Rate</th><th class="right">Remake Orders</th><th class="right">Total Orders</th></tr></thead><tbody id="adminLeadersBody"></tbody></table>
+        </div>
+        <div>
+          <h4 style="margin:0 0 10px">🏆 Designers</h4>
+          <table><thead><tr><th>Rank</th><th>Designer</th><th class="right">Exception Rate</th><th class="right">Remake Orders</th><th class="right">Total Orders</th></tr></thead><tbody id="designerLeadersBody"></tbody></table>
+        </div>
+      </div>
     </div>
     <div class="card">
       <div class="section-head"><h3 class="section-title" id="trendTitle">Monthly Trend &mdash; All Factories</h3><button class="reset-btn" id="resetBtn">&larr; Show all factories</button></div>
@@ -1453,6 +1515,22 @@ function updateSummaryStats() {{
   document.getElementById('totalSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · ' + (d.totalRemakeOrders || 0).toLocaleString() + ' remake orders / ' + (d.totalOrders || 0).toLocaleString() + ' total orders';
 }}
 
+function leaderRank(i) {{ return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : String(i + 1); }}
+function renderLeaderRows(rows, emptyLabel) {{
+  if (!rows || !rows.length) return '<tr><td colspan="5">No qualifying ' + emptyLabel + ' in selected period</td></tr>';
+  return rows.map(function(r, i) {{
+    return '<tr><td><strong>' + leaderRank(i) + '</strong></td><td>' + esc(r.name) + '</td><td class="right"><strong>' + (r.rate || 0).toFixed(2) + '%</strong></td><td class="right">' + (r.remake_orders || 0).toLocaleString() + '</td><td class="right">' + (r.orders || 0).toLocaleString() + '</td></tr>';
+  }}).join('');
+}}
+function renderExceptionLeaders() {{
+  const d = ACTIVE_DATA || {{}};
+  const leaders = d.exceptionLeaders || {{admin: [], designer: []}};
+  const label = d.label || ((d.months || [])[0] + ' – ' + (d.months || [])[(d.months || []).length - 1]);
+  document.getElementById('exceptionLeadersSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · exception rate = remake orders / total orders. Minimum volume is applied before ranking.';
+  document.getElementById('adminLeadersBody').innerHTML = renderLeaderRows(leaders.admin || [], 'order admins');
+  document.getElementById('designerLeadersBody').innerHTML = renderLeaderRows(leaders.designer || [], 'designers');
+}}
+
 
 function pctPill(r) {{
   return r >= 2.0 ? '<span class="pct-pill pct-high">'+r.toFixed(2)+'%</span>'
@@ -1665,6 +1743,7 @@ function applyPeriod(key) {{
   ACTIVE_GROUPINGS = ACTIVE_DATA.groupings || GROUPINGS;
   updateSummaryStats();
   updatePeriodKpis();
+  renderExceptionLeaders();
   var reset = document.getElementById('resetBtn');
   if (reset && reset.classList.contains('show')) reset.click();
   renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value);
