@@ -609,6 +609,92 @@ def windows_login_from_email(email, fallback='(unknown)'):
     return fb or '(unknown)'
 
 NON_DESIGNER_LOGINS = {'factory', 'orders', 'sales', 'super', 'admin', 'support', 'no-reply', 'noreply'}
+DAILY_TASKS_CHAT_ID = '19:f15713ebba454e01924ef82b3363e6df@thread.v2'
+
+
+def graph_token_from_env():
+    tenant = os.environ.get('CUSTIMOO_GRAPH_TENANT_ID')
+    client_id = os.environ.get('CUSTIMOO_GRAPH_CLIENT_ID')
+    client_secret = os.environ.get('CUSTIMOO_GRAPH_CLIENT_SECRET')
+    if not all([tenant, client_id, client_secret]):
+        return None
+    body = urllib.parse.urlencode({
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'scope': 'https://graph.microsoft.com/.default',
+        'grant_type': 'client_credentials',
+    }).encode()
+    req = urllib.request.Request(
+        f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token',
+        data=body,
+        headers={'Content-Type': 'application/x-www-form-urlencoded'},
+        method='POST',
+    )
+    return json.loads(urllib.request.urlopen(req, timeout=30).read().decode())['access_token']
+
+
+def clean_teams_html(text):
+    htmllib = __import__('html')
+    return htmllib.unescape(re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', text or ''))).strip()
+
+
+def teams_windows_login_from_path_user(path_user):
+    raw = str(path_user or '').strip()
+    if not raw:
+        return ''
+    return re.sub(r'[^a-z0-9]+', '', raw.lower())
+
+
+def load_production_file_designers_from_teams():
+    """Map order_no -> Windows login(s) from Daily Tasks production-file upload paths.
+
+    Designers post OneDrive-synced paths like:
+      C:\\Users\\MoazSaeed\\...\\26015 - TKT#6753Whalers\\4_Production
+    We attribute the order to the Windows user in that path, only for messages that look
+    like production-file uploads (not sample print / TDS-only updates).
+    """
+    out = defaultdict(set)
+    try:
+        token = graph_token_from_env()
+        if not token:
+            return out
+        cutoff = '2026-01-01T00:00:00Z'
+        url = f'https://graph.microsoft.com/v1.0/chats/{urllib.parse.quote(DAILY_TASKS_CHAT_ID, safe="")}/messages?$top=50'
+        headers = {'Authorization': 'Bearer ' + token, 'Accept': 'application/json'}
+        pages = 0
+        path_re = re.compile(r'[A-Za-z]:[\\]+Users[\\]+([^\\]+)[\\]+.*?[\\]+(\d{5})\s*-.*?(?:4_Production|Production\s*File|production\.svg|[\\]+Production(?:[\\]+|\b))', re.I)
+        loose_re = re.compile(r'\b(\d{5})\b.*?\bproduction\s*file\b', re.I)
+        while url and pages < 200:
+            pages += 1
+            data = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=45).read().decode())
+            stop = False
+            for msg in data.get('value', []):
+                created = msg.get('createdDateTime') or ''
+                if created and created < cutoff:
+                    stop = True
+                    continue
+                content = clean_teams_html((msg.get('body') or {}).get('content', ''))
+                if 'production' not in content.lower():
+                    continue
+                for login_raw, order_no in path_re.findall(content):
+                    login = teams_windows_login_from_path_user(login_raw)
+                    if login and login not in NON_DESIGNER_LOGINS:
+                        out[str(order_no)].add(login)
+                # Fallback for messages like "26080 Production file as per previous orders.";
+                # use Teams sender email/userIdentity if no C:\\Users path exists.
+                if not path_re.search(content):
+                    sender = ((msg.get('from') or {}).get('user') or {})
+                    sender_login = windows_login_from_email(str(sender.get('email') or ''), str(sender.get('displayName') or ''))
+                    sender_login = teams_windows_login_from_path_user(sender_login)
+                    if sender_login and sender_login not in NON_DESIGNER_LOGINS:
+                        for order_no in loose_re.findall(content):
+                            out[str(order_no)].add(sender_login)
+            if stop:
+                break
+            url = data.get('@odata.nextLink')
+    except Exception as e:
+        print('Warning: could not load Teams production-file designers:', e)
+    return out
 
 def collect_product_design_ids(raw):
     ids = set()
@@ -630,6 +716,9 @@ def collect_product_design_ids(raw):
                 walk(v)
     walk(parsed)
     return ids
+
+production_file_designers_by_order = load_production_file_designers_from_teams()
+print(f"Loaded Teams production-file designer mapping for {len(production_file_designers_by_order)} orders")
 
 # Map product design ids to actual designer Windows logins via design file creators.
 cur.execute("""
@@ -674,10 +763,7 @@ for ono, qty, shipping_date, admin_name, admin_email, raw_factory, factory_produ
     ono = str(ono)
     all_order_meta[ono]['qty'] = max(all_order_meta[ono]['qty'], int(qty or 0))
     all_order_meta[ono]['admin'] = windows_login_from_email(admin_email, admin_name)
-    designer_logins = set()
-    for raw_design_source in (factory_products, order_line):
-        for pd_id in collect_product_design_ids(raw_design_source):
-            designer_logins.update(product_design_creators.get(str(pd_id), set()))
+    designer_logins = set(production_file_designers_by_order.get(ono, set()))
     all_order_meta[ono]['designers'].update(designer_logins)
     all_order_meta[ono]['month'] = str(shipping_date)[:7] if shipping_date else '?'
     for raw in (factory_products, order_line):
