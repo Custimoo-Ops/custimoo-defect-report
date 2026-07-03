@@ -1657,15 +1657,20 @@ function actionPlanQty(f) {{
   return Math.max(0, targetCheckedQty - checkedQty);
 }}
 function actionPlanText(f) {{
-  const more = actionPlanQty(f);
-  if (more === null) {{
-    const remakeQty = f.remake_qty || 0;
-    const shippedQty = f.volume || 0;
-    const bestRate = shippedQty > 0 ? remakeQty / shippedQty * 100 : 0;
-    return 'Not possible (' + bestRate.toFixed(2) + '% min)';
+  const remakeQty = f.remake_qty || 0;
+  const checkedQty = (f.qarma || {{}}).sample_qty || 0;
+  const shippedQty = f.volume || 0;
+  if (remakeQty <= 0) return 'On target';
+  if (shippedQty <= 0) return 'No shipped QTY';
+  const targetCheckedQty = Math.floor(remakeQty / 0.005) + 1;
+  const targetCoveragePct = targetCheckedQty / shippedQty * 100;
+  const currentCoveragePct = checkedQty / shippedQty * 100;
+  if (targetCheckedQty > shippedQty) {{
+    const bestRate = remakeQty / shippedQty * 100;
+    return targetCoveragePct.toFixed(1) + '% needed (max 100%; ' + bestRate.toFixed(2) + '% min)';
   }}
-  if (more <= 0) return 'On target';
-  return '+' + more.toLocaleString() + ' QTY';
+  if (checkedQty >= targetCheckedQty) return 'On target (' + currentCoveragePct.toFixed(1) + '% checked)';
+  return targetCoveragePct.toFixed(1) + '% needed';
 }}
 function factoryRow(f, opts) {{
   opts = opts || {{}};
