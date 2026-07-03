@@ -1390,9 +1390,9 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <h3 class="section-title">Actionplan Sanity Check</h3>
       <div class="hint" id="actionPlanSummary">Qarma coverage is only one lever. Remake QTY error also includes QC escapes and issues physical QC cannot catch. Silver-Star Group and Rajco have only recently started on-site QC, so their Qarma sanity-check interpretation is marked as more data needed.</div>
       <ul class="clean">
-        <li><strong>Coverage gap:</strong> defects in quantity not checked by Qarma. 100% QC closes this blind spot.</li>
-        <li><strong>QC escape rate:</strong> defects present in checked lots but missed by inspection. More checks with the same miss rate will not solve this alone.</li>
-        <li><strong>Non-QC-catchable issues:</strong> delays, paperwork/admin errors, packing/transit/rework issues, and other remake causes outside physical QC scope.</li>
+        <li><strong>Coverage gap → Unchecked QTY:</strong> the table shows how much shipped quantity was not checked in Qarma. 100% QC closes this blind spot; the <strong>Implied Unchecked Err%</strong> estimates how much remake pressure sits in that unchecked quantity.</li>
+        <li><strong>QC escape rate → Ratio vs Qarma:</strong> when <strong>Implied Unchecked Err%</strong> is much higher than <strong>Qarma Err%</strong>, coverage alone is unlikely to explain the remakes. It points to defects missed by physical QC and requires tighter AQL/sampling, checklist calibration, and factory RCA.</li>
+        <li><strong>Non-QC-catchable issues → Interpretation:</strong> delays, paperwork/admin errors, packing/transit/rework issues, and other non-physical-QC remake causes can inflate Remake QTY Err% even if Qarma coverage improves. These are called out in the interpretation instead of being treated as solvable by more checks.</li>
       </ul>
       <table><thead><tr><th>Factory</th><th class="right">Qarma Err%</th><th class="right">Unchecked QTY</th><th class="right">Implied Unchecked Err%</th><th class="right">Ratio vs Qarma</th><th>Interpretation</th></tr></thead><tbody id="actionPlanDiagnosticsBody"></tbody></table>
       <div class="footnote">Implied unchecked err% = Remake QTY / (Total Order QTY − Qarma QTY Checked). This is a directional sanity check, not proof of cause: remakes can include QC misses and non-QC-catchable errors.</div>
