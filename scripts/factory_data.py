@@ -4,6 +4,11 @@
 import os, json, re, urllib.request
 from collections import defaultdict
 from decimal import Decimal
+from datetime import datetime, timezone
+
+REPORT_START = '2025-10-01'
+_now = datetime.now(timezone.utc)
+REPORT_END = (datetime(_now.year + (1 if _now.month == 12 else 0), 1 if _now.month == 12 else _now.month + 1, 1, tzinfo=timezone.utc)).strftime('%Y-%m-%d')
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -210,10 +215,10 @@ SELECT oi.status_updated_at AS shipping_date,
        o.order_type_symbol
 FROM orders o
 JOIN order_items oi ON oi.order_id = o.id
-WHERE oi.status_updated_at >= '2025-10-01'
-  AND oi.status_updated_at < '2026-07-01'
+WHERE oi.status_updated_at >= %s
+  AND oi.status_updated_at < %s
   AND (oi.status IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
-""")
+""", (REPORT_START, REPORT_END))
 
     factory_month_pipe = defaultdict(lambda: defaultdict(lambda: {'qty':0, 'orders':0, 'remake_qty':0, 'remake_orders':0}))
     seen_order_factories = set()
@@ -252,18 +257,18 @@ WHERE oi.status_updated_at >= '2025-10-01'
     remake_by_month = {}
     cur2 = conn.cursor()
     cur2.execute("""
-SELECT DATE_FORMAT(oi.status_updated_at, '%Y-%m') as month,
+SELECT DATE_FORMAT(oi.status_updated_at, '%%Y-%%m') as month,
        COUNT(DISTINCT o.id) as cnt,
        COALESCE(SUM(CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED)), 0) as qty
 FROM orders o
 JOIN order_items oi ON oi.order_id = o.id
 WHERE o.order_type_symbol = 'R'
-  AND oi.status_updated_at >= '2025-10-01'
-  AND oi.status_updated_at < '2026-07-01'
+  AND oi.status_updated_at >= %s
+  AND oi.status_updated_at < %s
   AND (oi.status IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
 GROUP BY month
 ORDER BY month
-""")
+""", (REPORT_START, REPORT_END))
     for r in cur2.fetchall():
         month = r[0]
         remake_by_month[month] = {'orders': r[1], 'qty': r[2]}

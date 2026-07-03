@@ -3,6 +3,7 @@
 import sys, os, json, pymysql
 from collections import defaultdict
 from decimal import Decimal
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import factory_data
@@ -176,8 +177,15 @@ qarma_stats = load_qarma_stats()
 month_labels = {
     "2025-10": "Oct 2025", "2025-11": "Nov 2025", "2025-12": "Dec 2025",
     "2026-01": "Jan 2026", "2026-02": "Feb 2026", "2026-03": "Mar 2026",
-    "2026-04": "Apr 2026", "2026-05": "May 2026", "2026-06": "Jun 2026*",
+    "2026-04": "Apr 2026", "2026-05": "May 2026", "2026-06": "Jun 2026",
 }
+_current_month_key = datetime.now(timezone.utc).strftime('%Y-%m')
+for _m in sorted(total_monthly.keys()):
+    if _m not in month_labels:
+        _dt = datetime.strptime(_m + '-01', '%Y-%m-%d')
+        month_labels[_m] = _dt.strftime('%b %Y')
+if _current_month_key in month_labels:
+    month_labels[_current_month_key] = month_labels[_current_month_key].rstrip('*') + '*'
 
 total_volume = sum(d['qty'] for d in total_monthly.values())
 total_orders = sum(d['orders'] for d in total_monthly.values())
@@ -764,10 +772,10 @@ SELECT o.order_no, CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED
 FROM orders o
 LEFT JOIN users u ON u.id = o.order_administrator_id
 LEFT JOIN order_items oi ON oi.order_id = o.id
-WHERE oi.status_updated_at >= '2025-10-01'
-  AND oi.status_updated_at < '2026-07-01'
+WHERE oi.status_updated_at >= %s
+  AND oi.status_updated_at < %s
   AND (oi.status IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
-""")
+""", (factory_data.REPORT_START, factory_data.REPORT_END))
 all_order_meta = defaultdict(lambda: {'qty': 0, 'admin': '(unknown)', 'designers': set(), 'texts': [], 'month': '?'})
 for ono, qty, shipping_date, admin_name, admin_email, raw_factory, factory_products, order_line in cur.fetchall():
     if factory_data.norm_factory(raw_factory) in getattr(factory_data, 'EXCLUDED_FACTORIES', set()):
@@ -818,7 +826,7 @@ def finalize_groups(groups):
 # Build remake orders lookup
 conn = __import__('pymysql').connect(host="127.0.0.1", port=3307, database="custimoo_backend_prod", user="custimoo_backend_usr", password=__import__('os').environ.get("CUSTIMOO_DB_PASSWORD", ""), connect_timeout=10)
 remake_cur = conn.cursor()
-remake_cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol = 'R' AND o.created_at >= '2025-10-01' AND o.created_at < '2026-07-01'")
+remake_cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol = 'R' AND o.created_at >= %s AND o.created_at < %s", (factory_data.REPORT_START, factory_data.REPORT_END))
 REMAKE_ORDERS = set(str(r[0]) for r in remake_cur.fetchall())
 remake_cur.close()
 # Don't close main conn — used later
@@ -1232,17 +1240,17 @@ remake_cur.execute("""
 SELECT o.order_no,
        CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED) as qty,
        COALESCE(u.name, u.email, '(unknown)') AS admin_name,
-       DATE_FORMAT(o.created_at, '%Y-%m') as month,
+       DATE_FORMAT(o.created_at, '%%Y-%%m') as month,
        COALESCE(GROUP_CONCAT(DISTINCT oi.factory_name ORDER BY oi.factory_name SEPARATOR ', '), '(unknown)') as factories
 FROM orders o
 LEFT JOIN users u ON u.id = o.order_administrator_id
 LEFT JOIN order_items oi ON oi.order_id = o.id
 WHERE o.order_type_symbol = 'R'
-  AND o.created_at >= '2025-10-01'
-  AND o.created_at < '2026-07-01'
+  AND o.created_at >= %s
+  AND o.created_at < %s
 GROUP BY o.order_no
 ORDER BY qty DESC
-""")
+""", (factory_data.REPORT_START, factory_data.REPORT_END))
 REMAKE_MGMT = [{"order": str(r[0]), "qty": int(r[1]) if r[1] else 0, "admin": r[2], "month": str(r[3])[:7] if r[3] else "?", "factory": r[4]} for r in remake_cur.fetchall()]
 remake_cur.close()
 REMAKE_MGMT_JSON = json.dumps(REMAKE_MGMT, cls=factory_data.DecimalEncoder)
@@ -1366,7 +1374,7 @@ html = f"""<!DOCTYPE html>
 </head>
 <body>
 <div id="refresh-bar" style="text-align:center;padding:8px 16px;background:#1a1a2e;border-bottom:1px solid #2a2a4e;font-size:13px;color:#aaa;">
-  <span id="last-update">Generated: {generation_time}</span>
+  <span id="last-update">Last updated: {generation_time}</span>
   <button id="refresh-btn" onclick="doRefresh()" style="margin-left:12px;padding:4px 16px;background:#0f3460;color:white;border:1px solid #16213e;border-radius:4px;cursor:pointer;">Refresh Report</button>
   <a href="/dqc" style="margin-left:12px;color:#4ecca3;font-weight:700;text-decoration:none;">Open Digital QC Usage</a>
   <span id="refresh-msg" style="margin-left:10px;"></span>
