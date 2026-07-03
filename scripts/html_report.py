@@ -4,6 +4,7 @@ import sys, os, json, pymysql
 from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime, timezone
+import csv, gzip, io, urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import factory_data
@@ -41,6 +42,9 @@ def norm_qarma_supplier(name):
 
 QARMA_STATS_CACHE = {}
 QARMA_ORDER_STATS_CACHE = {}
+QARMA_SOURCE_URL = os.environ.get('QARMA_INSPECTIONS_URL', 'https://app.qarmainspect.com/q/nocache/objects/files_cache/a65150a8-0509-4492-8ac9-c88526e83732/39ce57c5-f096-4758-8a7d-e5796d5199ab/inspections.csv.gz')
+QARMA_SOURCE_META = {'ok': False, 'rows': 0, 'filtered_rows': 0, 'source': QARMA_SOURCE_URL, 'error': ''}
+QARMA_ROWS_CACHE = None
 
 def dt_to_month(v):
     import datetime
@@ -52,43 +56,74 @@ def dt_to_month(v):
         return str(v)[:7]
     return None
 
+def safe_int(v):
+    try:
+        if v is None or v == '':
+            return 0
+        return int(float(str(v).replace(',', '').strip()))
+    except Exception:
+        return 0
+
+def is_qarma_included(row):
+    return (
+        row.get('Status') == 'Report'
+        and str(row.get('Inspection type') or '').strip() == 'Final'
+        and str(row.get('Conclusion') or '').strip() == 'Approved'
+        and str(row.get('Supplier qc') or '').strip().lower() != 'true'
+        and str(row.get('Inspector email') or '').strip().lower().endswith('@custimoo.com')
+        and not str(row.get('Reinspection of') or '').strip()
+    )
+
+def load_qarma_rows():
+    """Read Qarma's live CSV.GZ export. Qarma updates this file around midnight Danish time."""
+    global QARMA_ROWS_CACHE, QARMA_SOURCE_META
+    if QARMA_ROWS_CACHE is not None:
+        return QARMA_ROWS_CACHE
+    try:
+        req = urllib.request.Request(QARMA_SOURCE_URL, headers={'Accept': 'text/csv,application/gzip,*/*', 'User-Agent': 'custimoo-defect-report/1.0'})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            raw = resp.read()
+        with gzip.GzipFile(fileobj=io.BytesIO(raw)) as gz:
+            text = io.TextIOWrapper(gz, encoding='utf-8-sig', newline='')
+            rows = list(csv.DictReader(text))
+        QARMA_SOURCE_META = {'ok': True, 'rows': len(rows), 'filtered_rows': 0, 'source': QARMA_SOURCE_URL, 'error': ''}
+        QARMA_ROWS_CACHE = rows
+        return rows
+    except Exception as e:
+        QARMA_SOURCE_META = {'ok': False, 'rows': 0, 'filtered_rows': 0, 'source': QARMA_SOURCE_URL, 'error': str(e)[:200]}
+        QARMA_ROWS_CACHE = []
+        print('Warning: could not load Qarma CSV:', e)
+        return []
+
+def iter_qarma_rows(month_filter=None):
+    months_allowed = set(month_filter) if month_filter else set(months)
+    filtered = 0
+    for row in load_qarma_rows():
+        if not is_qarma_included(row):
+            continue
+        month = dt_to_month(row.get('Inspection end time') or row.get('Scheduled inspection date'))
+        if month not in months_allowed:
+            continue
+        filtered += 1
+        yield row, month
+    if not month_filter:
+        QARMA_SOURCE_META['filtered_rows'] = filtered
+
 def load_qarma_stats(month_filter=None):
     """Aggregate Qarma physical QC by supplier for the report window.
     Sample qty is deduped by Report inspection id; defect pieces are summed from minor/major/critical pieces affected.
     """
-    from pathlib import Path
-    from collections import defaultdict
     cache_key = tuple(month_filter) if month_filter else tuple(months)
     if cache_key in QARMA_STATS_CACHE:
         return QARMA_STATS_CACHE[cache_key]
-    try:
-        import openpyxl
-    except Exception:
-        return {}
-    export_dir = Path('/Users/lakr-macmini/Desktop/qarma')
-    candidates = sorted(export_dir.glob('export*.xlsx'), key=lambda x: x.stat().st_mtime, reverse=True)
-    path = candidates[0] if candidates else None
-    if not path:
-        return {}
-    months_allowed = set(month_filter) if month_filter else set(months)
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    ws = wb[wb.sheetnames[0]]
     stats = defaultdict(lambda: {'sample_qty': 0, 'defects': 0, 'reports': set(), 'orders': set(), 'rejected_orders': set()})
     seen_report_sample = set()
-    for r in ws.iter_rows(min_row=2, values_only=True):
-        if len(r) < 38 or r[2] != 'Report' or str(r[9] or '').strip() != 'Final' or str(r[14] or '').strip() != 'Approved' or str(r[18] or '').strip().lower() == 'true' or not str(r[17] or '').strip().lower().endswith('@custimoo.com') or (len(r) >= 29 and r[28] is not None):
-            continue
-        month = dt_to_month(r[21])
-        if month not in months_allowed:
-            continue
-        f = norm_qarma_supplier(r[8])
-        report_id = str(r[1] or r[0] or '')
-        order_no = str(r[3] or '')
-        sample_qty = int(r[23] or 0)
-        minor = int(r[35] or 0)
-        major = int(r[36] or 0)
-        critical = int(r[37] or 0)
-        defects = minor + major + critical
+    for row, month in iter_qarma_rows(month_filter):
+        f = norm_qarma_supplier(row.get('Supplier name'))
+        report_id = str(row.get('Report inspection id') or row.get('Inspection id') or '')
+        order_no = str(row.get('Order number') or '').strip()
+        sample_qty = safe_int(row.get('Actual sample quantity'))
+        defects = safe_int(row.get('Minor defects pieces affected')) + safe_int(row.get('Major defects pieces affected')) + safe_int(row.get('Critical defects pieces affected'))
         stats[f]['defects'] += defects
         if order_no and defects > 0:
             stats[f]['rejected_orders'].add(order_no)
@@ -118,37 +153,18 @@ def load_qarma_stats(month_filter=None):
 
 def load_qarma_order_stats(month_filter=None):
     """Aggregate Qarma physical QC by backend order number for SKU/Admin groupings."""
-    from pathlib import Path
-    from collections import defaultdict
     cache_key = tuple(month_filter) if month_filter else tuple(months)
     if cache_key in QARMA_ORDER_STATS_CACHE:
         return QARMA_ORDER_STATS_CACHE[cache_key]
-    try:
-        import openpyxl
-    except Exception:
-        return {}
-    export_dir = Path('/Users/lakr-macmini/Desktop/qarma')
-    candidates = sorted(export_dir.glob('export*.xlsx'), key=lambda x: x.stat().st_mtime, reverse=True)
-    path = candidates[0] if candidates else None
-    if not path:
-        return {}
-    months_allowed = set(month_filter) if month_filter else set(months)
-    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    ws = wb[wb.sheetnames[0]]
     stats = defaultdict(lambda: {'sample_qty': 0, 'defects': 0, 'reports': set()})
     seen_report_sample = set()
-    for r in ws.iter_rows(min_row=2, values_only=True):
-        if len(r) < 38 or r[2] != 'Report' or str(r[9] or '').strip() != 'Final' or str(r[14] or '').strip() != 'Approved' or str(r[18] or '').strip().lower() == 'true' or not str(r[17] or '').strip().lower().endswith('@custimoo.com') or (len(r) >= 29 and r[28] is not None):
-            continue
-        month = dt_to_month(r[21])
-        if month not in months_allowed:
-            continue
-        order_no = str(r[3] or '').strip()
+    for row, month in iter_qarma_rows(month_filter):
+        order_no = str(row.get('Order number') or '').strip()
         if not order_no:
             continue
-        report_id = str(r[1] or r[0] or '')
-        sample_qty = int(r[23] or 0)
-        defects = int(r[35] or 0) + int(r[36] or 0) + int(r[37] or 0)
+        report_id = str(row.get('Report inspection id') or row.get('Inspection id') or '')
+        sample_qty = safe_int(row.get('Actual sample quantity'))
+        defects = safe_int(row.get('Minor defects pieces affected')) + safe_int(row.get('Major defects pieces affected')) + safe_int(row.get('Critical defects pieces affected'))
         stats[order_no]['defects'] += defects
         if report_id:
             stats[order_no]['reports'].add(report_id)
@@ -246,6 +262,7 @@ report_data = {
     'rollingLabel': (month_labels.get(last_3[0], last_3[0]) + " – " + month_labels.get(last_3[-1], last_3[-1])) if len(last_3) >= 2 else '',
     'factories': factories,
     'factoryMonthly': factory_monthly_data,
+    'qarmaSource': QARMA_SOURCE_META,
 }
 
 # ── YTD 2026 data (Jan–Jun) ──
@@ -1404,8 +1421,8 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <div class="card metric"><div class="label">2026 Goal — Remake QTY Error Rate</div><div class="value" id="goalRate">0.50%</div><div class="sub" id="goalSub">Goal for 2026: ≤0.50% remake-qty error rate.</div></div>
     <div class="card">
       <div class="section-head"><h3 class="section-title" id="breakdownTitle">Error Rate Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="breakdownFilter" class="muted" style="font-size:13px;font-weight:700">Filter:</label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
-      <div class="hint" id="breakdownHint">Factory view shows FU customer feedback only. Physical QC measures are temporarily hidden while the data is being reviewed.</div>
-      <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th></tr></thead><tbody id="factoryBody"></tbody></table>
+      <div class="hint" id="breakdownHint">Factory view combines FU customer-feedback/remake data with Qarma physical QC catch data from the live daily CSV export.</div>
+      <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma ERR% (Sample)</th></tr></thead><tbody id="factoryBody"></tbody></table>
     </div>
     <div class="card">
       <div class="section-head"><div><h3 class="section-title" id="exceptionLeadersTitle">Exception Leaders — Fewest Remake Orders</h3><div class="hint" id="exceptionLeadersSub">Based on selected period. Exception rate = remake orders / total orders.</div></div></div>
@@ -1482,7 +1499,8 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         <li>Defects are tracked from <strong>fu@custimoo.com</strong> customer feedback emails, with manual overrides for exact counts confirmed by order admins.</li>
         <li>When email does not specify the exact count, the full order quantity is used as the upper-bound estimate.</li>
         <li>Factory comparisons use total shipped order quantity per factory from the backend database, bucketed by <strong>order_items.status_updated_at</strong> for shipped/completed/shipping-status rows.</li>
-        <li>Physical QC comparison measures are temporarily hidden while that data is being reviewed.</li>
+        <li>Qarma physical QC uses the live Qarma <strong>inspections.csv.gz</strong> export, updated by Qarma around midnight Danish time. The hourly report run picks up the newest Qarma file automatically.</li>
+        <li>Qarma sample quantity is deduplicated by <strong>Report inspection id</strong>; Qarma defects are Minor + Major + Critical defect pieces affected.</li>
         <li>Defects are bucketed by the month the customer <strong>first reported</strong> the issue (fu email received date), not the order creation date.</li>
         <li>{report_month_labels[-1]} is <span class="in-progress">still in progress</span>.</li>
         <li>Click any number in the report to drill into the specific orders behind it.</li>
@@ -1768,6 +1786,12 @@ function factoryRow(f, opts) {{
   const pRemakeQtyPct = p && (p.volume || 0) > 0 ? (p.remake_qty || 0) / p.volume * 100 : null;
   const remakeOrderPct = (f.orders || 0) > 0 ? (f.remake_orders || 0) / f.orders * 100 : 0;
   const pRemakeOrderPct = p && (p.orders || 0) > 0 ? (p.remake_orders || 0) / p.orders * 100 : null;
+  const q = f.qarma || {{}};
+  const pq = p && p.qarma ? p.qarma : null;
+  const qarmaRate = (q.sample_qty || 0) > 0 ? (q.defects || 0) / q.sample_qty * 100 : 0;
+  const pQarmaRate = pq && (pq.sample_qty || 0) > 0 ? (pq.defects || 0) / pq.sample_qty * 100 : null;
+  const qarmaOrderPct = (q.orders_checked || 0) > 0 ? (q.rejected_orders || 0) / q.orders_checked * 100 : 0;
+  const pQarmaOrderPct = pq && (pq.orders_checked || 0) > 0 ? (pq.rejected_orders || 0) / pq.orders_checked * 100 : null;
   let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td><strong>' + f.name + '</strong></td>';
   if (ACTIVE_MEASURE === 'orders') {{
     row += '<td class="right">' + valWithDelta((f.orders || 0).toLocaleString(), f.orders || 0, p ? p.orders || 0 : null, 'neutral') + '</td>'
@@ -1775,14 +1799,20 @@ function factoryRow(f, opts) {{
       + '<td class="right">' + valWithDelta(pctPill(f.order_rate || 0), f.order_rate || 0, p ? p.order_rate || 0 : null, 'bad') + '</td>'
       + '<td class="right">' + valWithDelta((f.remake_orders || 0).toLocaleString(), f.remake_orders || 0, p ? p.remake_orders || 0 : null, 'neutral') + '</td>'
       + '<td class="right">' + valWithDelta((f.remake_qty || 0).toLocaleString(), f.remake_qty || 0, p ? p.remake_qty || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(remakeOrderPct), remakeOrderPct, pRemakeOrderPct, 'bad') + '</td>';
+      + '<td class="right">' + valWithDelta(pctPill(remakeOrderPct), remakeOrderPct, pRemakeOrderPct, 'bad') + '</td>'
+      + '<td class="right">' + valWithDelta((q.orders_checked || 0).toLocaleString(), q.orders_checked || 0, pq ? pq.orders_checked || 0 : null, 'neutral') + '</td>'
+      + '<td class="right">' + valWithDelta((q.rejected_orders || 0).toLocaleString(), q.rejected_orders || 0, pq ? pq.rejected_orders || 0 : null, 'bad') + '</td>'
+      + '<td class="right">' + valWithDelta(pctPill(qarmaOrderPct), qarmaOrderPct, pQarmaOrderPct, 'bad') + '</td>';
   }} else {{
     row += '<td class="right">' + valWithDelta((f.volume || 0).toLocaleString(), f.volume || 0, p ? p.volume || 0 : null, 'neutral') + '</td>'
       + '<td class="right">' + valWithDelta((f.defects || 0).toLocaleString(), f.defects || 0, p ? p.defects || 0 : null, 'bad') + '</td>'
       + '<td class="right">' + valWithDelta(pctPill(f.rate || 0), f.rate || 0, p ? p.rate || 0 : null, 'bad') + '</td>'
       + '<td class="right">' + valWithDelta((f.remake_orders || 0).toLocaleString(), f.remake_orders || 0, p ? p.remake_orders || 0 : null, 'neutral') + '</td>'
       + '<td class="right">' + valWithDelta((f.remake_qty || 0).toLocaleString(), f.remake_qty || 0, p ? p.remake_qty || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(remakeQtyPct), remakeQtyPct, pRemakeQtyPct, 'bad') + '</td>';
+      + '<td class="right">' + valWithDelta(pctPill(remakeQtyPct), remakeQtyPct, pRemakeQtyPct, 'bad') + '</td>'
+      + '<td class="right">' + valWithDelta((q.sample_qty || 0).toLocaleString(), q.sample_qty || 0, pq ? pq.sample_qty || 0 : null, 'neutral') + '</td>'
+      + '<td class="right">' + valWithDelta((q.defects || 0).toLocaleString(), q.defects || 0, pq ? pq.defects || 0 : null, 'bad') + '</td>'
+      + '<td class="right">' + valWithDelta(pctPill(qarmaRate), qarmaRate, pQarmaRate, 'bad') + '</td>';
   }}
   return row + '</tr>';
 }}
@@ -1815,12 +1845,14 @@ function setBreakdownHeader(mode) {{
   const thead = document.querySelector('#factoryTable thead tr');
   const first = mode === 'all' ? 'All' : (mode === 'factory' ? 'Factory' : (mode === 'sku' ? 'SKU / Series' : (mode === 'sport' ? 'Sport' : (mode === 'category' ? 'Category' : 'Order Admin'))));
   if (ACTIVE_MEASURE === 'orders') {{
-    thead.innerHTML = '<th>' + first + '</th><th class="right">No of Orders</th><th class="right">FU Orders W/Defect</th><th class="right">FU ERR% (Orders)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th>';
+    thead.innerHTML = '<th>' + first + '</th><th class="right">No of Orders</th><th class="right">FU Orders W/Defect</th><th class="right">FU ERR% (Orders)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th><th class="right">Qarma Orders Checked</th><th class="right">Qarma Rejected Orders</th><th class="right">Qarma ERR% (Orders)</th>';
   }} else {{
-    thead.innerHTML = '<th>' + first + '</th><th class="right">Total Order QTY</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th>';
+    thead.innerHTML = '<th>' + first + '</th><th class="right">Total Order QTY</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma ERR% (Sample)</th>';
   }}
   document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Error Rate Breakdown — All' : (mode === 'factory' ? 'Error Rate Breakdown — Factories' : (mode === 'sku' ? 'Error Rate Breakdown — SKU' : (mode === 'sport' ? 'Error Rate Breakdown — Sports' : (mode === 'category' ? 'Error Rate Breakdown — Category' : 'Error Rate Breakdown — Order Admin'))));
-  document.getElementById('breakdownHint').textContent = mode === 'all' ? 'All selected period data in one total row.' : (mode === 'factory' ? 'Factory view shows FU customer feedback only. Physical QC measures are temporarily hidden while the data is being reviewed.' : (mode === 'category' ? 'Category view groups matched FU orders by high-confidence root-cause category; uncertain matches are Uncategorized. Physical QC measures are hidden for now.' : 'Same measure view as factory view; grouped by ' + (mode === 'sku' ? 'SKU / series' : (mode === 'sport' ? 'sport' : 'order admin')) + '. Physical QC measures are hidden for now.'));
+  const qsrc = DATA.qarmaSource || {{}};
+  const qnote = qsrc.ok ? (' Qarma source: live CSV · ' + (qsrc.filtered_rows || 0).toLocaleString() + ' included rows / ' + (qsrc.rows || 0).toLocaleString() + ' raw rows; Qarma updates around midnight Danish time, report refreshes hourly.') : (' Qarma source unavailable: ' + (qsrc.error || 'unknown error'));
+  document.getElementById('breakdownHint').textContent = mode === 'all' ? ('All selected period data in one total row.' + qnote) : (mode === 'factory' ? ('Factory view combines FU customer-feedback/remake data with Qarma physical QC catch data.' + qnote) : (mode === 'category' ? ('Category view groups matched FU orders by high-confidence root-cause category; uncertain matches are Uncategorized. Qarma measures are matched by order number where available.' + qnote) : 'Same measure view as factory view; grouped by ' + (mode === 'sku' ? 'SKU / series' : (mode === 'sport' ? 'sport' : 'order admin')) + '. Qarma measures are matched by order number where available.' + qnote));
 }}
 
 function renderFactoryTable(tbodyId, list, clickable, opts) {{
@@ -1856,14 +1888,20 @@ function renderGroupingTable(mode) {{
           + '<td class="right">' + (prev.totalOrderRate || 0).toFixed(2) + '%</td>'
           + '<td class="right">' + (prevAgg.remake_orders || 0).toLocaleString() + '</td>'
           + '<td class="right">' + (prevAgg.remake_qty || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + pctPill((prevAgg.orders || 0) > 0 ? (prevAgg.remake_orders || 0) / prevAgg.orders * 100 : 0) + '</td>';
+          + '<td class="right">' + pctPill((prevAgg.orders || 0) > 0 ? (prevAgg.remake_orders || 0) / prevAgg.orders * 100 : 0) + '</td>'
+          + '<td class="right">' + ((prevAgg.qarma || {{}}).orders_checked || 0).toLocaleString() + '</td>'
+          + '<td class="right">' + ((prevAgg.qarma || {{}}).rejected_orders || 0).toLocaleString() + '</td>'
+          + '<td class="right">' + pctPill(((prevAgg.qarma || {{}}).orders_checked || 0) > 0 ? (((prevAgg.qarma || {{}}).rejected_orders || 0) / ((prevAgg.qarma || {{}}).orders_checked || 0) * 100) : 0) + '</td>';
       }} else {{
         html += '<td class="right">' + (prev.totalVolume || 0).toLocaleString() + '</td>'
           + '<td class="right">' + (prev.totalDefects || 0).toLocaleString() + '</td>'
           + '<td class="right">' + (prev.totalRate || 0).toFixed(2) + '%</td>'
           + '<td class="right">' + (prevAgg.remake_orders || 0).toLocaleString() + '</td>'
           + '<td class="right">' + (prevAgg.remake_qty || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + pctPill((prevAgg.volume || 0) > 0 ? (prevAgg.remake_qty || 0) / prevAgg.volume * 100 : 0) + '</td>';
+          + '<td class="right">' + pctPill((prevAgg.volume || 0) > 0 ? (prevAgg.remake_qty || 0) / prevAgg.volume * 100 : 0) + '</td>'
+          + '<td class="right">' + ((prevAgg.qarma || {{}}).sample_qty || 0).toLocaleString() + '</td>'
+          + '<td class="right">' + ((prevAgg.qarma || {{}}).defects || 0).toLocaleString() + '</td>'
+          + '<td class="right">' + pctPill(((prevAgg.qarma || {{}}).sample_qty || 0) > 0 ? (((prevAgg.qarma || {{}}).defects || 0) / ((prevAgg.qarma || {{}}).sample_qty || 0) * 100) : 0) + '</td>';
       }}
       html += '</tr>';
       var dVol = ACTIVE_DATA.totalVolume - prev.totalVolume;
@@ -1874,20 +1912,30 @@ function renderGroupingTable(mode) {{
         var dDefOrd = ACTIVE_DATA.totalDefectOrders - prev.totalDefectOrders;
         var dRemakeOrd = (total.remake_orders || 0) - (prevAgg.remake_orders || 0);
         var dRemakeQty = (total.remake_qty || 0) - (prevAgg.remake_qty || 0);
+        var dQarmaOrders = ((total.qarma || {{}}).orders_checked || 0) - ((prevAgg.qarma || {{}}).orders_checked || 0);
+        var dQarmaRejected = ((total.qarma || {{}}).rejected_orders || 0) - ((prevAgg.qarma || {{}}).rejected_orders || 0);
         html += '<td class="right">' + (dOrd >= 0 ? '+' : '') + dOrd.toLocaleString() + '</td>'
           + '<td class="right">' + (dDefOrd >= 0 ? '+' : '') + dDefOrd.toLocaleString() + '</td>'
           + '<td class="right">\u2014</td>'
           + '<td class="right">' + (dRemakeOrd >= 0 ? '+' : '') + dRemakeOrd.toLocaleString() + '</td>'
           + '<td class="right">' + (dRemakeQty >= 0 ? '+' : '') + dRemakeQty.toLocaleString() + '</td>'
+          + '<td class="right">\u2014</td>'
+          + '<td class="right">' + (dQarmaOrders >= 0 ? '+' : '') + dQarmaOrders.toLocaleString() + '</td>'
+          + '<td class="right">' + (dQarmaRejected >= 0 ? '+' : '') + dQarmaRejected.toLocaleString() + '</td>'
           + '<td class="right">\u2014</td>';
       }} else {{
         var dRemakeOrd = (total.remake_orders || 0) - (prevAgg.remake_orders || 0);
         var dRemakeQty = (total.remake_qty || 0) - (prevAgg.remake_qty || 0);
+        var dQarmaSample = ((total.qarma || {{}}).sample_qty || 0) - ((prevAgg.qarma || {{}}).sample_qty || 0);
+        var dQarmaDefects = ((total.qarma || {{}}).defects || 0) - ((prevAgg.qarma || {{}}).defects || 0);
         html += '<td class="right">' + (dVol >= 0 ? '+' : '') + dVol.toLocaleString() + '</td>'
           + '<td class="right">' + (dDef >= 0 ? '+' : '') + dDef.toLocaleString() + '</td>'
           + '<td class="right">\u2014</td>'
           + '<td class="right">' + (dRemakeOrd >= 0 ? '+' : '') + dRemakeOrd.toLocaleString() + '</td>'
           + '<td class="right">' + (dRemakeQty >= 0 ? '+' : '') + dRemakeQty.toLocaleString() + '</td>'
+          + '<td class="right">\u2014</td>'
+          + '<td class="right">' + (dQarmaSample >= 0 ? '+' : '') + dQarmaSample.toLocaleString() + '</td>'
+          + '<td class="right">' + (dQarmaDefects >= 0 ? '+' : '') + dQarmaDefects.toLocaleString() + '</td>'
           + '<td class="right">\u2014</td>';
       }}
       html += '</tr>';
