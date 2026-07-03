@@ -1386,6 +1386,17 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <div class="hint" id="breakdownHint">Factory view combines backend remake data with Qarma physical QC catch data from the live daily CSV export.</div>
       <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Number of Orders</th><th class="right">Total Order QTY</th><th class="right">Qarma Number of Orders</th><th class="right">Qarma QTY Checked</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Err%</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake Orders Err%</th><th class="right">Remake QTY Err%</th><th class="right">Actionplan</th></tr></thead><tbody id="factoryBody"></tbody></table>
     </div>
+    <div class="card" id="actionPlanCard">
+      <h3 class="section-title">Actionplan Sanity Check</h3>
+      <div class="hint" id="actionPlanSummary">Qarma coverage is only one lever. Remake QTY error also includes QC escapes and issues physical QC cannot catch.</div>
+      <ul class="clean">
+        <li><strong>Coverage gap:</strong> defects in quantity not checked by Qarma. 100% QC closes this blind spot.</li>
+        <li><strong>QC escape rate:</strong> defects present in checked lots but missed by inspection. More checks with the same miss rate will not solve this alone.</li>
+        <li><strong>Non-QC-catchable issues:</strong> delays, paperwork/admin errors, packing/transit/rework issues, and other remake causes outside physical QC scope.</li>
+      </ul>
+      <table><thead><tr><th>Factory</th><th class="right">Qarma Err%</th><th class="right">Unchecked QTY</th><th class="right">Implied Unchecked Err%</th><th class="right">Ratio vs Qarma</th><th>Interpretation</th></tr></thead><tbody id="actionPlanDiagnosticsBody"></tbody></table>
+      <div class="footnote">Implied unchecked err% = Remake QTY / (Total Order QTY − Qarma QTY Checked). This is a directional sanity check, not proof of cause: remakes can include QC misses and non-QC-catchable errors.</div>
+    </div>
     <div class="card">
       <div class="section-head"><div><h3 class="section-title" id="exceptionLeadersTitle">Exception Leaders — Fewest Remake Orders</h3><div class="hint" id="exceptionLeadersSub">Based on selected period. Exception rate = remake orders / total orders.</div></div></div>
       <div class="exec-grid">
@@ -1457,6 +1468,16 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         <li>{report_month_labels[-1]} is <span class="in-progress">still in progress</span>.</li>
         <li>Click any number in the report to drill into the specific orders behind it.</li>
       </ul>
+    </div>
+    <div class="card">
+      <h3 class="section-title">Actionplan Interpretation</h3>
+      <p class="muted">The Actionplan column is not a promise that more Qarma checks alone will bring remake QTY error below 0.5%. Remake QTY error is a blend of three buckets:</p>
+      <ul class="clean">
+        <li><strong>Coverage gap:</strong> defects in the quantity not physically checked by Qarma. 100% QC closes this blind spot.</li>
+        <li><strong>QC escape rate:</strong> defects in checked lots that physical QC missed. This requires tighter AQL/sampling limits, inspector calibration, checklist updates, and factory-side corrective-action tracking.</li>
+        <li><strong>Non-QC-catchable issues:</strong> delays, paperwork/admin errors, packing/transit/rework redo, and other reasons that physical QC cannot catch by nature.</li>
+      </ul>
+      <p class="muted">Therefore, when Actionplan says <strong>100% QC</strong>, read it as: close the coverage gap and also investigate root cause. If the implied unchecked rate is much higher than Qarma Err%, uninspected lots look worse than checked lots. If it is much lower, Qarma sampling is likely targeted at risky lots and not representative of total production.</p>
     </div>
   </section>
   <section id="remake-mgmt" class="page">
@@ -1709,14 +1730,39 @@ function renderFactoryTable(tbodyId, list, clickable, opts) {{
   const noMavic = aggregateFactories(noMavicList); noMavic.name = 'Total excl. Mavic Sports';
   document.getElementById(tbodyId).innerHTML = (list || []).map(function(f) {{ return factoryRow(f, {{clickable: clickable}}); }}).join('') + factoryRow(total, {{cls:'total-row'}}) + factoryRow(noMavic, {{cls:'no-mavic-row'}});
 }}
+function renderActionPlanDiagnostics(mode) {{
+  const body = document.getElementById('actionPlanDiagnosticsBody');
+  if (!body) return;
+  let rows = [];
+  if (mode === 'factory') rows = ACTIVE_DATA.factories || [];
+  else if (mode === 'all') {{ const total = aggregateFactories(ACTIVE_DATA.factories || []); total.name = 'All'; rows = [total]; }}
+  else rows = ((ACTIVE_GROUPINGS || {{}})[mode] || []);
+  rows = rows.filter(function(f) {{ return (f.volume || 0) > 0 && ((f.qarma || {{}}).sample_qty || 0) > 0; }});
+  if (!rows.length) {{ body.innerHTML = '<tr><td colspan="6">No Qarma coverage data for selected grouping.</td></tr>'; return; }}
+  body.innerHTML = rows.map(function(f) {{
+    const q = f.qarma || {{}};
+    const checked = q.sample_qty || 0;
+    const unchecked = Math.max(0, (f.volume || 0) - checked);
+    const qRate = qarmaRate(q);
+    const implied = unchecked > 0 ? (f.remake_qty || 0) / unchecked * 100 : null;
+    const ratio = (implied !== null && qRate > 0) ? implied / qRate : null;
+    let interp = 'Coverage gap check';
+    if (implied === null) interp = 'No unchecked QTY';
+    else if (ratio !== null && ratio >= 1.5) interp = 'Unchecked looks worse; 100% QC helps, but QC escapes/non-QC causes still need RCA';
+    else if (ratio !== null && ratio <= 0.5) interp = 'Qarma sample likely risk-targeted; do not treat Qarma Err% as population rate';
+    else interp = 'Unchecked broadly tracks checked lots; coverage is a reasonable lever';
+    return '<tr><td><strong>' + esc(f.name) + '</strong></td><td class="right">' + qRate.toFixed(2) + '%</td><td class="right">' + unchecked.toLocaleString() + '</td><td class="right">' + (implied === null ? '—' : implied.toFixed(2) + '%') + '</td><td class="right">' + (ratio === null ? '—' : ratio.toFixed(1) + 'x') + '</td><td>' + interp + '</td></tr>';
+  }}).join('');
+}}
 function renderGroupingTable(mode) {{
   setBreakdownHeader(mode);
   var filter = document.getElementById('breakdownFilter'); if (filter && filter.value !== mode) filter.value = mode;
-  if (mode === 'factory') {{ renderFactoryTable('factoryBody', ACTIVE_DATA.factories || [], true, {{}}); return; }}
-  if (mode === 'all') {{ const total = aggregateFactories(ACTIVE_DATA.factories || []); total.name = 'All'; document.getElementById('factoryBody').innerHTML = factoryRow(total, {{cls:'total-row'}}); return; }}
+  if (mode === 'factory') {{ renderFactoryTable('factoryBody', ACTIVE_DATA.factories || [], true, {{}}); renderActionPlanDiagnostics(mode); return; }}
+  if (mode === 'all') {{ const total = aggregateFactories(ACTIVE_DATA.factories || []); total.name = 'All'; document.getElementById('factoryBody').innerHTML = factoryRow(total, {{cls:'total-row'}}); renderActionPlanDiagnostics(mode); return; }}
   const rows = ((ACTIVE_GROUPINGS || {{}})[mode] || []);
   const total = aggregateFactories(rows); total.name = 'Total';
   document.getElementById('factoryBody').innerHTML = rows.map(function(r) {{ return factoryRow(r, {{}}); }}).join('') + factoryRow(total, {{cls:'total-row'}});
+  renderActionPlanDiagnostics(mode);
 }}
 function leaderRank(i) {{ return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : String(i + 1); }}
 function renderLeaderRows(rows, emptyLabel) {{
