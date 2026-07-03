@@ -1683,11 +1683,20 @@ function actionPlanText(f) {{
   const shippedQty = f.volume || 0;
   if (remakeQty <= 0) return 'On target';
   if (shippedQty <= 0) return 'No shipped QTY';
-  function targetPct(rate) {{
-    const needed = Math.ceil(remakeQty / rate);
-    if (needed > shippedQty) return '100%+';
-    const pct = needed / shippedQty * 100;
-    if (checkedQty >= needed) return 'On target (' + (checkedQty / shippedQty * 100).toFixed(1) + '%)';
+  // Total average Qarma defect rate across all factories
+  const all = aggregateFactories(ACTIVE_DATA.factories || []);
+  const totalDefects = (all.qarma || {{}}).defects || 0;
+  const totalChecked = (all.qarma || {{}}).sample_qty || 0;
+  const qarmaCatchRate = totalChecked > 0 ? totalDefects / totalChecked : 0;
+  if (qarmaCatchRate <= 0) return 'No Qarma data';
+  function targetPct(targetRate) {{
+    const targetRemaining = targetRate * shippedQty;
+    const toCatch = Math.max(0, remakeQty - targetRemaining);
+    const additionalChecks = Math.ceil(toCatch / qarmaCatchRate);
+    const totalChecks = checkedQty + additionalChecks;
+    if (totalChecks > shippedQty) return '100%+';
+    const pct = totalChecks / shippedQty * 100;
+    if (toCatch <= 0) return 'On target (' + (checkedQty / shippedQty * 100).toFixed(1) + '%)';
     return pct.toFixed(1) + '%';
   }}
   return targetPct(0.005) + ' / ' + targetPct(0.002);
