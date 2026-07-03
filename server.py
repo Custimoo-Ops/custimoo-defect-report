@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import base64, csv, hashlib, hmac, io, json, os, secrets, socketserver, time, urllib.parse, urllib.request
-from collections import Counter
+from collections import Counter, deque
 from datetime import datetime, timezone
 from html import escape
 import http.server
@@ -25,6 +25,7 @@ SSO_COOKIE = "custimoo_report_session"
 SSO_STATE_COOKIE = "custimoo_report_oauth_state"
 SSO_NONCE_COOKIE = "custimoo_report_oauth_nonce"
 SSO_SESSION_TTL = int(os.environ.get("CUSTIMOO_SSO_SESSION_TTL", str(12 * 3600)))
+VISITS = deque(maxlen=int(os.environ.get("VISIT_LOG_MAX", "5000")))
 def b64url_decode(segment):
     segment += "=" * (-len(segment) % 4)
     return base64.urlsafe_b64decode(segment.encode())
@@ -253,6 +254,35 @@ class H(http.server.SimpleHTTPRequestHandler):
         self.send_header("Location", location)
         self.end_headers()
 
+    def _client_ip(self):
+        return (self.headers.get("Fly-Client-IP") or self.headers.get("X-Forwarded-For") or self.client_address[0] or "").split(",")[0].strip()
+
+    def _track_visit(self, path):
+        user = self._current_user() or {}
+        event = {
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "email": user.get("email") or "unknown",
+            "name": user.get("name") or user.get("email") or "unknown",
+            "path": path,
+            "ip": self._client_ip(),
+            "user_agent": (self.headers.get("User-Agent") or "")[:180],
+        }
+        VISITS.appendleft(event)
+        print(json.dumps({"event": "report_visit", **event}, separators=(",", ":")), flush=True)
+
+    def _visits(self):
+        events = list(VISITS)
+        by_user = Counter(e.get("email") or "unknown" for e in events)
+        by_path = Counter(e.get("path") or "" for e in events)
+        return self._json(200, {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "retention": "in-memory last %d visits plus Fly app logs" % VISITS.maxlen,
+            "total_in_memory": len(events),
+            "by_user": dict(by_user.most_common()),
+            "by_path": dict(by_path.most_common()),
+            "recent": events[:200],
+        })
+
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
         if path == "/auth/login": return self._auth_login()
@@ -261,11 +291,15 @@ class H(http.server.SimpleHTTPRequestHandler):
         if not self._require_auth(path): return
         if path == "/api/refresh": return self._refresh()
         if path == "/api/status": return self._status()
+        if path == "/api/visits": return self._visits()
         if path == "/api/dqc/events": return self._dqc_events()
         if path == "/api/dqc.csv": return self._dqc_csv()
         if path == "/api/dqc.xlsx": return self._dqc_xlsx()
-        if path == "/dqc": return self._html(DQC_PAGE)
+        if path == "/dqc":
+            self._track_visit(path)
+            return self._html(DQC_PAGE)
         if path == "/":
+            self._track_visit(path)
             self.path = "/index.html"
             return super().do_GET()
         return super().do_GET()
