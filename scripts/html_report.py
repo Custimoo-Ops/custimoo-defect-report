@@ -1747,6 +1747,7 @@ function measureCells(f, q) {{
   if (ACTIVE_MEASURE === 'orders') {{
     return '<td class="right">' + (f.orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + (q.orders_checked || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
       + '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + pctPill((f.orders || 0) > 0 ? (f.remake_orders || 0) / f.orders * 100 : 0) + '</td>';
   }}
@@ -1755,6 +1756,7 @@ function measureCells(f, q) {{
     + '<td class="right">' + (q.sample_qty || 0).toLocaleString() + '</td>'
     + '<td class="right">' + ((f.volume || 0) > 0 ? (((q.sample_qty || 0) / f.volume * 100).toFixed(1) + '%') : '—') + '</td>'
     + '<td class="right">' + (q.defects || 0).toLocaleString() + '</td>'
+    + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
     + '<td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td>'
     + '<td class="right">' + pctPill((f.volume || 0) > 0 ? (f.remake_qty || 0) / f.volume * 100 : 0) + '</td>';
 }}
@@ -1762,6 +1764,7 @@ function measureHeaders() {{
   if (ACTIVE_MEASURE === 'orders') {{
     return '<th class="right">Total Number of Orders</th>'
       + '<th class="right">Qarma Number of Orders</th>'
+      + '<th class="right">Qarma Err%</th>'
       + '<th class="right">Remake Orders</th>'
       + '<th class="right">Remake Orders Err%</th>';
   }}
@@ -1769,6 +1772,7 @@ function measureHeaders() {{
     + '<th class="right">Qarma QTY Checked</th>'
     + '<th class="right">Qarma QC Coverage%</th>'
     + '<th class="right">Qarma Defects QTY</th>'
+    + '<th class="right">Qarma Err%</th>'
     + '<th class="right">Remake QTY</th>'
     + '<th class="right">Remake QTY Err%</th>';
 }}
@@ -1781,14 +1785,13 @@ function factoryRow(f, opts) {{
   const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q) : qarmaRate(q);
   let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td><strong>' + f.name + '</strong></td>'
     + measureCells(f, q)
-    + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
     + '<td class="right" title="' + escapeAttr(actionPlanTooltip(f)) + '"><strong>' + actionPlanText(f) + '</strong></td>';
   return row + '</tr>';
 }}
 function setBreakdownHeader(mode) {{
   const thead = document.querySelector('#factoryTable thead tr');
   const first = mode === 'all' ? 'All' : (mode === 'factory' ? 'Factory' : (mode === 'sku' ? 'SKU / Series' : (mode === 'sport' ? 'Sport' : (mode === 'category' ? 'Category' : 'Order Admin'))));
-  thead.innerHTML = '<th>' + first + '</th>' + measureHeaders() + '<th class="right">Qarma Err%</th><th class="right">Qarma QC to 0.5% / 0.2%</th>';
+  thead.innerHTML = '<th>' + first + '</th>' + measureHeaders() + '<th class="right">Qarma QC to 0.5% / 0.2%</th>';
   document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Remake / Qarma Breakdown — All' : (mode === 'factory' ? 'Remake / Qarma Breakdown — Factories' : (mode === 'sku' ? 'Remake / Qarma Breakdown — SKU' : (mode === 'sport' ? 'Remake / Qarma Breakdown — Sports' : (mode === 'category' ? 'Remake / Qarma Breakdown — Category' : 'Remake / Qarma Breakdown — Order Admin'))));
   const qsrc = DATA.qarmaSource || {{}};
   const qnote = qsrc.ok ? (' Qarma source: live CSV · ' + (qsrc.filtered_rows || 0).toLocaleString() + ' included rows / ' + (qsrc.rows || 0).toLocaleString() + ' raw rows; Qarma updates around midnight Danish time, report refreshes hourly.') : (' Qarma source unavailable: ' + (qsrc.error || 'unknown error'));
