@@ -1384,7 +1384,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <div class="card">
       <div class="section-head"><h3 class="section-title" id="breakdownTitle">Remake / Qarma Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="breakdownFilter" class="muted" style="font-size:13px;font-weight:700">Filter:</label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
       <div class="hint" id="breakdownHint">Factory view combines backend remake data with Qarma physical QC catch data from the live daily CSV export.</div>
-      <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Number of Orders</th><th class="right">Total Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th><th class="right">Qarma Orders Checked</th><th class="right">Qarma Quantity Checked</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Err%</th><th class="right">Action Plan</th></tr></thead><tbody id="factoryBody"></tbody></table>
+      <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Number of Orders</th><th class="right">Total Order QTY</th><th class="right">Qarma Number of Orders</th><th class="right">Qarma QTY Checked</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Err%</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake Orders Err%</th><th class="right">Remake QTY Err%</th><th class="right">Actionplan</th></tr></thead><tbody id="factoryBody"></tbody></table>
     </div>
     <div class="card">
       <div class="section-head"><div><h3 class="section-title" id="exceptionLeadersTitle">Exception Leaders — Fewest Remake Orders</h3><div class="hint" id="exceptionLeadersSub">Based on selected period. Exception rate = remake orders / total orders.</div></div></div>
@@ -1664,25 +1664,27 @@ function factoryRow(f, opts) {{
   const clickable = opts.clickable ? ' clickable' : '';
   const dataFactory = opts.clickable ? ' data-factory="' + f.name + '"' : '';
   const q = f.qarma || {{}};
+  const remakeOrderPct = (f.orders || 0) > 0 ? (f.remake_orders || 0) / f.orders * 100 : 0;
   const remakeQtyPct = (f.volume || 0) > 0 ? (f.remake_qty || 0) / f.volume * 100 : 0;
   const qarmaErrPct = qarmaRate(q);
   let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td><strong>' + f.name + '</strong></td>'
     + '<td class="right">' + (f.orders || 0).toLocaleString() + '</td>'
     + '<td class="right">' + (f.volume || 0).toLocaleString() + '</td>'
-    + '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
-    + '<td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td>'
-    + '<td class="right">' + pctPill(remakeQtyPct) + '</td>'
     + '<td class="right">' + (q.orders_checked || 0).toLocaleString() + '</td>'
     + '<td class="right">' + (q.sample_qty || 0).toLocaleString() + '</td>'
     + '<td class="right">' + (q.defects || 0).toLocaleString() + '</td>'
     + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
+    + '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
+    + '<td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td>'
+    + '<td class="right">' + pctPill(remakeOrderPct) + '</td>'
+    + '<td class="right">' + pctPill(remakeQtyPct) + '</td>'
     + '<td class="right"><strong>' + actionPlanText(f) + '</strong></td>';
   return row + '</tr>';
 }}
 function setBreakdownHeader(mode) {{
   const thead = document.querySelector('#factoryTable thead tr');
   const first = mode === 'all' ? 'All' : (mode === 'factory' ? 'Factory' : (mode === 'sku' ? 'SKU / Series' : (mode === 'sport' ? 'Sport' : (mode === 'category' ? 'Category' : 'Order Admin'))));
-  thead.innerHTML = '<th>' + first + '</th><th class="right">Total Number of Orders</th><th class="right">Total Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th><th class="right">Qarma Orders Checked</th><th class="right">Qarma Quantity Checked</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Err%</th><th class="right">Action Plan</th>';
+  thead.innerHTML = '<th>' + first + '</th><th class="right">Total Number of Orders</th><th class="right">Total Order QTY</th><th class="right">Qarma Number of Orders</th><th class="right">Qarma QTY Checked</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Err%</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake Orders Err%</th><th class="right">Remake QTY Err%</th><th class="right">Actionplan</th>';
   document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Remake / Qarma Breakdown — All' : (mode === 'factory' ? 'Remake / Qarma Breakdown — Factories' : (mode === 'sku' ? 'Remake / Qarma Breakdown — SKU' : (mode === 'sport' ? 'Remake / Qarma Breakdown — Sports' : (mode === 'category' ? 'Remake / Qarma Breakdown — Category' : 'Remake / Qarma Breakdown — Order Admin'))));
   const qsrc = DATA.qarmaSource || {{}};
   const qnote = qsrc.ok ? (' Qarma source: live CSV · ' + (qsrc.filtered_rows || 0).toLocaleString() + ' included rows / ' + (qsrc.rows || 0).toLocaleString() + ' raw rows; Qarma updates around midnight Danish time, report refreshes hourly.') : (' Qarma source unavailable: ' + (qsrc.error || 'unknown error'));
@@ -1864,7 +1866,7 @@ function ytdCumulativeTable() {{
 }}
 function renderYtdFactoryTable() {{
   const head = document.getElementById('ytdFactoryHead');
-  head.innerHTML = '<th>Factory</th><th class="right">Total Number of Orders</th><th class="right">Total Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th><th class="right">Qarma Orders Checked</th><th class="right">Qarma Quantity Checked</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Err%</th><th class="right">Action Plan</th>';
+  head.innerHTML = '<th>Factory</th><th class="right">Total Number of Orders</th><th class="right">Total Order QTY</th><th class="right">Qarma Number of Orders</th><th class="right">Qarma QTY Checked</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Err%</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake Orders Err%</th><th class="right">Remake QTY Err%</th><th class="right">Actionplan</th>';
   const prev = ACTIVE_MEASURE;
   ACTIVE_MEASURE = YTD_MEASURE;
   renderFactoryTable('ytdFactoryBody', YTD.factories || [], false, {{}});
