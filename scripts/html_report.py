@@ -1388,7 +1388,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     </div>
     <div class="card" id="actionPlanCard">
       <h3 class="section-title">Actionplan Sanity Check</h3>
-      <div class="hint" id="actionPlanSummary">Qarma coverage is only one lever. Remake QTY error also includes QC escapes and issues physical QC cannot catch.</div>
+      <div class="hint" id="actionPlanSummary">Qarma coverage is only one lever. Remake QTY error also includes QC escapes and issues physical QC cannot catch. Silver-Star Group and Rajco have only recently started on-site QC, so their Qarma sanity-check interpretation is marked as more data needed.</div>
       <ul class="clean">
         <li><strong>Coverage gap:</strong> defects in quantity not checked by Qarma. 100% QC closes this blind spot.</li>
         <li><strong>QC escape rate:</strong> defects present in checked lots but missed by inspection. More checks with the same miss rate will not solve this alone.</li>
@@ -1747,7 +1747,8 @@ function renderActionPlanDiagnostics(mode) {{
     const implied = unchecked > 0 ? (f.remake_qty || 0) / unchecked * 100 : null;
     const ratio = (implied !== null && qRate > 0) ? implied / qRate : null;
     let interp = 'Coverage gap check';
-    if (implied === null) interp = 'No unchecked QTY';
+    if (['Rajco','Silver-Star Group'].includes(f.name)) interp = 'More data needed: on-site QC only recently started, so current Qarma sample is not mature enough for accuracy';
+    else if (implied === null) interp = 'No unchecked QTY';
     else if (ratio !== null && ratio >= 1.5) interp = 'Unchecked looks worse; 100% QC helps, but QC escapes/non-QC causes still need RCA';
     else if (ratio !== null && ratio <= 0.5) interp = 'Qarma sample likely risk-targeted; do not treat Qarma Err% as population rate';
     else interp = 'Unchecked broadly tracks checked lots; coverage is a reasonable lever';
