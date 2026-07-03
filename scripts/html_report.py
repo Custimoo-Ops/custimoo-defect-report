@@ -1677,29 +1677,62 @@ function actionPlanQty(f) {{
   if (targetCheckedQty > shippedQty) return null;
   return Math.max(0, targetCheckedQty - checkedQty);
 }}
-function actionPlanText(f) {{
+function actionPlanInputs(f) {{
   const remakeQty = f.remake_qty || 0;
   const checkedQty = (f.qarma || {{}}).sample_qty || 0;
   const shippedQty = f.volume || 0;
-  if (remakeQty <= 0) return 'On target';
-  if (shippedQty <= 0) return 'No shipped QTY';
-  // Total average Qarma defect rate across all factories
   const all = aggregateFactories(ACTIVE_DATA.factories || []);
   const totalDefects = (all.qarma || {{}}).defects || 0;
   const totalChecked = (all.qarma || {{}}).sample_qty || 0;
   const qarmaCatchRate = totalChecked > 0 ? totalDefects / totalChecked : 0;
-  if (qarmaCatchRate <= 0) return 'No Qarma data';
-  function targetPct(targetRate) {{
-    const targetRemaining = targetRate * shippedQty;
-    const toCatch = Math.max(0, remakeQty - targetRemaining);
-    const additionalChecks = Math.ceil(toCatch / qarmaCatchRate);
-    const totalChecks = checkedQty + additionalChecks;
-    if (totalChecks > shippedQty) return '100%+';
-    const pct = totalChecks / shippedQty * 100;
-    if (toCatch <= 0) return 'On target (' + (checkedQty / shippedQty * 100).toFixed(1) + '%)';
-    return pct.toFixed(1) + '%';
+  return {{ remakeQty, checkedQty, shippedQty, totalDefects, totalChecked, qarmaCatchRate }};
+}}
+function actionPlanTarget(f, targetRate) {{
+  const x = actionPlanInputs(f);
+  if (x.remakeQty <= 0) return {{ label: 'On target', targetRemaining: 0, toCatch: 0, additionalChecks: 0, totalChecks: x.checkedQty, coveragePct: x.shippedQty > 0 ? x.checkedQty / x.shippedQty * 100 : 0, capped: false }};
+  if (x.shippedQty <= 0 || x.qarmaCatchRate <= 0) return {{ label: 'No Qarma data', targetRemaining: 0, toCatch: 0, additionalChecks: 0, totalChecks: x.checkedQty, coveragePct: 0, capped: false }};
+  const targetRemaining = targetRate * x.shippedQty;
+  const toCatch = Math.max(0, x.remakeQty - targetRemaining);
+  const additionalChecks = Math.ceil(toCatch / x.qarmaCatchRate);
+  const totalChecks = x.checkedQty + additionalChecks;
+  const coveragePct = totalChecks / x.shippedQty * 100;
+  let label = coveragePct.toFixed(1) + '%';
+  if (totalChecks > x.shippedQty) label = '100%+';
+  if (toCatch <= 0) label = 'On target (' + (x.checkedQty / x.shippedQty * 100).toFixed(1) + '%)';
+  return {{ label, targetRemaining, toCatch, additionalChecks, totalChecks, coveragePct, capped: totalChecks > x.shippedQty }};
+}}
+function actionPlanText(f) {{
+  const t05 = actionPlanTarget(f, 0.005);
+  const t02 = actionPlanTarget(f, 0.002);
+  return '0.5%: ' + t05.label + ' / 0.2%: ' + t02.label;
+}}
+function escapeAttr(s) {{
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}}
+function actionPlanTooltip(f) {{
+  const x = actionPlanInputs(f);
+  if (x.shippedQty <= 0) return 'No shipped QTY';
+  if (x.qarmaCatchRate <= 0) return 'No Qarma data';
+  function fmt(n) {{ return Math.round(n).toLocaleString(); }}
+  function pct(n, d) {{ return d > 0 ? (n / d * 100).toFixed(1) + '%' : '—'; }}
+  function line(targetLabel, targetRate) {{
+    const t = actionPlanTarget(f, targetRate);
+    return targetLabel + ' target\\n'
+      + 'Target remaining remakes = ' + targetLabel + ' × ' + fmt(x.shippedQty) + ' = ' + fmt(t.targetRemaining) + ' pcs\\n'
+      + 'Remakes to catch = ' + fmt(x.remakeQty) + ' − ' + fmt(t.targetRemaining) + ' = ' + fmt(t.toCatch) + ' pcs\\n'
+      + 'Additional Qarma checks = ceil(' + fmt(t.toCatch) + ' / ' + (x.qarmaCatchRate * 100).toFixed(2) + '%) = ' + fmt(t.additionalChecks) + ' pcs\\n'
+      + 'Total Qarma checks = ' + fmt(x.checkedQty) + ' + ' + fmt(t.additionalChecks) + ' = ' + fmt(t.totalChecks) + ' pcs\\n'
+      + 'Coverage needed = ' + fmt(t.totalChecks) + ' / ' + fmt(x.shippedQty) + ' = ' + (t.capped ? '100%+' : t.coveragePct.toFixed(1) + '%');
   }}
-  return targetPct(0.005) + ' / ' + targetPct(0.002);
+  return 'Qarma QC coverage calculation for ' + f.name + '\\n'
+    + 'Uses total average Qarma catch rate across all factories:\\n'
+    + fmt(x.totalDefects) + ' defects / ' + fmt(x.totalChecked) + ' checked = ' + (x.qarmaCatchRate * 100).toFixed(2) + '%\\n\\n'
+    + 'Factory inputs:\\n'
+    + 'Total Order QTY = ' + fmt(x.shippedQty) + '\\n'
+    + 'Current Qarma QTY Checked = ' + fmt(x.checkedQty) + ' (' + pct(x.checkedQty, x.shippedQty) + ')\\n'
+    + 'Remake QTY = ' + fmt(x.remakeQty) + '\\n\\n'
+    + line('0.5%', 0.005) + '\\n\\n'
+    + line('0.2%', 0.002);
 }}
 function measureCells(f, q) {{
   if (ACTIVE_MEASURE === 'orders') {{
@@ -1740,7 +1773,7 @@ function factoryRow(f, opts) {{
   let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td><strong>' + f.name + '</strong></td>'
     + measureCells(f, q)
     + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
-    + '<td class="right"><strong>' + actionPlanText(f) + '</strong></td>';
+    + '<td class="right" title="' + escapeAttr(actionPlanTooltip(f)) + '"><strong>' + actionPlanText(f) + '</strong></td>';
   return row + '</tr>';
 }}
 function setBreakdownHeader(mode) {{
