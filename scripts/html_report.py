@@ -302,6 +302,8 @@ YTD_DATA_JSON = json.dumps({
     'monthKeys': ytd_months,
     'monthlyVolume': [total_monthly.get(m, {}).get('qty', 0) for m in ytd_months],
     'monthlyOrders': [total_monthly.get(m, {}).get('orders', 0) for m in ytd_months],
+    'monthlyRemakeOrders': [remake_by_month.get(m, {}).get('orders', 0) for m in ytd_months],
+    'monthlyRemakeQty': [remake_by_month.get(m, {}).get('qty', 0) for m in ytd_months],
     'monthlyDefects': [monthly_defects.get(m, 0) for m in ytd_months],
     'monthlyDefectOrders': [defect_order_count.get(m, 0) for m in ytd_months],
     'volume': ytd_volume,
@@ -340,54 +342,20 @@ pw = os.environ.get("CUSTIMOO_DB_PASSWORD", "")
 conn = pymysql.connect(host="127.0.0.1", port=3307, database="custimoo_backend_prod", user="custimoo_backend_usr", password=pw, connect_timeout=10)
 cur = conn.cursor()
 
-# Fetch fu messages (skip if no Graph credentials)
-if os.environ.get("CUSTIMOO_GRAPH_TENANT_ID"):
-    tenant = os.environ["CUSTIMOO_GRAPH_TENANT_ID"]
-    client_id = os.environ["CUSTIMOO_GRAPH_CLIENT_ID"]
-    client_secret = os.environ["CUSTIMOO_GRAPH_CLIENT_SECRET"]
-    url = "https://login.microsoftonline.com/%s/oauth2/v2.0/token" % (tenant,)
-    body = "client_id=%s&client_secret=%s&scope=https://graph.microsoft.com/.default&grant_type=client_credentials" % (client_id, client_secret)
-    req = urllib.request.Request(url, data=body.encode(), headers={"Content-Type": "application/x-www-form-urlencoded"})
-    try:
-        token = json.loads(urllib.request.urlopen(req).read().decode())["access_token"]
+# FU/customer-feedback data is intentionally excluded from the shared report.
+first_fu_month = {}
+groups = defaultdict(list)
 
-        url = "https://graph.microsoft.com/v1.0/users/fu@custimoo.com/messages?$filter=receivedDateTime%20ge%202025-10-28T00:00:00Z&$top=100&$select=subject,receivedDateTime,body&$orderby=receivedDateTime%20asc"
-        all_msgs = []
-        while url:
-            req = urllib.request.Request(url, headers={"Authorization": "Bearer " + token, "Prefer": "outlook.body-content-type=text"})
-            resp = json.loads(urllib.request.urlopen(req).read().decode())
-            all_msgs.extend(resp.get("value", []))
-            url = resp.get("@odata.nextLink")
-
-        first_fu_month = {}
-        groups = defaultdict(list)
-        for m in all_msgs:
-            subj = m["subject"]
-            content = m.get("body", {}).get("content", "")[:2000]
-            dt = m["receivedDateTime"][:7]
-            nums_text = re.sub(r"https?://\S+", " ", subj + " " + content)
-            nums = re.findall(r"(?:order|Order|ORDER)?\s*#?\s*(\d{4,6})", nums_text)
-            for n in set(n for n in nums if 10000 <= int(n) <= 99999):
-                groups[n].append({"subject": subj, "body": content})
-                if n not in first_fu_month:
-                    first_fu_month[n] = dt
-    except Exception as e:
-        print("Graph API call in html_report.py failed:", e)
-        first_fu_month = {}
-        groups = defaultdict(list)
-else:
-    print("Skipping Microsoft Graph in html_report — no credentials")
-    first_fu_month = {}
-    groups = defaultdict(list)
-
-ALL_ORDER_NUMS = set(list(first_fu_month.keys()) + list(factory_data.MANUAL.keys()))
+ALL_ORDER_NUMS = set()
 qs = ",".join(["%s"] * len(ALL_ORDER_NUMS))
-
-cur.execute("SELECT o.order_no, CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED), COALESCE(oi.factory_name, '(unknown)') FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id WHERE o.order_no IN (%s)" % qs, list(ALL_ORDER_NUMS))
 
 order_factory = {}
 order_qty = {}
 db_order_nums = set()
+if ALL_ORDER_NUMS:
+    cur.execute("SELECT o.order_no, CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED), COALESCE(oi.factory_name, '(unknown)') FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id WHERE o.order_no IN (%s)" % qs, list(ALL_ORDER_NUMS))
+else:
+    cur.execute("SELECT NULL, NULL, NULL WHERE 0")
 for r in cur.fetchall():
     ono = str(r[0])
     db_order_nums.add(ono)
@@ -754,8 +722,7 @@ def collect_product_design_ids(raw):
     walk(parsed)
     return ids
 
-production_file_designers_by_order = load_production_file_designers_from_teams()
-print(f"Loaded Teams production-file designer mapping for {len(production_file_designers_by_order)} orders")
+production_file_designers_by_order = {}  # Designer exception leaderboard disabled: no reliable connection.
 
 # Map product design ids to actual designer Windows logins via design file creators.
 cur.execute("""
@@ -800,8 +767,6 @@ for ono, qty, shipping_date, admin_name, admin_email, raw_factory, factory_produ
     ono = str(ono)
     all_order_meta[ono]['qty'] = max(all_order_meta[ono]['qty'], int(qty or 0))
     all_order_meta[ono]['admin'] = admin_name or '(unknown)'
-    designer_logins = set(production_file_designers_by_order.get(ono, set()))
-    all_order_meta[ono]['designers'].update(designer_logins)
     all_order_meta[ono]['month'] = str(shipping_date)[:7] if shipping_date else '?'
     for raw in (factory_products, order_line):
         if not raw:
@@ -1296,10 +1261,8 @@ except Exception as e:
 
 
 
-ORDERS_JSON = json.dumps(order_details, default=str)
-ORDERS_JSON_SAFE = ORDERS_JSON.replace('<', '\\u003C').replace('>', '\\u003E')
-FU_REVIEW_JSON = json.dumps(fu_review_rows, default=str)
-FU_REVIEW_JSON_SAFE = FU_REVIEW_JSON.replace('<', '\\u003C').replace('>', '\\u003E')
+ORDERS_JSON_SAFE = '[]'
+FU_REVIEW_JSON_SAFE = '[]'
 
 MONTH_KEYS = json.dumps(all_months_sorted)
 generation_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
@@ -1409,20 +1372,19 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <button class="tab" data-target="ytd">YTD 2026</button>
     <button class="tab" data-target="details">Details</button>
     <button class="tab" data-target="methodology">Methodology</button>
-    <button class="tab" data-target="error-tracking">Error Tracking</button>
     <button class="tab" data-target="remake-mgmt">Remake Mgmt</button>
     <button class="tab" data-target="dqc-usage">DQC Usage</button>
   </div>
   <section id="summary" class="page active">
     <div class="exec-grid">
-      <div class="card metric"><div class="label">3-Month Rolling Error Rate</div><div class="value" id="rollingRate"></div><div class="sub" id="rollingSub"></div></div>
-      <div class="card metric"><div class="label" id="selectedRateLabel">Selected Period Error Rate</div><div class="value" id="totalRate"></div><div class="sub" id="totalSub"></div></div>
+      <div class="card metric"><div class="label">3-Month Rolling Remake Rate</div><div class="value" id="rollingRate"></div><div class="sub" id="rollingSub"></div></div>
+      <div class="card metric"><div class="label" id="selectedRateLabel">Selected Period Remake Rate</div><div class="value" id="totalRate"></div><div class="sub" id="totalSub"></div></div>
     </div>
     <div class="card metric"><div class="label">2026 Goal — Remake QTY Error Rate</div><div class="value" id="goalRate">0.50%</div><div class="sub" id="goalSub">Goal for 2026: ≤0.50% remake-qty error rate.</div></div>
     <div class="card">
-      <div class="section-head"><h3 class="section-title" id="breakdownTitle">Error Rate Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="breakdownFilter" class="muted" style="font-size:13px;font-weight:700">Filter:</label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
-      <div class="hint" id="breakdownHint">Factory view combines FU customer-feedback/remake data with Qarma physical QC catch data from the live daily CSV export.</div>
-      <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma ERR% (Sample)</th></tr></thead><tbody id="factoryBody"></tbody></table>
+      <div class="section-head"><h3 class="section-title" id="breakdownTitle">Remake / Qarma Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="breakdownFilter" class="muted" style="font-size:13px;font-weight:700">Filter:</label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
+      <div class="hint" id="breakdownHint">Factory view combines backend remake data with Qarma physical QC catch data from the live daily CSV export.</div>
+      <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Remake % (Sample)</th></tr></thead><tbody id="factoryBody"></tbody></table>
     </div>
     <div class="card">
       <div class="section-head"><div><h3 class="section-title" id="exceptionLeadersTitle">Exception Leaders — Fewest Remake Orders</h3><div class="hint" id="exceptionLeadersSub">Based on selected period. Exception rate = remake orders / total orders.</div></div></div>
@@ -1430,10 +1392,6 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         <div>
           <h4 style="margin:0 0 10px">🏆 Order Admins</h4>
           <table><thead><tr><th>Rank</th><th>Order Admin</th><th class="right">Exception Rate</th><th class="right">Remake Orders</th><th class="right">Total Orders</th></tr></thead><tbody id="adminLeadersBody"></tbody></table>
-        </div>
-        <div>
-          <h4 style="margin:0 0 10px">🏆 Designers</h4>
-          <table><thead><tr><th>Rank</th><th>Designer</th><th class="right">Exception Rate</th><th class="right">Remake Orders</th><th class="right">Total Orders</th></tr></thead><tbody id="designerLeadersBody"></tbody></table>
         </div>
       </div>
     </div>
@@ -1452,38 +1410,33 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
   <section id="ytd" class="page">
     <div class="exec-grid">
       <div class="card metric"><div class="label">YTD 2026 Total Order QTY</div><div class="value" id="ytdVolume"></div><div class="sub">Jan – Jun 2026*</div></div>
-      <div class="card metric"><div class="label" id="periodKpiLabel">YTD 2026 Defects</div><div class="value" id="periodKpiValue"></div><div class="sub" id="periodKpiSub"></div></div>
+      <div class="card metric"><div class="label" id="periodKpiLabel">YTD 2026 Remakes</div><div class="value" id="periodKpiValue"></div><div class="sub" id="periodKpiSub"></div></div>
     </div>
     <div class="card">
       <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="ytdMeasureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="ytdMeasureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select></div></div>
       <div class="chart-wrap"><canvas id="ytdChart"></canvas></div>
-      <div class="footnote">Blue bars show accumulated volume/orders. Red line shows accumulated error percentage for the selected measure.</div>
+      <div class="footnote">Blue bars show accumulated volume/orders. Red line shows accumulated remake percentage for the selected measure.</div>
     </div>
     <div class="card">
       <h3 class="section-title" id="ytdMonthlyTitle">YTD Monthly Accumulated QTY</h3>
       <table><thead><tr id="ytdMonthlyHead"></tr></thead><tbody id="ytdMonthlyBody"></tbody></table>
     </div>
     <div class="card">
-      <h3 class="section-title">YTD 2026 &mdash; Per-Factory Error Rate (Worst &rarr; Best)</h3>
+      <h3 class="section-title">YTD 2026 &mdash; Per-Factory Remake Rate</h3>
       <table><thead><tr id="ytdFactoryHead"></tr></thead><tbody id="ytdFactoryBody"></tbody></table>
     </div>
   </section>
   <section id="details" class="page">
     <div class="card">
       <h3 class="section-title">Month-wise Summary</h3>
-      <div class="hint">Click any month row to see the defect orders</div>
-      <table><thead><tr><th>Month</th><th class="right">Total Order QTY</th><th class="right">Orders</th><th class="right">Defect QTY</th><th class="right">Defect Orders</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Err% (QTY)</th><th class="right">Err% (Orders)</th></tr></thead><tbody id="monthlyBody"></tbody></table>
+      <div class="hint">Month-wise volume, remake orders, and remake quantity.</div>
+      <table><thead><tr><th>Month</th><th class="right">Total Order QTY</th><th class="right">Orders</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th></tr></thead><tbody id="monthlyBody"></tbody></table>
     </div>
     <div class="card">
-      <h3 class="section-title">Factory &times; Month Defects</h3>
-      <div class="hint">Click any cell to see that factory's orders in that month</div>
+      <h3 class="section-title">Factory &times; Month Remake QTY</h3>
+      <div class="hint">Monthly remake quantity by factory.</div>
       <table><thead><tr><th>Factory</th><th class="right" id="hdr1"></th><th class="right" id="hdr2"></th><th class="right" id="hdr3"></th><th class="right" id="hdr4"></th><th class="right" id="hdr5"></th><th class="right" id="hdr6"></th><th class="right" id="hdr7"></th><th class="right" id="hdr8"></th><th class="right" id="hdr9"></th></tr></thead><tbody id="factoryMonthBody"></tbody></table>
       <div class="footnote">{report_month_labels[-1]} still in progress</div>
-    </div>
-    <div class="card">
-      <h3 class="section-title">FU Inbox Review</h3>
-      <div class="hint">Orders read from fu@custimoo.com. Rows marked Counted affect the defect rate; delay/process or missing-quantity rows are tracked but not counted.</div>
-      <table><thead><tr><th>FU Month</th><th>Order</th><th>Status</th><th class="right">Affected</th><th class="right">Total QTY</th><th>Factory</th><th>Subject</th></tr></thead><tbody id="fuReviewBody"></tbody></table>
     </div>
   </section>
   <section id="methodology" class="page">
@@ -1496,24 +1449,14 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <ul class="clean">
         <li>Reporting window is <strong>{report_month_labels[0]} – {report_month_labels[-1]}</strong>.</li>
         <li>Total month volume uses proper products only (excludes name plates, fight straps, logo patches, accessories).</li>
-        <li>Defects are tracked from <strong>fu@custimoo.com</strong> customer feedback emails, with manual overrides for exact counts confirmed by order admins.</li>
-        <li>When email does not specify the exact count, the full order quantity is used as the upper-bound estimate.</li>
+        <li>The shared report uses <strong>remake orders</strong> from the backend and <strong>Qarma physical QC</strong> from the live Qarma export.</li>
         <li>Factory comparisons use total shipped order quantity per factory from the backend database, bucketed by <strong>order_items.status_updated_at</strong> for shipped/completed/shipping-status rows.</li>
         <li>Qarma physical QC uses the live Qarma <strong>inspections.csv.gz</strong> export, updated by Qarma around midnight Danish time. The hourly report run picks up the newest Qarma file automatically.</li>
         <li>Qarma sample quantity is deduplicated by <strong>Report inspection id</strong>; Qarma defects are Minor + Major + Critical defect pieces affected.</li>
-        <li>Defects are bucketed by the month the customer <strong>first reported</strong> the issue (fu email received date), not the order creation date.</li>
+        <li>Remakes are bucketed by backend order month; Qarma is bucketed by inspection month from the Qarma export.</li>
         <li>{report_month_labels[-1]} is <span class="in-progress">still in progress</span>.</li>
         <li>Click any number in the report to drill into the specific orders behind it.</li>
-        <li>Errors are tracked and estimated from the email <strong>fu@custimoo.com</strong>.</li>
-        <li>We try to deduce the actual affected number of QTY to keep it fair. The system can sometimes have difficulties handling orders split across multiple factories.</li>
-        <li>If an email is unclear or without order number, the sender will be asked to provide an order number and be a little more clear.</li>
       </ul>
-    </div>
-  </section>
-  <section id="error-tracking" class="page">
-    <div class="card">
-      <div class="section-head"><h3 class="section-title">Error Tracking — Category Breakdown</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="errorFilter" class="muted" style="font-size:13px;font-weight:700">Group by:</label><select id="errorFilter" class="filter-select"><option value="factory">Factory</option><option value="sku">SKU</option><option value="sport">Sport</option><option value="admin">Order Admin</option></select></div></div>
-      <div id="errorTrackingBody"></div>
     </div>
   </section>
   <section id="remake-mgmt" class="page">
@@ -1575,10 +1518,7 @@ const DATA = {DATA_JSON};
 const YTD = {YTD_DATA_JSON};
 const FACTORY_COLORS = {FACTORY_COLORS};
 const MONTH_KEYS = {MONTH_KEYS};
-const ORDERS = {ORDERS_JSON_SAFE};
-const FU_REVIEW = {FU_REVIEW_JSON_SAFE};
 const GROUPINGS = {GROUPING_JSON_SAFE};
-const ERROR_TRACKING = {ERROR_TRACKING_JSON_SAFE};
 const PERIODS = {PERIODS_JSON_SAFE};
 const REMAKES = {REMAKE_MGMT_JSON};
 const REMAKE_SAVE_URL = '{REMAKE_SAS_URL}';
@@ -1683,406 +1623,6 @@ document.getElementById('drillOverlay').addEventListener('click', function(e) {{
 }});
 
 function esc(s) {{ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {{ return {{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c]; }}); }}
-function renderFuReview() {{
-  const body = document.getElementById('fuReviewBody');
-  if (!body) return;
-  const rows = (FU_REVIEW || []).slice(0, 250);
-  body.innerHTML = rows.length ? rows.map(function(r) {{
-    return '<tr><td>' + esc(r.fu_month) + '</td><td><strong>#' + esc(r.order) + '</strong></td><td>' + esc(r.status) + '</td><td class="right">' + esc(r.affected || '') + '</td><td class="right">' + (r.total_qty || 0).toLocaleString() + '</td><td>' + esc(r.factory) + '</td><td><div class="drill-snippet">' + esc(r.subjects || r.snippet || '') + '</div></td></tr>';
-  }}).join('') : '<tr><td colspan="7">No FU messages read</td></tr>';
-}}
-renderFuReview();
-
-// ── YTD KPI cards / measure view ──
-function updateSummaryStats() {{
-  const d = ACTIVE_DATA;
-  const label = d.label || (d.months[0] + ' – ' + d.months[d.months.length-1]);
-  const rollingData = PERIODS.last_3 || DATA;
-  const rollingAgg = aggregateFactories(rollingData.factories || []);
-  const selectedAgg = aggregateFactories(d.factories || []);
-  const rollingRemakeRate = (rollingAgg.volume || 0) > 0 ? ((rollingAgg.remake_qty || 0) / rollingAgg.volume * 100) : 0;
-  const selectedRemakeRate = (selectedAgg.volume || 0) > 0 ? ((selectedAgg.remake_qty || 0) / selectedAgg.volume * 100) : 0;
-  document.getElementById('rollingRate').textContent = rollingRemakeRate.toFixed(2) + '%';
-  document.getElementById('rollingSub').textContent = 'Fixed 3-month rolling window · ' + (DATA.rollingLabel || '') + ' · ' + (rollingAgg.remake_qty || 0).toLocaleString() + ' remake qty / ' + (rollingAgg.volume || 0).toLocaleString() + ' total order qty';
-  document.getElementById('selectedRateLabel').textContent = 'Selected Period Error Rate';
-  document.getElementById('totalRate').textContent = selectedRemakeRate.toFixed(2) + '%';
-  document.getElementById('totalSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · ' + (selectedAgg.remake_qty || 0).toLocaleString() + ' remake qty / ' + (selectedAgg.volume || 0).toLocaleString() + ' total order qty';
-  const ytd = PERIODS.ytd || DATA;
-  const ytdAgg = aggregateFactories(ytd.factories || []);
-  const ytdRate = (ytdAgg.volume || 0) > 0 ? ((ytdAgg.remake_qty || 0) / ytdAgg.volume * 100) : 0;
-  const gap = ytdRate - 0.5;
-  const goalText = gap <= 0 ? 'On target' : (gap.toFixed(2) + ' percentage points above goal');
-  document.getElementById('goalSub').textContent = 'Goal for 2026: ≤0.50% remake-qty error rate. Current YTD: ' + ytdRate.toFixed(2) + '% (' + (ytdAgg.remake_qty || 0).toLocaleString() + ' remake qty / ' + (ytdAgg.volume || 0).toLocaleString() + ' total order qty) · ' + goalText;
-}}
-
-function leaderRank(i) {{ return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : String(i + 1); }}
-function renderLeaderRows(rows, emptyLabel) {{
-  if (!rows || !rows.length) return '<tr><td colspan="5">No qualifying ' + emptyLabel + ' in selected period</td></tr>';
-  return rows.map(function(r, i) {{
-    return '<tr><td><strong>' + leaderRank(i) + '</strong></td><td>' + esc(r.name) + '</td><td class="right"><strong>' + (r.rate || 0).toFixed(2) + '%</strong></td><td class="right">' + (r.remake_orders || 0).toLocaleString() + '</td><td class="right">' + (r.orders || 0).toLocaleString() + '</td></tr>';
-  }}).join('');
-}}
-function renderExceptionLeaders() {{
-  const d = ACTIVE_DATA || {{}};
-  const leaders = d.exceptionLeaders || {{admin: [], designer: []}};
-  const label = d.label || ((d.months || [])[0] + ' – ' + (d.months || [])[(d.months || []).length - 1]);
-  document.getElementById('exceptionLeadersSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · exception rate = remake orders / total orders. Designers are identified from OneDrive production-file upload messages; zero means no linked remake order in this period.';
-  document.getElementById('adminLeadersBody').innerHTML = renderLeaderRows(leaders.admin || [], 'order admins');
-  document.getElementById('designerLeadersBody').innerHTML = renderLeaderRows(leaders.designer || [], 'designers');
-}}
-
-
-function pctPill(r) {{
-  return r >= 2.0 ? '<span class="pct-pill pct-high">'+r.toFixed(2)+'%</span>'
-       : r >= 1.0 ? '<span class="pct-pill pct-mid">'+r.toFixed(2)+'%</span>'
-       : '<span class="pct-pill pct-low">'+r.toFixed(2)+'%</span>';
-}}
-
-function aggregateFactories(list) {{
-  const totals = list.reduce(function(acc, f) {{
-    const q = f.qarma || {{}};
-    acc.volume += f.volume || 0;
-    acc.orders += f.orders || 0;
-    acc.defects += f.defects || 0;
-    acc.defect_orders += f.defect_orders || 0;
-    acc.remake_orders += f.remake_orders || 0;
-    acc.remake_qty += f.remake_qty || 0;
-    acc.qarma.sample_qty += q.sample_qty || 0;
-    acc.qarma.defects += q.defects || 0;
-    acc.qarma.inspections += q.inspections || 0;
-    acc.qarma.orders_checked += q.orders_checked || 0;
-    acc.qarma.rejected_orders += q.rejected_orders || 0;
-    return acc;
-  }}, {{volume:0, orders:0, defects:0, defect_orders:0, remake_orders:0, remake_qty:0, qarma:{{sample_qty:0, defects:0, inspections:0, orders_checked:0, rejected_orders:0}}}});
-  totals.rate = totals.volume > 0 ? totals.defects / totals.volume * 100 : 0;
-  totals.order_rate = totals.orders > 0 ? totals.defect_orders / totals.orders * 100 : 0;
-  totals.qarma.rate = totals.qarma.sample_qty > 0 ? totals.qarma.defects / totals.qarma.sample_qty * 100 : 0;
-  totals.qarma.order_rate = totals.qarma.orders_checked > 0 ? totals.qarma.rejected_orders / totals.qarma.orders_checked * 100 : 0;
-  return totals;
-}}
-
-
-function compareMark(curr, prev, kind) {{
-  if (prev === null || prev === undefined || isNaN(prev) || Number(prev) === 0 || curr === null || curr === undefined || isNaN(curr)) return '';
-  const c = Number(curr), p = Number(prev);
-  if (c === p) return '<span class="delta neutral" title="No change vs previous period">◆</span>';
-  const up = c > p;
-  let good = false;
-  if (kind === 'bad') good = !up;
-  else if (kind === 'good') good = up;
-  else return '<span class="delta neutral" title="' + (up ? 'Up' : 'Down') + ' vs previous period">' + (up ? '▲' : '▼') + '</span>';
-  return '<span class="delta ' + (good ? 'good' : 'bad') + '" title="' + (good ? 'Improved' : 'Worsened') + ' vs previous period">' + (up ? '▲' : '▼') + '</span>';
-}}
-function valWithDelta(html, curr, prev, kind) {{ return html; }}
-function qarmaOrderRate(row) {{ const q = (row && row.qarma) || {{}}; return q.order_rate || 0; }}
-
-function factoryRow(f, opts) {{
-  opts = opts || {{}};
-  const cls = opts.cls || '';
-  const p = opts.prev || null;
-  const clickable = opts.clickable ? ' clickable' : '';
-  const dataFactory = opts.clickable ? ' data-factory="' + f.name + '"' : '';
-  const remakeQtyPct = (f.volume || 0) > 0 ? (f.remake_qty || 0) / f.volume * 100 : 0;
-  const pRemakeQtyPct = p && (p.volume || 0) > 0 ? (p.remake_qty || 0) / p.volume * 100 : null;
-  const remakeOrderPct = (f.orders || 0) > 0 ? (f.remake_orders || 0) / f.orders * 100 : 0;
-  const pRemakeOrderPct = p && (p.orders || 0) > 0 ? (p.remake_orders || 0) / p.orders * 100 : null;
-  const q = f.qarma || {{}};
-  const pq = p && p.qarma ? p.qarma : null;
-  const qarmaRate = (q.sample_qty || 0) > 0 ? (q.defects || 0) / q.sample_qty * 100 : 0;
-  const pQarmaRate = pq && (pq.sample_qty || 0) > 0 ? (pq.defects || 0) / pq.sample_qty * 100 : null;
-  const qarmaOrderPct = (q.orders_checked || 0) > 0 ? (q.rejected_orders || 0) / q.orders_checked * 100 : 0;
-  const pQarmaOrderPct = pq && (pq.orders_checked || 0) > 0 ? (pq.rejected_orders || 0) / pq.orders_checked * 100 : null;
-  let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td><strong>' + f.name + '</strong></td>';
-  if (ACTIVE_MEASURE === 'orders') {{
-    row += '<td class="right">' + valWithDelta((f.orders || 0).toLocaleString(), f.orders || 0, p ? p.orders || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta((f.defect_orders || 0).toLocaleString(), f.defect_orders || 0, p ? p.defect_orders || 0 : null, 'bad') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(f.order_rate || 0), f.order_rate || 0, p ? p.order_rate || 0 : null, 'bad') + '</td>'
-      + '<td class="right">' + valWithDelta((f.remake_orders || 0).toLocaleString(), f.remake_orders || 0, p ? p.remake_orders || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta((f.remake_qty || 0).toLocaleString(), f.remake_qty || 0, p ? p.remake_qty || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(remakeOrderPct), remakeOrderPct, pRemakeOrderPct, 'bad') + '</td>'
-      + '<td class="right">' + valWithDelta((q.orders_checked || 0).toLocaleString(), q.orders_checked || 0, pq ? pq.orders_checked || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta((q.rejected_orders || 0).toLocaleString(), q.rejected_orders || 0, pq ? pq.rejected_orders || 0 : null, 'bad') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(qarmaOrderPct), qarmaOrderPct, pQarmaOrderPct, 'bad') + '</td>';
-  }} else {{
-    row += '<td class="right">' + valWithDelta((f.volume || 0).toLocaleString(), f.volume || 0, p ? p.volume || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta((f.defects || 0).toLocaleString(), f.defects || 0, p ? p.defects || 0 : null, 'bad') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(f.rate || 0), f.rate || 0, p ? p.rate || 0 : null, 'bad') + '</td>'
-      + '<td class="right">' + valWithDelta((f.remake_orders || 0).toLocaleString(), f.remake_orders || 0, p ? p.remake_orders || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta((f.remake_qty || 0).toLocaleString(), f.remake_qty || 0, p ? p.remake_qty || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(remakeQtyPct), remakeQtyPct, pRemakeQtyPct, 'bad') + '</td>'
-      + '<td class="right">' + valWithDelta((q.sample_qty || 0).toLocaleString(), q.sample_qty || 0, pq ? pq.sample_qty || 0 : null, 'neutral') + '</td>'
-      + '<td class="right">' + valWithDelta((q.defects || 0).toLocaleString(), q.defects || 0, pq ? pq.defects || 0 : null, 'bad') + '</td>'
-      + '<td class="right">' + valWithDelta(pctPill(qarmaRate), qarmaRate, pQarmaRate, 'bad') + '</td>';
-  }}
-  return row + '</tr>';
-}}
-
-function groupingRow(g, opts) {{
-  opts = opts || {{}};
-  const cls = opts.cls || '';
-  const remakeOrderPct = (g.orders || 0) > 0 ? (g.remake_orders || 0) / g.orders * 100 : 0;
-  const remakeQtyPct = (g.volume || 0) > 0 ? (g.remake_qty || 0) / g.volume * 100 : 0;
-  let row = '<tr class="' + cls + '"><td><strong>' + g.name + '</strong></td>';
-  if (ACTIVE_MEASURE === 'orders') {{
-    row += '<td class="right">' + (g.orders || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (g.defect_orders || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + pctPill(g.order_rate || 0) + '</td>'
-      + '<td class="right">' + (g.remake_orders || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (g.remake_qty || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + pctPill(remakeOrderPct) + '</td>';
-  }} else {{
-    row += '<td class="right">' + (g.volume || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (g.defects || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + pctPill(g.rate || 0) + '</td>'
-      + '<td class="right">' + (g.remake_orders || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (g.remake_qty || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + pctPill(remakeQtyPct) + '</td>';
-  }}
-  return row + '</tr>';
-}}
-
-function setBreakdownHeader(mode) {{
-  const thead = document.querySelector('#factoryTable thead tr');
-  const first = mode === 'all' ? 'All' : (mode === 'factory' ? 'Factory' : (mode === 'sku' ? 'SKU / Series' : (mode === 'sport' ? 'Sport' : (mode === 'category' ? 'Category' : 'Order Admin'))));
-  if (ACTIVE_MEASURE === 'orders') {{
-    thead.innerHTML = '<th>' + first + '</th><th class="right">No of Orders</th><th class="right">FU Orders W/Defect</th><th class="right">FU ERR% (Orders)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th><th class="right">Qarma Orders Checked</th><th class="right">Qarma Rejected Orders</th><th class="right">Qarma ERR% (Orders)</th>';
-  }} else {{
-    thead.innerHTML = '<th>' + first + '</th><th class="right">Total Order QTY</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma ERR% (Sample)</th>';
-  }}
-  document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Error Rate Breakdown — All' : (mode === 'factory' ? 'Error Rate Breakdown — Factories' : (mode === 'sku' ? 'Error Rate Breakdown — SKU' : (mode === 'sport' ? 'Error Rate Breakdown — Sports' : (mode === 'category' ? 'Error Rate Breakdown — Category' : 'Error Rate Breakdown — Order Admin'))));
-  const qsrc = DATA.qarmaSource || {{}};
-  const qnote = qsrc.ok ? (' Qarma source: live CSV · ' + (qsrc.filtered_rows || 0).toLocaleString() + ' included rows / ' + (qsrc.rows || 0).toLocaleString() + ' raw rows; Qarma updates around midnight Danish time, report refreshes hourly.') : (' Qarma source unavailable: ' + (qsrc.error || 'unknown error'));
-  document.getElementById('breakdownHint').textContent = mode === 'all' ? ('All selected period data in one total row.' + qnote) : (mode === 'factory' ? ('Factory view combines FU customer-feedback/remake data with Qarma physical QC catch data.' + qnote) : (mode === 'category' ? ('Category view groups matched FU orders by high-confidence root-cause category; uncertain matches are Uncategorized. Qarma measures are matched by order number where available.' + qnote) : 'Same measure view as factory view; grouped by ' + (mode === 'sku' ? 'SKU / series' : (mode === 'sport' ? 'sport' : 'order admin')) + '. Qarma measures are matched by order number where available.' + qnote));
-}}
-
-function renderFactoryTable(tbodyId, list, clickable, opts) {{
-  const total = aggregateFactories(list);
-  total.name = 'Total';
-  const noMavicList = list.filter(function(f) {{ return f.name !== 'Mavic Sports'; }});
-  const noMavic = aggregateFactories(noMavicList);
-  noMavic.name = 'Total excl. Mavic Sports';
-  const prevList = (opts && opts.prevList) || [];
-  const prevByName = Object.fromEntries(prevList.map(function(x) {{ return [x.name, x]; }}));
-  const prevTotal = prevList.length ? aggregateFactories(prevList) : null;
-  const prevNoMavic = prevList.length ? aggregateFactories(prevList.filter(function(fd) {{ return fd.name !== 'Mavic Sports'; }})) : null;
-  document.getElementById(tbodyId).innerHTML =
-    list.map(function(f) {{ return factoryRow(f, {{clickable: clickable, prev: prevByName[f.name]}}); }}).join('')
-    + factoryRow(total, {{cls:'total-row', prev: prevTotal}})
-    + factoryRow(noMavic, {{cls:'no-mavic-row', prev: prevNoMavic}});
-}}
-
-function renderGroupingTable(mode) {{
-  setBreakdownHeader(mode);
-  var filter = document.getElementById('breakdownFilter'); if (filter && filter.value !== mode) filter.value = mode;
-    if (mode === 'all') {{
-    const total = aggregateFactories(ACTIVE_DATA.factories || []);
-    total.name = 'All';
-    let html = factoryRow(total, {{cls:'total-row'}});
-    var prev = ACTIVE_DATA.prev;
-    if (prev && prev.totalVolume > 0) {{
-      const prevAgg = aggregateFactories(prev.factories || []);
-      html += '<tr class="prev-row"><td><strong>Previous period (' + (prev.months || []).join(' \u2013 ') + ')</strong></td>';
-      if (ACTIVE_MEASURE === 'orders') {{
-        html += '<td class="right">' + (prev.totalOrders || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + (prev.totalDefectOrders || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + (prev.totalOrderRate || 0).toFixed(2) + '%</td>'
-          + '<td class="right">' + (prevAgg.remake_orders || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + (prevAgg.remake_qty || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + pctPill((prevAgg.orders || 0) > 0 ? (prevAgg.remake_orders || 0) / prevAgg.orders * 100 : 0) + '</td>'
-          + '<td class="right">' + ((prevAgg.qarma || {{}}).orders_checked || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + ((prevAgg.qarma || {{}}).rejected_orders || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + pctPill(((prevAgg.qarma || {{}}).orders_checked || 0) > 0 ? (((prevAgg.qarma || {{}}).rejected_orders || 0) / ((prevAgg.qarma || {{}}).orders_checked || 0) * 100) : 0) + '</td>';
-      }} else {{
-        html += '<td class="right">' + (prev.totalVolume || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + (prev.totalDefects || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + (prev.totalRate || 0).toFixed(2) + '%</td>'
-          + '<td class="right">' + (prevAgg.remake_orders || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + (prevAgg.remake_qty || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + pctPill((prevAgg.volume || 0) > 0 ? (prevAgg.remake_qty || 0) / prevAgg.volume * 100 : 0) + '</td>'
-          + '<td class="right">' + ((prevAgg.qarma || {{}}).sample_qty || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + ((prevAgg.qarma || {{}}).defects || 0).toLocaleString() + '</td>'
-          + '<td class="right">' + pctPill(((prevAgg.qarma || {{}}).sample_qty || 0) > 0 ? (((prevAgg.qarma || {{}}).defects || 0) / ((prevAgg.qarma || {{}}).sample_qty || 0) * 100) : 0) + '</td>';
-      }}
-      html += '</tr>';
-      var dVol = ACTIVE_DATA.totalVolume - prev.totalVolume;
-      var dDef = ACTIVE_DATA.totalDefects - prev.totalDefects;
-      html += '<tr class="delta-row"><td><strong>\u0394 vs prev</strong></td>';
-      if (ACTIVE_MEASURE === 'orders') {{
-        var dOrd = ACTIVE_DATA.totalOrders - prev.totalOrders;
-        var dDefOrd = ACTIVE_DATA.totalDefectOrders - prev.totalDefectOrders;
-        var dRemakeOrd = (total.remake_orders || 0) - (prevAgg.remake_orders || 0);
-        var dRemakeQty = (total.remake_qty || 0) - (prevAgg.remake_qty || 0);
-        var dQarmaOrders = ((total.qarma || {{}}).orders_checked || 0) - ((prevAgg.qarma || {{}}).orders_checked || 0);
-        var dQarmaRejected = ((total.qarma || {{}}).rejected_orders || 0) - ((prevAgg.qarma || {{}}).rejected_orders || 0);
-        html += '<td class="right">' + (dOrd >= 0 ? '+' : '') + dOrd.toLocaleString() + '</td>'
-          + '<td class="right">' + (dDefOrd >= 0 ? '+' : '') + dDefOrd.toLocaleString() + '</td>'
-          + '<td class="right">\u2014</td>'
-          + '<td class="right">' + (dRemakeOrd >= 0 ? '+' : '') + dRemakeOrd.toLocaleString() + '</td>'
-          + '<td class="right">' + (dRemakeQty >= 0 ? '+' : '') + dRemakeQty.toLocaleString() + '</td>'
-          + '<td class="right">\u2014</td>'
-          + '<td class="right">' + (dQarmaOrders >= 0 ? '+' : '') + dQarmaOrders.toLocaleString() + '</td>'
-          + '<td class="right">' + (dQarmaRejected >= 0 ? '+' : '') + dQarmaRejected.toLocaleString() + '</td>'
-          + '<td class="right">\u2014</td>';
-      }} else {{
-        var dRemakeOrd = (total.remake_orders || 0) - (prevAgg.remake_orders || 0);
-        var dRemakeQty = (total.remake_qty || 0) - (prevAgg.remake_qty || 0);
-        var dQarmaSample = ((total.qarma || {{}}).sample_qty || 0) - ((prevAgg.qarma || {{}}).sample_qty || 0);
-        var dQarmaDefects = ((total.qarma || {{}}).defects || 0) - ((prevAgg.qarma || {{}}).defects || 0);
-        html += '<td class="right">' + (dVol >= 0 ? '+' : '') + dVol.toLocaleString() + '</td>'
-          + '<td class="right">' + (dDef >= 0 ? '+' : '') + dDef.toLocaleString() + '</td>'
-          + '<td class="right">\u2014</td>'
-          + '<td class="right">' + (dRemakeOrd >= 0 ? '+' : '') + dRemakeOrd.toLocaleString() + '</td>'
-          + '<td class="right">' + (dRemakeQty >= 0 ? '+' : '') + dRemakeQty.toLocaleString() + '</td>'
-          + '<td class="right">\u2014</td>'
-          + '<td class="right">' + (dQarmaSample >= 0 ? '+' : '') + dQarmaSample.toLocaleString() + '</td>'
-          + '<td class="right">' + (dQarmaDefects >= 0 ? '+' : '') + dQarmaDefects.toLocaleString() + '</td>'
-          + '<td class="right">\u2014</td>';
-      }}
-      html += '</tr>';
-    }}
-    document.getElementById('factoryBody').innerHTML = html;
-    return;
-  }}
-
-  if (mode === 'factory') {{
-    renderFactoryTable('factoryBody', ACTIVE_DATA.factories, true, {{prevList: (ACTIVE_DATA.prev && ACTIVE_DATA.prev.factories) || []}});
-    return;
-  }}
-  const rows = ((ACTIVE_GROUPINGS || {{}})[mode] || []);
-  const prevRows = (ACTIVE_DATA.prev && ACTIVE_DATA.prev.groupings && ACTIVE_DATA.prev.groupings[mode]) || [];
-  const prevByName = Object.fromEntries(prevRows.map(function(x) {{ return [x.name, x]; }}));
-  const total = aggregateFactories(rows);
-  total.name = 'Total';
-  const prevTotal = prevRows.length ? aggregateFactories(prevRows) : null;
-  document.getElementById('factoryBody').innerHTML = rows.map(function(r) {{ return factoryRow(r, {{prev: prevByName[r.name]}}); }}).join('') + factoryRow(total, {{cls:'total-row', prev: prevTotal}});
-}}
-
-var breakdownFilter = document.getElementById('breakdownFilter');
-if (breakdownFilter) {{
-  breakdownFilter.addEventListener('change', function() {{
-    var reset = document.getElementById('resetBtn');
-    if (reset && reset.classList.contains('show')) reset.click();
-    renderGroupingTable(breakdownFilter.value);
-  }});
-}}
-
-function applyPeriod(key) {{
-  ACTIVE_PERIOD = key;
-  ACTIVE_DATA = PERIODS[key] || DATA;
-  ACTIVE_MONTH_KEYS = ACTIVE_DATA.monthKeys || MONTH_KEYS;
-  ACTIVE_GROUPINGS = ACTIVE_DATA.groupings || GROUPINGS;
-  updateSummaryStats();
-  updatePeriodKpis();
-  renderExceptionLeaders();
-  var reset = document.getElementById('resetBtn');
-  if (reset && reset.classList.contains('show')) reset.click();
-  renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value);
-  document.querySelectorAll('#factoryBody tr[data-factory]').forEach(function(row) {{
-    row.addEventListener('click', function() {{ renderTrendChart(row.dataset.factory); }});
-  }});
-  renderTrendChart(null);
-}}
-var periodFilter = document.getElementById('periodFilter');
-if (periodFilter) {{
-  periodFilter.value = ACTIVE_PERIOD;
-  periodFilter.addEventListener('change', function() {{ applyPeriod(periodFilter.value); }});
-}}
-
-var measureFilter = document.getElementById('measureFilter');
-if (measureFilter) {{
-  measureFilter.value = ACTIVE_MEASURE;
-  measureFilter.addEventListener('change', function() {{
-    ACTIVE_MEASURE = measureFilter.value;
-    renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value);
-  }});
-}}
-
-
-
-// ── Factory tables ──
-updateSummaryStats();
-renderGroupingTable('factory');
-
-// ── Monthly table (clickable rows for drill-down) ──
-const mavicMonthly = DATA.factoryMonthly.find(function(fd) {{ return fd.name === 'Mavic Sports'; }}) || {{volumes:[], orders:[], defects:[], defect_orders:[], remake_orders:[], remake_qty:[]}};
-function monthSummaryRow(label, qty, orders, defects, defectOrders, cls, remOrders, remQty) {{
-  const qtyRate = qty > 0 ? defects / qty * 100 : 0;
-  const orderRate = orders > 0 ? defectOrders / orders * 100 : 0;
-  const remakeQtyRate = qty > 0 ? (remQty || 0) / qty * 100 : 0;
-  return '<tr class="' + (cls || '') + '"><td><strong>' + label + '</strong></td>'
-    + '<td class="right"><strong>' + qty.toLocaleString() + '</strong></td>'
-    + '<td class="right"><strong>' + orders.toLocaleString() + '</strong></td>'
-    + '<td class="right"><strong>' + defects.toLocaleString() + '</strong></td>'
-    + '<td class="right"><strong>' + defectOrders.toLocaleString() + '</strong></td>'
-    + '<td class="right"><strong>' + (remOrders || 0).toLocaleString() + '</strong></td>'
-    + '<td class="right"><strong>' + (remQty || 0).toLocaleString() + '</strong></td>'
-    + '<td class="right"><strong>' + remakeQtyRate.toFixed(2) + '%</strong></td>'
-    + '<td class="right"><strong>' + qtyRate.toFixed(2) + '%</strong></td>'
-    + '<td class="right"><strong>' + orderRate.toFixed(2) + '%</strong></td></tr>';
-}}
-const noMavicMonthlyQty = DATA.months.map(function(_, i) {{ return DATA.monthlyVolume[i] - (mavicMonthly.volumes[i] || 0); }});
-const noMavicMonthlyOrders = DATA.months.map(function(_, i) {{ return DATA.monthlyOrders[i] - (mavicMonthly.orders[i] || 0); }});
-const noMavicMonthlyDefects = DATA.months.map(function(_, i) {{ return DATA.monthlyDefects[i] - (mavicMonthly.defects[i] || 0); }});
-const noMavicMonthlyDefectOrders = DATA.months.map(function(_, i) {{ return DATA.monthlyDefectOrders[i] - (mavicMonthly.defect_orders[i] || 0); }});
-const noMavicTotals = {{
-  qty: noMavicMonthlyQty.reduce(function(a,b) {{ return a+b; }}, 0),
-  orders: noMavicMonthlyOrders.reduce(function(a,b) {{ return a+b; }}, 0),
-  defects: noMavicMonthlyDefects.reduce(function(a,b) {{ return a+b; }}, 0),
-  defectOrders: noMavicMonthlyDefectOrders.reduce(function(a,b) {{ return a+b; }}, 0)
-}};
-document.getElementById('monthlyBody').innerHTML = DATA.months.map((m, i) => {{
-  var mkey = MONTH_KEYS[i];
-  var ordRate = DATA.monthlyOrders[i] > 0 ? (DATA.monthlyDefectOrders[i] / DATA.monthlyOrders[i] * 100).toFixed(2) : '0.00';
-  var remQty = DATA.monthlyRemakeQty ? DATA.monthlyRemakeQty[i] : 0;
-  var remRate = DATA.monthlyVolume[i] > 0 ? (remQty / DATA.monthlyVolume[i] * 100).toFixed(2) : '0.00';
-  return '<tr class="clickable" data-month="' + mkey + '"><td>' + m + '</td>'
-    + '<td class="right">' + DATA.monthlyVolume[i].toLocaleString() + '</td>'
-    + '<td class="right">' + DATA.monthlyOrders[i].toLocaleString() + '</td>'
-    + '<td class="right">' + DATA.monthlyDefects[i].toLocaleString() + '</td>'
-    + '<td class="right">' + DATA.monthlyDefectOrders[i].toLocaleString() + '</td>'
-    + '<td class="right">' + (DATA.monthlyRemakeOrders ? DATA.monthlyRemakeOrders[i].toLocaleString() : '0') + '</td>'
-    + '<td class="right">' + remQty.toLocaleString() + '</td>'
-    + '<td class="right">' + remRate + '%</td>'
-    + '<td class="right">' + DATA.monthlyRate[i].toFixed(2) + '%</td>'
-    + '<td class="right">' + ordRate + '%</td></tr>';
-}}).join('');
-
-var totalRemakeOrders = DATA.monthlyRemakeOrders ? DATA.monthlyRemakeOrders.reduce(function(a,b){{return a+b;}}, 0) : 0;
-var totalRemakeQty = DATA.monthlyRemakeQty ? DATA.monthlyRemakeQty.reduce(function(a,b){{return a+b;}}, 0) : 0;
-var totalRemakeRate = DATA.totalVolume > 0 ? (totalRemakeQty / DATA.totalVolume * 100).toFixed(2) : '0.00';
-var noMavicRemakeOrders = totalRemakeOrders - ((mavicMonthly.remake_orders || []).reduce(function(a,b){{return a+b;}}, 0));
-var noMavicRemakeQty = totalRemakeQty - ((mavicMonthly.remake_qty || []).reduce(function(a,b){{return a+b;}}, 0));
-document.getElementById('monthlyBody').innerHTML += '<tr><td><strong>Total</strong></td><td class="right"><strong>' + DATA.totalVolume.toLocaleString() + '</strong></td><td class="right"><strong>' + DATA.totalOrders.toLocaleString() + '</strong></td><td class="right"><strong>' + DATA.totalDefects.toLocaleString() + '</strong></td><td class="right"><strong>' + DATA.totalDefectOrders.toLocaleString() + '</strong></td><td class="right"><strong>' + totalRemakeOrders.toLocaleString() + '</strong></td><td class="right"><strong>' + totalRemakeQty.toLocaleString() + '</strong></td><td class="right"><strong>' + totalRemakeRate + '%</strong></td><td class="right"><strong>' + DATA.totalRate.toFixed(2) + '%</strong></td><td class="right"><strong>' + DATA.totalOrderRate.toFixed(2) + '%</strong></td></tr>'
-   + monthSummaryRow('Total excl. Mavic Sports', noMavicTotals.qty, noMavicTotals.orders, noMavicTotals.defects, noMavicTotals.defectOrders, 'no-mavic-row', noMavicRemakeOrders, noMavicRemakeQty);
-
-// ── Factory x Month header ──
-DATA.months.forEach(function(m, i) {{
-  var el = document.getElementById('hdr'+(i+1));
-  if (el) el.textContent = m.replace('*','');
-}});
-
-// ── Factory x Month body (clickable cells with drill-down) ──
-function sumFactoryMonths(list) {{
-  return DATA.months.map(function(_, i) {{
-    return list.reduce(function(sum, fd) {{ return sum + (fd.defects[i] || 0); }}, 0);
-  }});
-}}
-function factoryMonthRow(name, values, cls, clickable) {{
-  return '<tr class="' + (cls || '') + '"><td><strong>' + name + '</strong></td>'
-    + values.map(function(d, i) {{
-       if (clickable) return '<td class="right clickable drill-cell" data-month="' + MONTH_KEYS[i] + '" data-factory="' + name + '">' + (d || '0') + '</td>';
-       return '<td class="right">' + (d || '0') + '</td>';
-    }}).join('') + '</tr>';
-}}
-const totalFactoryMonth = sumFactoryMonths(DATA.factoryMonthly);
-const noMavicFactoryMonth = sumFactoryMonths(DATA.factoryMonthly.filter(function(fd) {{ return fd.name !== 'Mavic Sports'; }}));
-document.getElementById('factoryMonthBody').innerHTML = DATA.factoryMonthly.map(function(fd) {{
-  return factoryMonthRow(fd.name, fd.defects, '', true);
-}}).join('')
-  + factoryMonthRow('Total', totalFactoryMonth, 'total-row', false)
-  + factoryMonthRow('Total excl. Mavic Sports', noMavicFactoryMonth, 'no-mavic-row', false);
-
-
 // ── YTD KPI cards / measure view ──
 let YTD_MEASURE = 'qty';
 document.getElementById('ytdVolume').textContent = DATA.totalVolume.toLocaleString();
@@ -2090,23 +1630,27 @@ document.getElementById('ytdVolume').textContent = DATA.totalVolume.toLocaleStri
 function updatePeriodKpis() {{
   var d = ACTIVE_DATA;
   var label = d.name || 'YTD 2026';
+  var remOrders = d.totalRemakeOrders || 0;
+  var remQty = d.totalRemakeQty || 0;
   if (YTD_MEASURE === 'orders') {{
-    document.getElementById('ytdVolume').textContent = (DATA.orders || 0).toLocaleString();
-    document.getElementById('periodKpiValue').textContent = ((d.totalDefectOrders || 0)).toLocaleString();
-    document.getElementById('periodKpiSub').textContent = label + ' · ' + (d.totalOrderRate || 0).toFixed(2) + '% of ' + (d.totalOrders || 0).toLocaleString() + ' orders · ' + (d.totalDefectOrders || 0).toLocaleString() + ' orders with defects';
+    document.getElementById('ytdVolume').textContent = (d.totalOrders || 0).toLocaleString();
+    document.getElementById('periodKpiValue').textContent = remOrders.toLocaleString();
+    var rateO = (d.totalOrders || 0) > 0 ? remOrders / d.totalOrders * 100 : 0;
+    document.getElementById('periodKpiSub').textContent = label + ' · ' + rateO.toFixed(2) + '% of ' + (d.totalOrders || 0).toLocaleString() + ' orders are remakes';
   }} else {{
-    document.getElementById('ytdVolume').textContent = (DATA.volume || 0).toLocaleString();
-    document.getElementById('periodKpiValue').textContent = ((d.totalDefects || 0)).toLocaleString();
-    document.getElementById('periodKpiSub').textContent = label + ' · ' + (d.totalRate || 0).toFixed(2) + '% of ' + (d.totalVolume || 0).toLocaleString() + ' items · ' + (d.totalDefectOrders || 0).toLocaleString() + ' orders with defects' + ' (' + (d.totalOrderRate || 0).toFixed(2) + '% orders)';
+    document.getElementById('ytdVolume').textContent = (d.totalVolume || 0).toLocaleString();
+    document.getElementById('periodKpiValue').textContent = remQty.toLocaleString();
+    var rateQ = (d.totalVolume || 0) > 0 ? remQty / d.totalVolume * 100 : 0;
+    document.getElementById('periodKpiSub').textContent = label + ' · ' + rateQ.toFixed(2) + '% of ' + (d.totalVolume || 0).toLocaleString() + ' items · ' + remQty.toLocaleString() + ' remake qty';
   }}
-  document.getElementById('periodKpiLabel').textContent = label + ' Defects';
+  document.getElementById('periodKpiLabel').textContent = label + ' Remakes';
 }}
 function updateYtdKpis() {{
   updatePeriodKpis();
   if (YTD_MEASURE === 'orders') {{
-    document.querySelector('#ytdVolume').closest('.metric').querySelector('.label').textContent = 'YTD 2026 No of Orders';
+    document.querySelector('#ytdVolume').closest('.metric').querySelector('.label').textContent = 'Selected Period No of Orders';
   }} else {{
-    document.querySelector('#ytdVolume').closest('.metric').querySelector('.label').textContent = 'YTD 2026 Total Order QTY';
+    document.querySelector('#ytdVolume').closest('.metric').querySelector('.label').textContent = 'Selected Period Total Order QTY';
   }}
 }}
 updateYtdKpis();
@@ -2119,33 +1663,29 @@ const chartBaseOptions = {{
   plugins: {{ legend: {{ position: 'bottom' }} }},
   scales: {{
     y: {{ beginAtZero: true, title: {{ display: true, text: 'Remake QTY' }} }},
-    y1: {{ beginAtZero: true, position: 'right', grid: {{ drawOnChartArea: false }}, title: {{ display: true, text: 'Error %' }} }}
+    y1: {{ beginAtZero: true, position: 'right', grid: {{ drawOnChartArea: false }}, title: {{ display: true, text: 'Remake %' }} }}
   }}
 }};
 
 let trendChart;
 let currentTrendFactory = null;
-
+function remakeRates(vols, remakeQty) {{ return vols.map(function(v, i) {{ return v > 0 ? +((remakeQty[i] || 0) / v * 100).toFixed(2) : 0; }}); }}
 function buildTrendDatasets(factoryName) {{
   if (!factoryName) {{
-    const ds = [
+    return [
       {{ type: 'bar', label: 'Remake QTY', data: ACTIVE_DATA.monthlyRemakeQty || [], backgroundColor: 'rgba(124, 58, 237, 0.25)', borderColor: 'rgba(124, 58, 237, 0.8)', borderWidth: 1, yAxisID: 'y' }},
-      {{ type: 'line', label: 'Err% (Qty)', data: ACTIVE_DATA.monthlyRate, borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.25, yAxisID: 'y1' }}
+      {{ type: 'line', label: 'Remake % (Qty)', data: remakeRates(ACTIVE_DATA.monthlyVolume || [], ACTIVE_DATA.monthlyRemakeQty || []), borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.25, yAxisID: 'y1' }}
     ];
-    return ds;
   }}
   const fd = (ACTIVE_DATA.factories || []).find(function(x) {{ return x.name === factoryName; }});
   if (!fd) return [];
   const vols = (fd.monthly && fd.monthly.volumes) || [];
   const remakeQty = (fd.monthly && fd.monthly.remake_qty) || [];
-  const defs = (fd.monthly && fd.monthly.defects) || [];
-  const rates = vols.map(function(v, i) {{ return v > 0 ? +(defs[i] / v * 100).toFixed(2) : 0; }});
   return [
     {{ type: 'bar', label: factoryName + ' Remake QTY', data: remakeQty, backgroundColor: 'rgba(124, 58, 237, 0.25)', borderColor: 'rgba(124, 58, 237, 0.8)', borderWidth: 1, yAxisID: 'y' }},
-    {{ type: 'line', label: factoryName + ' Err% (Qty)', data: rates, borderColor: FACTORY_COLORS[factoryName] || '#ef4444', backgroundColor: FACTORY_COLORS[factoryName] || '#ef4444', tension: 0.25, yAxisID: 'y1' }}
+    {{ type: 'line', label: factoryName + ' Remake % (Qty)', data: remakeRates(vols, remakeQty), borderColor: FACTORY_COLORS[factoryName] || '#ef4444', backgroundColor: FACTORY_COLORS[factoryName] || '#ef4444', tension: 0.25, yAxisID: 'y1' }}
   ];
 }}
-
 function renderTrendChart(factoryName) {{
   currentTrendFactory = factoryName || null;
   document.getElementById('trendTitle').textContent = factoryName ? ('Monthly Remake QTY Trend — ' + factoryName) : 'Monthly Remake QTY Trend — All Factories';
@@ -2155,176 +1695,85 @@ function renderTrendChart(factoryName) {{
     document.getElementById('trendFactory').textContent = factoryName;
     const fd = (ACTIVE_DATA.factories || []).find(function(x) {{ return x.name === factoryName; }});
     const vols2 = fd && fd.monthly ? fd.monthly.volumes : [];
-    const defs2 = fd && fd.monthly ? fd.monthly.defects : [];
-    const first = vols2[0] > 0 ? defs2[0] / vols2[0] * 100 : 0;
+    const rem2 = fd && fd.monthly ? fd.monthly.remake_qty : [];
+    const first = vols2[0] > 0 ? (rem2[0] || 0) / vols2[0] * 100 : 0;
     const lastIdx = vols2.length - 1;
-    const last = vols2[lastIdx] > 0 ? defs2[lastIdx] / vols2[lastIdx] * 100 : 0;
+    const last = vols2[lastIdx] > 0 ? (rem2[lastIdx] || 0) / vols2[lastIdx] * 100 : 0;
     const delta = last - first;
     document.getElementById('trendPill').textContent = last.toFixed(2) + '%';
     document.getElementById('trendDelta').textContent = (delta >= 0 ? '+' : '') + delta.toFixed(2) + ' pp vs first month';
   }}
-
   const ctx = document.getElementById('trendChart').getContext('2d');
   if (trendChart) trendChart.destroy();
-  trendChart = new Chart(ctx, {{
-    data: {{ labels: ACTIVE_DATA.months, datasets: buildTrendDatasets(factoryName) }},
-    options: {{
-      ...chartBaseOptions,
-      onClick: function(evt, elements) {{
-        if (!elements.length) return;
-        const idx = elements[0].index;
-        const mkey = ACTIVE_MONTH_KEYS[idx];
-        const label = MONTH_LABELS[mkey] || mkey;
-        const orders = filterOrders(function(o) {{ return o.fu_month === mkey && (!currentTrendFactory || o.factory === currentTrendFactory); }});
-        showDrill((currentTrendFactory ? currentTrendFactory + ' — ' : '') + 'Orders reported in ' + label, orders);
-      }}
-    }}
-  }});
+  trendChart = new Chart(ctx, {{ data: {{ labels: ACTIVE_DATA.months, datasets: buildTrendDatasets(factoryName) }}, options: chartBaseOptions }});
 }}
 document.getElementById('resetBtn').addEventListener('click', function() {{ renderTrendChart(null); }});
 applyPeriod(ACTIVE_PERIOD);
 
+function cumulative(arr) {{ return arr.map(function(_, i) {{ return arr.slice(0, i + 1).reduce(function(a,b){{return a+b;}}, 0); }}); }}
 function ytdCumulativeTable() {{
   const head = document.getElementById('ytdMonthlyHead');
   const body = document.getElementById('ytdMonthlyBody');
+  const remOrdersCum = cumulative(YTD.monthlyRemakeOrders || []);
+  const remQtyCum = cumulative(YTD.monthlyRemakeQty || []);
   if (YTD_MEASURE === 'orders') {{
-    head.innerHTML = '<th>Month</th><th class="right">Monthly No of Orders</th><th class="right">Accumulated No of Orders</th><th class="right">Monthly Defect Orders</th><th class="right">Accumulated Defect Orders</th><th class="right">Accumulated ERR% (Orders)</th>';
+    head.innerHTML = '<th>Month</th><th class="right">Monthly Orders</th><th class="right">Accumulated Orders</th><th class="right">Monthly Remake Orders</th><th class="right">Accumulated Remake Orders</th><th class="right">Accumulated Remake %</th>';
     body.innerHTML = YTD.months.map(function(m, i) {{
-      return '<tr><td><strong>' + m + '</strong></td><td class="right">' + (YTD.monthlyOrders[i] || 0).toLocaleString() + '</td><td class="right">' + (YTD.cumulativeOrders[i] || 0).toLocaleString() + '</td><td class="right">' + (YTD.monthlyDefectOrders[i] || 0).toLocaleString() + '</td><td class="right">' + (YTD.cumulativeDefectOrders[i] || 0).toLocaleString() + '</td><td class="right">' + pctPill(YTD.cumulativeOrderRate[i] || 0) + '</td></tr>';
+      const rate = (YTD.cumulativeOrders[i] || 0) > 0 ? remOrdersCum[i] / YTD.cumulativeOrders[i] * 100 : 0;
+      return '<tr><td><strong>' + m + '</strong></td><td class="right">' + (YTD.monthlyOrders[i] || 0).toLocaleString() + '</td><td class="right">' + (YTD.cumulativeOrders[i] || 0).toLocaleString() + '</td><td class="right">' + ((YTD.monthlyRemakeOrders || [])[i] || 0).toLocaleString() + '</td><td class="right">' + remOrdersCum[i].toLocaleString() + '</td><td class="right">' + pctPill(rate) + '</td></tr>';
     }}).join('');
-    document.getElementById('ytdMonthlyTitle').textContent = 'YTD Monthly Accumulated No of Orders';
+    document.getElementById('ytdMonthlyTitle').textContent = 'YTD Monthly Accumulated Orders + Remakes';
   }} else {{
-    head.innerHTML = '<th>Month</th><th class="right">Monthly Order QTY</th><th class="right">Accumulated Order QTY</th><th class="right">Monthly Defect QTY</th><th class="right">Accumulated Defect QTY</th><th class="right">Accumulated ERR% (QTY)</th>';
+    head.innerHTML = '<th>Month</th><th class="right">Monthly Order QTY</th><th class="right">Accumulated Order QTY</th><th class="right">Monthly Remake QTY</th><th class="right">Accumulated Remake QTY</th><th class="right">Accumulated Remake %</th>';
     body.innerHTML = YTD.months.map(function(m, i) {{
-      return '<tr><td><strong>' + m + '</strong></td><td class="right">' + (YTD.monthlyVolume[i] || 0).toLocaleString() + '</td><td class="right">' + (YTD.cumulativeVolume[i] || 0).toLocaleString() + '</td><td class="right">' + (YTD.monthlyDefects[i] || 0).toLocaleString() + '</td><td class="right">' + (YTD.cumulativeDefects[i] || 0).toLocaleString() + '</td><td class="right">' + pctPill(YTD.cumulativeRate[i] || 0) + '</td></tr>';
+      const rate = (YTD.cumulativeVolume[i] || 0) > 0 ? remQtyCum[i] / YTD.cumulativeVolume[i] * 100 : 0;
+      return '<tr><td><strong>' + m + '</strong></td><td class="right">' + (YTD.monthlyVolume[i] || 0).toLocaleString() + '</td><td class="right">' + (YTD.cumulativeVolume[i] || 0).toLocaleString() + '</td><td class="right">' + ((YTD.monthlyRemakeQty || [])[i] || 0).toLocaleString() + '</td><td class="right">' + remQtyCum[i].toLocaleString() + '</td><td class="right">' + pctPill(rate) + '</td></tr>';
     }}).join('');
-    document.getElementById('ytdMonthlyTitle').textContent = 'YTD Monthly Accumulated QTY';
+    document.getElementById('ytdMonthlyTitle').textContent = 'YTD Monthly Accumulated QTY + Remakes';
   }}
 }}
-
 function renderYtdFactoryTable() {{
   const head = document.getElementById('ytdFactoryHead');
   if (YTD_MEASURE === 'orders') {{
-    head.innerHTML = '<th>Factory</th><th class="right">No of Orders</th><th class="right">FU Orders W/Defect</th><th class="right">FU ERR% (Orders)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th>';
+    head.innerHTML = '<th>Factory</th><th class="right">No of Orders</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th><th class="right">Qarma Orders Checked</th><th class="right">Qarma Rejected Orders</th><th class="right">Qarma Remake % (Orders)</th>';
   }} else {{
-    head.innerHTML = '<th>Factory</th><th class="right">Total Order QTY</th><th class="right">FU Defects QTY</th><th class="right">FU ERR% (QTY)</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th>';
+    head.innerHTML = '<th>Factory</th><th class="right">Total Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Remake % (Sample)</th>';
   }}
   const prev = ACTIVE_MEASURE;
   ACTIVE_MEASURE = YTD_MEASURE;
   renderFactoryTable('ytdFactoryBody', YTD.factories || [], false, {{}});
   ACTIVE_MEASURE = prev;
 }}
-
 let ytdChart = null;
 function renderYtdChart() {{
   const el = document.getElementById('ytdChart');
   if (!el || !el.offsetParent) return;
   const isOrders = YTD_MEASURE === 'orders';
+  const remOrdersCum = cumulative(YTD.monthlyRemakeOrders || []);
+  const remQtyCum = cumulative(YTD.monthlyRemakeQty || []);
   const barData = isOrders ? YTD.cumulativeOrders : YTD.cumulativeVolume;
-  const rateData = isOrders ? YTD.cumulativeOrderRate : YTD.cumulativeRate;
+  const rateData = barData.map(function(v, i) {{ return v > 0 ? +(((isOrders ? remOrdersCum[i] : remQtyCum[i]) / v * 100).toFixed(2)) : 0; }});
   const barLabel = isOrders ? 'Accumulated No of Orders' : 'Accumulated Total Order QTY';
-  const rateLabel = isOrders ? 'Accumulated ERR% (Orders)' : 'Accumulated ERR% (QTY)';
-  document.getElementById('ytdChartTitle').textContent = isOrders ? 'YTD Accumulated No of Orders + Error %' : 'YTD Accumulated Total Order QTY + Error %';
+  const rateLabel = isOrders ? 'Accumulated Remake % (Orders)' : 'Accumulated Remake % (Qty)';
+  document.getElementById('ytdChartTitle').textContent = isOrders ? 'YTD Accumulated Orders + Remake %' : 'YTD Accumulated QTY + Remake %';
   if (ytdChart) ytdChart.destroy();
   ytdChart = new Chart(el.getContext('2d'), {{
-    data: {{
-      labels: YTD.months,
-      datasets: [
-        {{ type: 'bar', label: barLabel, data: barData, backgroundColor: 'rgba(31,111,235,0.25)', borderColor: 'rgba(31,111,235,0.8)', borderWidth: 1, yAxisID: 'y' }},
-        {{ type: 'line', label: rateLabel, data: rateData, borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.25, pointRadius: 5, pointHoverRadius: 7, yAxisID: 'y1' }}
-      ]
-    }},
-    options: {{
-      ...chartBaseOptions,
-      scales: {{
-        y: {{ beginAtZero: true, title: {{ display: true, text: barLabel }} }},
-        y1: {{ beginAtZero: true, position: 'right', grid: {{ drawOnChartArea: false }}, title: {{ display: true, text: 'Accumulated Error %' }} }}
-      }}
-    }}
+    data: {{ labels: YTD.months, datasets: [
+      {{ type: 'bar', label: barLabel, data: barData, backgroundColor: 'rgba(31,111,235,0.25)', borderColor: 'rgba(31,111,235,0.8)', borderWidth: 1, yAxisID: 'y' }},
+      {{ type: 'line', label: rateLabel, data: rateData, borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.25, pointRadius: 5, pointHoverRadius: 7, yAxisID: 'y1' }}
+    ] }},
+    options: {{ ...chartBaseOptions, scales: {{ y: {{ beginAtZero: true, title: {{ display: true, text: barLabel }} }}, y1: {{ beginAtZero: true, position: 'right', grid: {{ drawOnChartArea: false }}, title: {{ display: true, text: 'Accumulated Remake %' }} }} }} }}
   }});
 }}
-
 function applyYtdMeasure() {{
   const sel = document.getElementById('ytdMeasureFilter');
   YTD_MEASURE = sel ? sel.value : 'qty';
-  updateYtdKpis();
-  ytdCumulativeTable();
-  renderYtdFactoryTable();
-  renderYtdChart();
+  updateYtdKpis(); ytdCumulativeTable(); renderYtdFactoryTable(); renderYtdChart();
 }}
 const ytdMeasureFilter = document.getElementById('ytdMeasureFilter');
-if (ytdMeasureFilter) {{
-  ytdMeasureFilter.value = YTD_MEASURE;
-  ytdMeasureFilter.addEventListener('change', applyYtdMeasure);
-}}
+if (ytdMeasureFilter) {{ ytdMeasureFilter.value = YTD_MEASURE; ytdMeasureFilter.addEventListener('change', applyYtdMeasure); }}
 ytdCumulativeTable();
 renderYtdFactoryTable();
-
-
-
-// ── Drill click handlers ──
-document.addEventListener('click', function(e) {{
-  // Summary/YTD factory rows
-  var factoryRow = e.target.closest('tr[data-factory]');
-  if (factoryRow) {{
-    var fname = factoryRow.dataset.factory;
-    showDrill(fname + ' defect orders', filterOrders(function(o) {{ return o.factory === fname && activeMonthSet().has(o.fu_month); }}));
-    return;
-  }}
-
-  // Monthly rows in Details tab
-  var row = e.target.closest('tr[data-month]');
-  if (row && !e.target.closest('.pct-pill')) {{
-    var mkey = row.dataset.month;
-    var label = MONTH_LABELS[mkey] || mkey;
-    showDrill('Orders reported in ' + label, filterOrders(function(o) {{ return o.fu_month === mkey; }}));
-    return;
-  }}
-
-  // Factory × Month cells
-  var cell = e.target.closest('.drill-cell');
-  if (cell) {{
-    var cf = cell.dataset.factory;
-    var cm = cell.dataset.month;
-    var clabel = MONTH_LABELS[cm] || cm;
-    showDrill(cf + ' defect orders in ' + clabel, filterOrders(function(o) {{ return o.factory === cf && o.fu_month === cm; }}));
-    return;
-  }}
-}});
-
-// ── Error Tracking tab ──
-function renderErrorTracking(mode) {{
-  const data = ERROR_TRACKING[mode] || {{}};
-  const keys = Object.keys(data).sort();
-  if (keys.length === 0) {{
-    document.getElementById('errorTrackingBody').innerHTML = '<p class="muted">No error categories tracked for this group.</p>';
-    return;
-  }}
-  let html = '';
-  for (const group of keys) {{
-    const cats = data[group];
-    const totalQty = cats.reduce(function(acc, c) {{ return acc + (c.defect_qty || 0); }}, 0);
-    html += '<h4 style="margin:20px 0 8px;font-size:15px;font-weight:700">' + group + ' <span class="muted" style="font-weight:400;font-size:12px">(' + cats.length + ' categories, ' + totalQty.toLocaleString() + ' total defects)</span></h4>';
-    html += '<table class="cat-table"><thead><tr><th>Error Category</th><th class="right">Orders</th><th class="right">Defect QTY</th><th class="right">%</th><th class="right">Order #</th></tr></thead><tbody>';
-    for (const cat of cats) {{
-      const nums = cat.order_nums.slice(0,5).join(', ');
-      const extra = cat.order_nums.length > 5 ? ' …+' + (cat.order_nums.length - 5) : '';
-      const pct = totalQty > 0 ? (cat.defect_qty / totalQty * 100) : 0;
-      html += '<tr><td><strong>' + cat.category + '</strong></td><td class="right">' + cat.order_count + '</td><td class="right">' + cat.defect_qty.toLocaleString() + '</td><td class="right">' + pct.toFixed(1) + '%</td><td class="right" style="font-size:11px;color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis">#' + nums + extra + '</td></tr>';
-    }}
-    html += '</tbody></table>';
-  }}
-  document.getElementById('errorTrackingBody').innerHTML = html;
-}}
-// Init error tracking tab
-const errorFilter = document.getElementById('errorFilter');
-if (errorFilter) {{
-  errorFilter.addEventListener('change', function() {{ renderErrorTracking(this.value); }});
-  document.querySelectorAll('.tab[data-target="error-tracking"]').forEach(function(btn) {{
-    btn.addEventListener('click', function() {{ setTimeout(function() {{ renderErrorTracking(errorFilter.value); }}, 0); }});
-  }});
-}}
-
 
 // ── Remake Management ──
 var remakeData = {{}};
