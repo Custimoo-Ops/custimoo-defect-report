@@ -1631,7 +1631,8 @@ async function loadDqcUsage() {{
     document.getElementById('dqcRunBody').innerHTML = ev.length ? ev.map(function(e) {{
       var verdict = e.verdict || 'UNKNOWN';
       var reason = e.rejection_reason || e.reject_reason || e.reason || e.failure_reason || e.qc_reason || e.notes || e.message || '—';
-      return '<tr><td>' + ((e.ts || '').slice(0,10)) + '</td><td>' + dqcUser(e) + '</td><td>' + (e.order || '') + '</td><td><strong>' + verdict + '</strong></td><td>' + reason + '</td><td>0.5.5</td><td>' + (e.ts || '') + '</td></tr>';
+      var version = e.dqc_skill_version || e.version || '';
+      return '<tr><td>' + ((e.ts || '').slice(0,10)) + '</td><td>' + dqcUser(e) + '</td><td>' + (e.order || '') + '</td><td><strong>' + verdict + '</strong></td><td>' + reason + '</td><td>' + version + '</td><td>' + (e.ts || '') + '</td></tr>';
     }}).join('') : '<tr><td colspan="7">No audits logged</td></tr>';
   }} catch(e) {{
     msg.innerHTML = '<span style="color:#b42318;font-weight:700">' + e.message + '</span>';

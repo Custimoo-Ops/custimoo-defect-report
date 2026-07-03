@@ -6,9 +6,11 @@ from html import escape
 import http.server
 
 TOK = os.environ.get("GH_WORKFLOW_TOKEN", "")
-REPO = "lars-lakr/custimoo-defect-report"
+REPO = os.environ.get("GH_REPO", "Custimoo-Ops/custimoo-defect-report")
 PORT = int(os.environ.get("PORT", 8080))
-DQC_URL = os.environ.get("DQC_EVENTS_URL", "https://dqc-dashboard-custimoo.fly.dev/api/events")
+DQC_URL = os.environ.get("DQC_EVENTS_URL", "https://dqc-dashboard-custimoo.fly.dev/api/v1/dqc")
+DQC_API_KEY = os.environ.get("DQC_API_KEY", "")
+# Legacy Basic auth fallback kept for older deployments only.
 DQC_USER = os.environ.get("DQC_DASH_USER", "")
 DQC_PASS = os.environ.get("DQC_DASH_PASSWORD", "")
 DQC_SKILL_VERSION = os.environ.get("DQC_SKILL_VERSION", "0.5.5")
@@ -19,16 +21,40 @@ def event_reason(e):
         v = e.get(k)
         if v is not None and str(v).strip():
             return str(v).strip()
+    friction = e.get("friction") if isinstance(e.get("friction"), dict) else {}
+    for k in ("limitation", "note", "status"):
+        v = friction.get(k)
+        if v is not None and str(v).strip() and str(v).strip().lower() not in ("none", "ignored", "non-friction"):
+            return str(v).strip()
     return ""
 
 USER_KEYS = ("windows_login", "windows_user", "windows_username", "login_name", "username", "user")
 
 def event_user(e):
+    reviewer = e.get("reviewer") if isinstance(e.get("reviewer"), dict) else {}
+    for v in (reviewer.get("name"), e.get("display_user")):
+        if v is not None and str(v).strip():
+            return str(v).strip()
     for k in USER_KEYS:
         v = e.get(k)
         if v is not None and str(v).strip():
             return str(v).strip()
     return "(unknown)"
+
+def event_version(e):
+    return str(e.get("dqc_skill_version") or e.get("version") or DQC_SKILL_VERSION or "").strip()
+
+def normalize_dqc_event(e):
+    out = dict(e)
+    out["display_user"] = event_user(out)
+    out["user"] = out.get("user") or out["display_user"]
+    out["ts"] = str(out.get("ts") or out.get("timestamp_utc") or out.get("created_at") or "")
+    out["date"] = str(out.get("date") or out["ts"][:10])
+    out["verdict"] = str(out.get("verdict") or out.get("status") or "UNKNOWN").upper()
+    out["order"] = str(out.get("order") or out.get("order_no") or "")
+    out["rejection_reason"] = event_reason(out)
+    out["dqc_skill_version"] = event_version(out)
+    return out
 
 DQC_PAGE = """<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -46,7 +72,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 function qs(){const p=new URLSearchParams(); const f=document.getElementById('from').value,t=document.getElementById('to').value; if(f)p.set('from',f); if(t)p.set('to',t); return p.toString()?('?'+p.toString()):''}
 function download(path){location.href=path+qs()}
 async function loadData(){document.getElementById('msg').textContent='Loading…'; try{const r=await fetch('/api/dqc/events'+qs()); const d=await r.json(); if(!r.ok) throw new Error(d.error||r.statusText); render(d)}catch(e){document.getElementById('msg').innerHTML='<span class="error">'+e.message+'</span>'}}
-function render(d){const ev=d.events||[]; document.getElementById('generated').textContent='API generated: '+(d.generated_at||'n/a')+' · '+ev.length+' rows'; document.getElementById('msg').textContent=d.stale_error?('Warning: '+d.stale_error):''; const vc={PASSED:0,REJECTED:0}; const uc={}; const reason=e=>(e.rejection_reason||e.reject_reason||e.reason||e.failure_reason||e.qc_reason||e.notes||e.message||'—'); const user=e=>(e.display_user||e.windows_login||e.windows_user||e.windows_username||e.login_name||e.username||e.user||'(unknown)'); ev.forEach(e=>{vc[(e.verdict||'').toUpperCase()]=(vc[(e.verdict||'').toUpperCase()]||0)+1; uc[user(e)]=(uc[user(e)]||0)+1}); document.getElementById('total').textContent=ev.length; document.getElementById('passed').textContent=vc.PASSED||0; document.getElementById('rejected').textContent=vc.REJECTED||0; document.getElementById('users').textContent=Object.keys(uc).length; document.getElementById('userBody').innerHTML=Object.entries(uc).sort((a,b)=>b[1]-a[1]).map(([u,c])=>`<tr><td>${u}</td><td class="right">${c}</td></tr>`).join('')||'<tr><td colspan=2>No users</td></tr>'; document.getElementById('runBody').innerHTML=ev.map(e=>`<tr><td>${(e.ts||'').slice(0,10)}</td><td>${user(e)}</td><td>${e.order||''}</td><td><span class="pill ${(e.verdict||'').toUpperCase()}">${e.verdict||''}</span></td><td>${reason(e)}</td><td>0.5.5</td><td>${e.ts||''}</td></tr>`).join('')||'<tr><td colspan=7>No audits logged</td></tr>'}
+function render(d){const ev=d.events||[]; document.getElementById('generated').textContent='API generated: '+(d.generated_at||'n/a')+' · '+ev.length+' rows'; document.getElementById('msg').textContent=d.stale_error?('Warning: '+d.stale_error):''; const vc={PASSED:0,REJECTED:0}; const uc={}; const reason=e=>(e.rejection_reason||e.reject_reason||e.reason||e.failure_reason||e.qc_reason||e.notes||e.message||'—'); const user=e=>(e.display_user||e.windows_login||e.windows_user||e.windows_username||e.login_name||e.username||e.user||'(unknown)'); const ver=e=>(e.dqc_skill_version||e.version||''); ev.forEach(e=>{vc[(e.verdict||'').toUpperCase()]=(vc[(e.verdict||'').toUpperCase()]||0)+1; uc[user(e)]=(uc[user(e)]||0)+1}); document.getElementById('total').textContent=ev.length; document.getElementById('passed').textContent=vc.PASSED||0; document.getElementById('rejected').textContent=vc.REJECTED||0; document.getElementById('users').textContent=Object.keys(uc).length; document.getElementById('userBody').innerHTML=Object.entries(uc).sort((a,b)=>b[1]-a[1]).map(([u,c])=>`<tr><td>${u}</td><td class="right">${c}</td></tr>`).join('')||'<tr><td colspan=2>No users</td></tr>'; document.getElementById('runBody').innerHTML=ev.map(e=>`<tr><td>${(e.ts||'').slice(0,10)}</td><td>${user(e)}</td><td>${e.order||''}</td><td><span class="pill ${(e.verdict||'').toUpperCase()}">${e.verdict||''}</span></td><td>${reason(e)}</td><td>${ver(e)}</td><td>${e.ts||''}</td></tr>`).join('')||'<tr><td colspan=7>No audits logged</td></tr>'}
 loadData();
 </script></body></html>"""
 
@@ -94,26 +120,39 @@ class H(http.server.SimpleHTTPRequestHandler):
 
     def _dqc_query(self):
         incoming = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-        q = {"plugin": "custimoo-digital-qc"}
-        for k in ("from", "to"):
+        q = {"limit": incoming.get("limit", ["1000"])[0]}
+        for k in ("from", "to", "user", "status"):
             if incoming.get(k): q[k] = incoming[k][0]
         return urllib.parse.urlencode(q)
 
     def _fetch_dqc(self):
-        if not DQC_USER or not DQC_PASS:
-            raise RuntimeError("DQC credentials are not configured on the server")
+        if not DQC_API_KEY and not (DQC_USER and DQC_PASS):
+            raise RuntimeError("DQC API key is not configured on the server")
         url = DQC_URL + "?" + self._dqc_query()
-        token = base64.b64encode(f"{DQC_USER}:{DQC_PASS}".encode()).decode()
-        req = urllib.request.Request(url, headers={"Authorization": "Basic " + token, "Accept": "application/json"})
+        headers = {"Accept": "application/json"}
+        if DQC_API_KEY:
+            headers["X-API-Key"] = DQC_API_KEY
+        else:
+            token = base64.b64encode(f"{DQC_USER}:{DQC_PASS}".encode()).decode()
+            headers["Authorization"] = "Basic " + token
+        req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=30) as r:
             data = json.loads(r.read().decode())
-        events = data.get("events", []) or []
-        for e in events:
-            e["display_user"] = event_user(e)
+        raw_events = data.get("audits") or data.get("events") or []
+        events = [normalize_dqc_event(e) for e in raw_events]
         events.sort(key=lambda e: e.get("ts", ""), reverse=True)
-        data["events"] = events
-        data["summary"] = self._summarize(events)
-        return data
+        meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+        return {
+            "generated_at": meta.get("generated_at") or data.get("generated_at"),
+            "source_generated_at": meta.get("source_generated_at"),
+            "meta": meta,
+            "people": data.get("people", []),
+            "friction": data.get("friction", []),
+            "ideas": data.get("ideas", []),
+            "leaderboard": data.get("leaderboard", {}),
+            "events": events,
+            "summary": self._summarize(events),
+        }
 
     def _summarize(self, events):
         verdicts = Counter((e.get("verdict") or "UNKNOWN").upper() for e in events)
@@ -128,7 +167,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         try:
             data = self._fetch_dqc(); out = io.StringIO(); w = csv.writer(out)
             w.writerow(["date", "user", "order", "verdict", "rejection_reason", "timestamp_utc", "dqc_skill_version"])
-            for e in data.get("events", []): w.writerow([(e.get("ts") or "")[:10], event_user(e), e.get("order",""), e.get("verdict",""), event_reason(e), e.get("ts",""), DQC_SKILL_VERSION])
+            for e in data.get("events", []): w.writerow([(e.get("ts") or "")[:10], event_user(e), e.get("order",""), e.get("verdict",""), event_reason(e), e.get("ts",""), event_version(e)])
             return self._send(200, out.getvalue().encode(), "text/csv", "dqc_usage.csv")
         except Exception as e: return self._json(500, {"error": str(e)[:200]})
 
@@ -140,7 +179,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             wb = Workbook(); ws = wb.active; ws.title = "Runs"
             headers = ["date", "user", "order", "verdict", "rejection_reason", "timestamp_utc", "dqc_skill_version"]
             ws.append(headers)
-            for e in events: ws.append([(e.get("ts") or "")[:10], event_user(e), e.get("order",""), e.get("verdict",""), event_reason(e), e.get("ts",""), DQC_SKILL_VERSION])
+            for e in events: ws.append([(e.get("ts") or "")[:10], event_user(e), e.get("order",""), e.get("verdict",""), event_reason(e), e.get("ts",""), event_version(e)])
             ws2 = wb.create_sheet("Summary"); ws2.append(["metric", "value"]); ws2.append(["total_audits", summary.get("total_audits", 0)]); ws2.append(["PASSED", summary.get("verdicts",{}).get("PASSED",0)]); ws2.append(["REJECTED", summary.get("verdicts",{}).get("REJECTED",0)]); ws2.append([]); ws2.append(["user", "audit_count"])
             for u,c in sorted(summary.get("users",{}).items(), key=lambda x: -x[1]): ws2.append([u,c])
             for sheet in (ws, ws2):
