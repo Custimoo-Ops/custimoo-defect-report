@@ -85,7 +85,7 @@
 </head>
 <body>
 <div id="refresh-bar" style="text-align:center;padding:8px 16px;background:#1a1a2e;border-bottom:1px solid #2a2a4e;font-size:13px;color:#aaa;">
-  <span id="last-update">Last updated: 2026-07-03 11:54 UTC</span>
+  <span id="last-update">Last updated: 2026-07-03 12:42 UTC</span>
   <button id="refresh-btn" onclick="doRefresh()" style="margin-left:12px;padding:4px 16px;background:#0f3460;color:white;border:1px solid #16213e;border-radius:4px;cursor:pointer;">Refresh Report</button>
   <a href="/dqc" style="margin-left:12px;color:#4ecca3;font-weight:700;text-decoration:none;">Open Digital QC Usage</a>
   <span id="refresh-msg" style="margin-left:10px;"></span>
@@ -378,14 +378,23 @@ function qarmaRate(q) { return (q.sample_qty || 0) > 0 ? (q.defects || 0) / q.sa
 function qarmaOrderRate(q) { return (q.orders_checked || 0) > 0 ? (q.rejected_orders || 0) / q.orders_checked * 100 : 0; }
 function actionPlanQty(f) {
   // More Qarma quantity needed so remake_qty / Qarma Quantity Checked is below the 0.5% goal.
+  // Capped by shipped quantity: Qarma cannot check more pieces than were shipped/produced.
   const remakeQty = f.remake_qty || 0;
   const checkedQty = (f.qarma || {}).sample_qty || 0;
+  const shippedQty = f.volume || 0;
   if (remakeQty <= 0) return 0;
   const targetCheckedQty = Math.floor(remakeQty / 0.005) + 1;
+  if (targetCheckedQty > shippedQty) return null;
   return Math.max(0, targetCheckedQty - checkedQty);
 }
 function actionPlanText(f) {
   const more = actionPlanQty(f);
+  if (more === null) {
+    const remakeQty = f.remake_qty || 0;
+    const shippedQty = f.volume || 0;
+    const bestRate = shippedQty > 0 ? remakeQty / shippedQty * 100 : 0;
+    return 'Not possible (' + bestRate.toFixed(2) + '% min)';
+  }
   if (more <= 0) return 'On target';
   return '+' + more.toLocaleString() + ' QTY';
 }

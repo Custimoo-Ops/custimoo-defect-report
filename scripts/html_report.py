@@ -1647,14 +1647,23 @@ function qarmaRate(q) {{ return (q.sample_qty || 0) > 0 ? (q.defects || 0) / q.s
 function qarmaOrderRate(q) {{ return (q.orders_checked || 0) > 0 ? (q.rejected_orders || 0) / q.orders_checked * 100 : 0; }}
 function actionPlanQty(f) {{
   // More Qarma quantity needed so remake_qty / Qarma Quantity Checked is below the 0.5% goal.
+  // Capped by shipped quantity: Qarma cannot check more pieces than were shipped/produced.
   const remakeQty = f.remake_qty || 0;
   const checkedQty = (f.qarma || {{}}).sample_qty || 0;
+  const shippedQty = f.volume || 0;
   if (remakeQty <= 0) return 0;
   const targetCheckedQty = Math.floor(remakeQty / 0.005) + 1;
+  if (targetCheckedQty > shippedQty) return null;
   return Math.max(0, targetCheckedQty - checkedQty);
 }}
 function actionPlanText(f) {{
   const more = actionPlanQty(f);
+  if (more === null) {{
+    const remakeQty = f.remake_qty || 0;
+    const shippedQty = f.volume || 0;
+    const bestRate = shippedQty > 0 ? remakeQty / shippedQty * 100 : 0;
+    return 'Not possible (' + bestRate.toFixed(2) + '% min)';
+  }}
   if (more <= 0) return 'On target';
   return '+' + more.toLocaleString() + ' QTY';
 }}
