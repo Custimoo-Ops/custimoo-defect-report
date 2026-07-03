@@ -1744,6 +1744,7 @@ function actionPlanTooltip(f) {{
     + line('0.2%', 0.002);
 }}
 function measureCells(f, q) {{
+  const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q) : qarmaRate(q);
   if (ACTIVE_MEASURE === 'orders') {{
     return '<td class="right">' + (f.orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + (q.orders_checked || 0).toLocaleString() + '</td>'
@@ -1782,7 +1783,6 @@ function factoryRow(f, opts) {{
   const clickable = opts.clickable ? ' clickable' : '';
   const dataFactory = opts.clickable ? ' data-factory="' + f.name + '"' : '';
   const q = f.qarma || {{}};
-  const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q) : qarmaRate(q);
   let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td><strong>' + f.name + '</strong></td>'
     + measureCells(f, q)
     + '<td class="right" title="' + escapeAttr(actionPlanTooltip(f)) + '"><strong>' + actionPlanText(f) + '</strong></td>';

@@ -85,7 +85,7 @@
 </head>
 <body>
 <div id="refresh-bar" style="text-align:center;padding:8px 16px;background:#1a1a2e;border-bottom:1px solid #2a2a4e;font-size:13px;color:#aaa;">
-  <span id="last-update">Last updated: 2026-07-03 16:29 UTC</span>
+  <span id="last-update">Last updated: 2026-07-03 16:33 UTC</span>
   <button id="refresh-btn" onclick="doRefresh()" style="margin-left:12px;padding:4px 16px;background:#0f3460;color:white;border:1px solid #16213e;border-radius:4px;cursor:pointer;">Refresh Report</button>
   <a href="/dqc" style="margin-left:12px;color:#4ecca3;font-weight:700;text-decoration:none;">Open Digital QC Usage</a>
   <span id="refresh-msg" style="margin-left:10px;"></span>
@@ -475,6 +475,7 @@ function actionPlanTooltip(f) {
     + line('0.2%', 0.002);
 }
 function measureCells(f, q) {
+  const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q) : qarmaRate(q);
   if (ACTIVE_MEASURE === 'orders') {
     return '<td class="right">' + (f.orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + (q.orders_checked || 0).toLocaleString() + '</td>'
@@ -513,7 +514,6 @@ function factoryRow(f, opts) {
   const clickable = opts.clickable ? ' clickable' : '';
   const dataFactory = opts.clickable ? ' data-factory="' + f.name + '"' : '';
   const q = f.qarma || {};
-  const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q) : qarmaRate(q);
   let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td><strong>' + f.name + '</strong></td>'
     + measureCells(f, q)
     + '<td class="right" title="' + escapeAttr(actionPlanTooltip(f)) + '"><strong>' + actionPlanText(f) + '</strong></td>';
