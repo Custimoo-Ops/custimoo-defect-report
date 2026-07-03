@@ -1666,8 +1666,7 @@ function actionPlanText(f) {{
   const targetCoveragePct = targetCheckedQty / shippedQty * 100;
   const currentCoveragePct = checkedQty / shippedQty * 100;
   if (targetCheckedQty > shippedQty) {{
-    const bestRate = remakeQty / shippedQty * 100;
-    return targetCoveragePct.toFixed(1) + '% needed (max 100%; ' + bestRate.toFixed(2) + '% min)';
+    return '100% QC';
   }}
   if (checkedQty >= targetCheckedQty) return 'On target (' + currentCoveragePct.toFixed(1) + '% checked)';
   return targetCoveragePct.toFixed(1) + '% needed';

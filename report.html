@@ -85,7 +85,7 @@
 </head>
 <body>
 <div id="refresh-bar" style="text-align:center;padding:8px 16px;background:#1a1a2e;border-bottom:1px solid #2a2a4e;font-size:13px;color:#aaa;">
-  <span id="last-update">Last updated: 2026-07-03 12:48 UTC</span>
+  <span id="last-update">Last updated: 2026-07-03 12:59 UTC</span>
   <button id="refresh-btn" onclick="doRefresh()" style="margin-left:12px;padding:4px 16px;background:#0f3460;color:white;border:1px solid #16213e;border-radius:4px;cursor:pointer;">Refresh Report</button>
   <a href="/dqc" style="margin-left:12px;color:#4ecca3;font-weight:700;text-decoration:none;">Open Digital QC Usage</a>
   <span id="refresh-msg" style="margin-left:10px;"></span>
@@ -397,8 +397,7 @@ function actionPlanText(f) {
   const targetCoveragePct = targetCheckedQty / shippedQty * 100;
   const currentCoveragePct = checkedQty / shippedQty * 100;
   if (targetCheckedQty > shippedQty) {
-    const bestRate = remakeQty / shippedQty * 100;
-    return targetCoveragePct.toFixed(1) + '% needed (max 100%; ' + bestRate.toFixed(2) + '% min)';
+    return '100% QC';
   }
   if (checkedQty >= targetCheckedQty) return 'On target (' + currentCoveragePct.toFixed(1) + '% checked)';
   return targetCoveragePct.toFixed(1) + '% needed';
