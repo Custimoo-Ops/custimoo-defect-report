@@ -22,6 +22,8 @@ def event_reason(e):
         if v is not None and str(v).strip():
             return str(v).strip()
     friction = e.get("friction") if isinstance(e.get("friction"), dict) else {}
+    if friction and friction.get("has_friction") is False:
+        return ""
     for k in ("limitation", "note", "status"):
         v = friction.get(k)
         if v is not None and str(v).strip() and str(v).strip().lower() not in ("none", "ignored", "non-friction"):
