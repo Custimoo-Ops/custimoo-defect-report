@@ -1678,14 +1678,23 @@ function actionPlanQty(f) {{
   return Math.max(0, targetCheckedQty - checkedQty);
 }}
 function actionPlanInputs(f) {{
-  const remakeQty = f.remake_qty || 0;
-  const checkedQty = (f.qarma || {{}}).sample_qty || 0;
-  const shippedQty = f.volume || 0;
+  const q = f.qarma || {{}};
   const all = aggregateFactories(ACTIVE_DATA.factories || []);
-  const totalDefects = (all.qarma || {{}}).defects || 0;
-  const totalChecked = (all.qarma || {{}}).sample_qty || 0;
+  const allQ = all.qarma || {{}};
+  const isOrders = ACTIVE_MEASURE === 'orders';
+  const remakeQty = isOrders ? (f.remake_orders || 0) : (f.remake_qty || 0);
+  const checkedQty = isOrders ? (q.orders_checked || 0) : (q.sample_qty || 0);
+  const shippedQty = isOrders ? (f.orders || 0) : (f.volume || 0);
+  const totalDefects = isOrders ? (allQ.rejected_orders || 0) : (allQ.defects || 0);
+  const totalChecked = isOrders ? (allQ.orders_checked || 0) : (allQ.sample_qty || 0);
   const qarmaCatchRate = totalChecked > 0 ? totalDefects / totalChecked : 0;
-  return {{ remakeQty, checkedQty, shippedQty, totalDefects, totalChecked, qarmaCatchRate }};
+  const unit = isOrders ? 'orders' : 'pcs';
+  const shippedLabel = isOrders ? 'Total Number of Orders' : 'Total Order QTY';
+  const checkedLabel = isOrders ? 'Current Qarma Number of Orders' : 'Current Qarma QTY Checked';
+  const remakeLabel = isOrders ? 'Remake Orders' : 'Remake QTY';
+  const catchLabel = isOrders ? 'rejected orders' : 'defects';
+  const coverageLabel = isOrders ? 'Qarma order coverage' : 'Qarma QC coverage';
+  return {{ remakeQty, checkedQty, shippedQty, totalDefects, totalChecked, qarmaCatchRate, unit, shippedLabel, checkedLabel, remakeLabel, catchLabel, coverageLabel }};
 }}
 function actionPlanTarget(f, targetRate) {{
   const x = actionPlanInputs(f);
@@ -1711,26 +1720,26 @@ function escapeAttr(s) {{
 }}
 function actionPlanTooltip(f) {{
   const x = actionPlanInputs(f);
-  if (x.shippedQty <= 0) return 'No shipped QTY';
+  if (x.shippedQty <= 0) return 'No base volume/orders';
   if (x.qarmaCatchRate <= 0) return 'No Qarma data';
   function fmt(n) {{ return Math.round(n).toLocaleString(); }}
   function pct(n, d) {{ return d > 0 ? (n / d * 100).toFixed(1) + '%' : '—'; }}
   function line(targetLabel, targetRate) {{
     const t = actionPlanTarget(f, targetRate);
     return targetLabel + ' target\\n'
-      + 'Target remaining remakes = ' + targetLabel + ' × ' + fmt(x.shippedQty) + ' = ' + fmt(t.targetRemaining) + ' pcs\\n'
-      + 'Remakes to catch = ' + fmt(x.remakeQty) + ' − ' + fmt(t.targetRemaining) + ' = ' + fmt(t.toCatch) + ' pcs\\n'
-      + 'Additional Qarma checks = ceil(' + fmt(t.toCatch) + ' / ' + (x.qarmaCatchRate * 100).toFixed(2) + '%) = ' + fmt(t.additionalChecks) + ' pcs\\n'
-      + 'Total Qarma checks = ' + fmt(x.checkedQty) + ' + ' + fmt(t.additionalChecks) + ' = ' + fmt(t.totalChecks) + ' pcs\\n'
+      + 'Target remaining remakes = ' + targetLabel + ' × ' + fmt(x.shippedQty) + ' = ' + fmt(t.targetRemaining) + ' ' + x.unit + '\\n'
+      + 'Remakes to catch = ' + fmt(x.remakeQty) + ' − ' + fmt(t.targetRemaining) + ' = ' + fmt(t.toCatch) + ' ' + x.unit + '\\n'
+      + 'Additional Qarma checks = ceil(' + fmt(t.toCatch) + ' / ' + (x.qarmaCatchRate * 100).toFixed(2) + '%) = ' + fmt(t.additionalChecks) + ' ' + x.unit + '\\n'
+      + 'Total Qarma checks = ' + fmt(x.checkedQty) + ' + ' + fmt(t.additionalChecks) + ' = ' + fmt(t.totalChecks) + ' ' + x.unit + '\\n'
       + 'Coverage needed = ' + fmt(t.totalChecks) + ' / ' + fmt(x.shippedQty) + ' = ' + (t.capped ? '100%+' : t.coveragePct.toFixed(1) + '%');
   }}
-  return 'Qarma QC coverage calculation for ' + f.name + '\\n'
-    + 'Uses total average Qarma catch rate across all factories:\\n'
-    + fmt(x.totalDefects) + ' defects / ' + fmt(x.totalChecked) + ' checked = ' + (x.qarmaCatchRate * 100).toFixed(2) + '%\\n\\n'
+  return x.coverageLabel + ' calculation for ' + f.name + '\\n'
+    + 'Uses total average Qarma catch rate across all factories in the selected measure mode:\\n'
+    + fmt(x.totalDefects) + ' ' + x.catchLabel + ' / ' + fmt(x.totalChecked) + ' checked ' + x.unit + ' = ' + (x.qarmaCatchRate * 100).toFixed(2) + '%\\n\\n'
     + 'Factory inputs:\\n'
-    + 'Total Order QTY = ' + fmt(x.shippedQty) + '\\n'
-    + 'Current Qarma QTY Checked = ' + fmt(x.checkedQty) + ' (' + pct(x.checkedQty, x.shippedQty) + ')\\n'
-    + 'Remake QTY = ' + fmt(x.remakeQty) + '\\n\\n'
+    + x.shippedLabel + ' = ' + fmt(x.shippedQty) + '\\n'
+    + x.checkedLabel + ' = ' + fmt(x.checkedQty) + ' (' + pct(x.checkedQty, x.shippedQty) + ')\\n'
+    + x.remakeLabel + ' = ' + fmt(x.remakeQty) + '\\n\\n'
     + line('0.5%', 0.005) + '\\n\\n'
     + line('0.2%', 0.002);
 }}
@@ -1769,7 +1778,7 @@ function factoryRow(f, opts) {{
   const clickable = opts.clickable ? ' clickable' : '';
   const dataFactory = opts.clickable ? ' data-factory="' + f.name + '"' : '';
   const q = f.qarma || {{}};
-  const qarmaErrPct = qarmaRate(q);
+  const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q) : qarmaRate(q);
   let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td><strong>' + f.name + '</strong></td>'
     + measureCells(f, q)
     + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
