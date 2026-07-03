@@ -85,7 +85,7 @@
 </head>
 <body>
 <div id="refresh-bar" style="text-align:center;padding:8px 16px;background:#1a1a2e;border-bottom:1px solid #2a2a4e;font-size:13px;color:#aaa;">
-  <span id="last-update">Last updated: 2026-07-03 16:04 UTC</span>
+  <span id="last-update">Last updated: 2026-07-03 16:12 UTC</span>
   <button id="refresh-btn" onclick="doRefresh()" style="margin-left:12px;padding:4px 16px;background:#0f3460;color:white;border:1px solid #16213e;border-radius:4px;cursor:pointer;">Refresh Report</button>
   <a href="/dqc" style="margin-left:12px;color:#4ecca3;font-weight:700;text-decoration:none;">Open Digital QC Usage</a>
   <span id="refresh-msg" style="margin-left:10px;"></span>
@@ -435,7 +435,7 @@ function actionPlanTarget(f, targetRate) {
 function actionPlanText(f) {
   const t05 = actionPlanTarget(f, 0.005);
   const t02 = actionPlanTarget(f, 0.002);
-  return '0.5%: ' + t05.label + ' / 0.2%: ' + t02.label;
+  return t05.label + ' / ' + t02.label;
 }
 function escapeAttr(s) {
   return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

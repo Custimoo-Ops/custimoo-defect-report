@@ -1704,7 +1704,7 @@ function actionPlanTarget(f, targetRate) {{
 function actionPlanText(f) {{
   const t05 = actionPlanTarget(f, 0.005);
   const t02 = actionPlanTarget(f, 0.002);
-  return '0.5%: ' + t05.label + ' / 0.2%: ' + t02.label;
+  return t05.label + ' / ' + t02.label;
 }}
 function escapeAttr(s) {{
   return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
