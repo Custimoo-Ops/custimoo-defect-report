@@ -85,7 +85,7 @@
 </head>
 <body>
 <div id="refresh-bar" style="text-align:center;padding:8px 16px;background:#1a1a2e;border-bottom:1px solid #2a2a4e;font-size:13px;color:#aaa;">
-  <span id="last-update">Last updated: 2026-07-03 11:11 UTC</span>
+  <span id="last-update">Last updated: 2026-07-03 11:18 UTC</span>
   <button id="refresh-btn" onclick="doRefresh()" style="margin-left:12px;padding:4px 16px;background:#0f3460;color:white;border:1px solid #16213e;border-radius:4px;cursor:pointer;">Refresh Report</button>
   <a href="/dqc" style="margin-left:12px;color:#4ecca3;font-weight:700;text-decoration:none;">Open Digital QC Usage</a>
   <span id="refresh-msg" style="margin-left:10px;"></span>
@@ -115,7 +115,7 @@ async function doRefresh(){var b=document.getElementById('refresh-btn'),m=docume
     <div class="card">
       <div class="section-head"><h3 class="section-title" id="breakdownTitle">Remake / Qarma Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="breakdownFilter" class="muted" style="font-size:13px;font-weight:700">Filter:</label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
       <div class="hint" id="breakdownHint">Factory view combines backend remake data with Qarma physical QC catch data from the live daily CSV export.</div>
-      <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Remake % (Sample)</th></tr></thead><tbody id="factoryBody"></tbody></table>
+      <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Defect % (Sample)</th></tr></thead><tbody id="factoryBody"></tbody></table>
     </div>
     <div class="card">
       <div class="section-head"><div><h3 class="section-title" id="exceptionLeadersTitle">Exception Leaders — Fewest Remake Orders</h3><div class="hint" id="exceptionLeadersSub">Based on selected period. Exception rate = remake orders / total orders.</div></div></div>
@@ -265,8 +265,6 @@ let ACTIVE_MEASURE = 'qty';
 function activeMonthSet() { return new Set(ACTIVE_MONTH_KEYS); }
 
 // ── Utility ──
-function ords() { return ORDERS; }
-function filterOrders(fn) { return ORDERS.filter(fn); }
 
 // ── Tabs ──
 document.querySelectorAll('.tab[data-target]').forEach(function(btn) {
@@ -354,6 +352,136 @@ document.getElementById('drillOverlay').addEventListener('click', function(e) {
 });
 
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+function pctPill(r) {
+  return r >= 2.0 ? '<span class="pct-pill pct-high">'+r.toFixed(2)+'%</span>'
+       : r >= 1.0 ? '<span class="pct-pill pct-mid">'+r.toFixed(2)+'%</span>'
+       : '<span class="pct-pill pct-low">'+r.toFixed(2)+'%</span>';
+}
+function aggregateFactories(list) {
+  return (list || []).reduce(function(acc, f) {
+    const q = f.qarma || {};
+    acc.volume += f.volume || 0;
+    acc.orders += f.orders || 0;
+    acc.remake_orders += f.remake_orders || 0;
+    acc.remake_qty += f.remake_qty || 0;
+    acc.qarma.sample_qty += q.sample_qty || 0;
+    acc.qarma.defects += q.defects || 0;
+    acc.qarma.inspections += q.inspections || 0;
+    acc.qarma.orders_checked += q.orders_checked || 0;
+    acc.qarma.rejected_orders += q.rejected_orders || 0;
+    return acc;
+  }, {volume:0, orders:0, remake_orders:0, remake_qty:0, qarma:{sample_qty:0, defects:0, inspections:0, orders_checked:0, rejected_orders:0}});
+}
+function valWithDelta(html) { return html; }
+function qarmaRate(q) { return (q.sample_qty || 0) > 0 ? (q.defects || 0) / q.sample_qty * 100 : 0; }
+function qarmaOrderRate(q) { return (q.orders_checked || 0) > 0 ? (q.rejected_orders || 0) / q.orders_checked * 100 : 0; }
+function factoryRow(f, opts) {
+  opts = opts || {};
+  const cls = opts.cls || '';
+  const clickable = opts.clickable ? ' clickable' : '';
+  const dataFactory = opts.clickable ? ' data-factory="' + f.name + '"' : '';
+  const q = f.qarma || {};
+  const remakeQtyPct = (f.volume || 0) > 0 ? (f.remake_qty || 0) / f.volume * 100 : 0;
+  const remakeOrderPct = (f.orders || 0) > 0 ? (f.remake_orders || 0) / f.orders * 100 : 0;
+  let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td><strong>' + f.name + '</strong></td>';
+  if (ACTIVE_MEASURE === 'orders') {
+    row += '<td class="right">' + (f.orders || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + pctPill(remakeOrderPct) + '</td>'
+      + '<td class="right">' + (q.orders_checked || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (q.rejected_orders || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + pctPill(qarmaOrderRate(q)) + '</td>';
+  } else {
+    row += '<td class="right">' + (f.volume || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + pctPill(remakeQtyPct) + '</td>'
+      + '<td class="right">' + (q.sample_qty || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (q.defects || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + pctPill(qarmaRate(q)) + '</td>';
+  }
+  return row + '</tr>';
+}
+function setBreakdownHeader(mode) {
+  const thead = document.querySelector('#factoryTable thead tr');
+  const first = mode === 'all' ? 'All' : (mode === 'factory' ? 'Factory' : (mode === 'sku' ? 'SKU / Series' : (mode === 'sport' ? 'Sport' : (mode === 'category' ? 'Category' : 'Order Admin'))));
+  if (ACTIVE_MEASURE === 'orders') {
+    thead.innerHTML = '<th>' + first + '</th><th class="right">No of Orders</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th><th class="right">Qarma Orders Checked</th><th class="right">Qarma Rejected Orders</th><th class="right">Qarma Defect % (Orders)</th>';
+  } else {
+    thead.innerHTML = '<th>' + first + '</th><th class="right">Total Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Defect % (Sample)</th>';
+  }
+  document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Remake / Qarma Breakdown — All' : (mode === 'factory' ? 'Remake / Qarma Breakdown — Factories' : (mode === 'sku' ? 'Remake / Qarma Breakdown — SKU' : (mode === 'sport' ? 'Remake / Qarma Breakdown — Sports' : (mode === 'category' ? 'Remake / Qarma Breakdown — Category' : 'Remake / Qarma Breakdown — Order Admin'))));
+  const qsrc = DATA.qarmaSource || {};
+  const qnote = qsrc.ok ? (' Qarma source: live CSV · ' + (qsrc.filtered_rows || 0).toLocaleString() + ' included rows / ' + (qsrc.rows || 0).toLocaleString() + ' raw rows; Qarma updates around midnight Danish time, report refreshes hourly.') : (' Qarma source unavailable: ' + (qsrc.error || 'unknown error'));
+  document.getElementById('breakdownHint').textContent = (mode === 'factory' ? 'Factory view combines backend remake data with Qarma physical QC catch data.' : 'Selected grouping combines backend remake data with Qarma measures where order matching is available.') + qnote;
+}
+function renderFactoryTable(tbodyId, list, clickable, opts) {
+  const total = aggregateFactories(list || []); total.name = 'Total';
+  const noMavicList = (list || []).filter(function(f) { return f.name !== 'Mavic Sports'; });
+  const noMavic = aggregateFactories(noMavicList); noMavic.name = 'Total excl. Mavic Sports';
+  document.getElementById(tbodyId).innerHTML = (list || []).map(function(f) { return factoryRow(f, {clickable: clickable}); }).join('') + factoryRow(total, {cls:'total-row'}) + factoryRow(noMavic, {cls:'no-mavic-row'});
+}
+function renderGroupingTable(mode) {
+  setBreakdownHeader(mode);
+  var filter = document.getElementById('breakdownFilter'); if (filter && filter.value !== mode) filter.value = mode;
+  if (mode === 'factory') { renderFactoryTable('factoryBody', ACTIVE_DATA.factories || [], true, {}); return; }
+  if (mode === 'all') { const total = aggregateFactories(ACTIVE_DATA.factories || []); total.name = 'All'; document.getElementById('factoryBody').innerHTML = factoryRow(total, {cls:'total-row'}); return; }
+  const rows = ((ACTIVE_GROUPINGS || {})[mode] || []);
+  const total = aggregateFactories(rows); total.name = 'Total';
+  document.getElementById('factoryBody').innerHTML = rows.map(function(r) { return factoryRow(r, {}); }).join('') + factoryRow(total, {cls:'total-row'});
+}
+function leaderRank(i) { return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : String(i + 1); }
+function renderLeaderRows(rows, emptyLabel) {
+  if (!rows || !rows.length) return '<tr><td colspan="5">No qualifying ' + emptyLabel + ' in selected period</td></tr>';
+  return rows.map(function(r, i) { return '<tr><td><strong>' + leaderRank(i) + '</strong></td><td>' + esc(r.name) + '</td><td class="right"><strong>' + (r.rate || 0).toFixed(2) + '%</strong></td><td class="right">' + (r.remake_orders || 0).toLocaleString() + '</td><td class="right">' + (r.orders || 0).toLocaleString() + '</td></tr>'; }).join('');
+}
+function renderExceptionLeaders() {
+  const d = ACTIVE_DATA || {};
+  const leaders = d.exceptionLeaders || {admin: []};
+  const label = d.label || ((d.months || [])[0] + ' – ' + (d.months || [])[(d.months || []).length - 1]);
+  document.getElementById('exceptionLeadersSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · exception rate = remake orders / total orders.';
+  document.getElementById('adminLeadersBody').innerHTML = renderLeaderRows(leaders.admin || [], 'order admins');
+}
+function updateSummaryStats() {
+  const d = ACTIVE_DATA;
+  const label = d.label || (d.months[0] + ' – ' + d.months[d.months.length-1]);
+  const rollingData = PERIODS.last_3 || DATA;
+  const rollingAgg = aggregateFactories(rollingData.factories || []);
+  const selectedAgg = aggregateFactories(d.factories || []);
+  const rollingRemakeRate = (rollingAgg.volume || 0) > 0 ? ((rollingAgg.remake_qty || 0) / rollingAgg.volume * 100) : 0;
+  const selectedRemakeRate = (selectedAgg.volume || 0) > 0 ? ((selectedAgg.remake_qty || 0) / selectedAgg.volume * 100) : 0;
+  document.getElementById('rollingRate').textContent = rollingRemakeRate.toFixed(2) + '%';
+  document.getElementById('rollingSub').textContent = 'Fixed 3-month rolling window · ' + (DATA.rollingLabel || '') + ' · ' + (rollingAgg.remake_qty || 0).toLocaleString() + ' remake qty / ' + (rollingAgg.volume || 0).toLocaleString() + ' total order qty';
+  document.getElementById('selectedRateLabel').textContent = 'Selected Period Remake Rate';
+  document.getElementById('totalRate').textContent = selectedRemakeRate.toFixed(2) + '%';
+  document.getElementById('totalSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · ' + (selectedAgg.remake_qty || 0).toLocaleString() + ' remake qty / ' + (selectedAgg.volume || 0).toLocaleString() + ' total order qty';
+  const ytd = PERIODS.ytd || DATA;
+  const ytdAgg = aggregateFactories(ytd.factories || []);
+  const ytdRate = (ytdAgg.volume || 0) > 0 ? ((ytdAgg.remake_qty || 0) / ytdAgg.volume * 100) : 0;
+  const gap = ytdRate - 0.5;
+  const goalText = gap <= 0 ? 'On target' : (gap.toFixed(2) + ' percentage points above goal');
+  document.getElementById('goalSub').textContent = 'Goal for 2026: ≤0.50% remake-qty error rate. Current YTD: ' + ytdRate.toFixed(2) + '% (' + (ytdAgg.remake_qty || 0).toLocaleString() + ' remake qty / ' + (ytdAgg.volume || 0).toLocaleString() + ' total order qty) · ' + goalText;
+}
+function applyPeriod(key) {
+  ACTIVE_PERIOD = key;
+  ACTIVE_DATA = PERIODS[key] || DATA;
+  ACTIVE_MONTH_KEYS = ACTIVE_DATA.monthKeys || MONTH_KEYS;
+  ACTIVE_GROUPINGS = ACTIVE_DATA.groupings || GROUPINGS;
+  updateSummaryStats();
+  updatePeriodKpis();
+  renderExceptionLeaders();
+  renderGroupingTable((document.getElementById('breakdownFilter') || {value:'factory'}).value);
+  renderTrendChart(null);
+}
+var breakdownFilter = document.getElementById('breakdownFilter');
+if (breakdownFilter) { breakdownFilter.value = 'factory'; breakdownFilter.addEventListener('change', function() { renderGroupingTable(breakdownFilter.value); }); }
+var periodFilter = document.getElementById('periodFilter');
+if (periodFilter) { periodFilter.value = ACTIVE_PERIOD; periodFilter.addEventListener('change', function() { applyPeriod(periodFilter.value); }); }
+var measureFilter = document.getElementById('measureFilter');
+if (measureFilter) { measureFilter.value = ACTIVE_MEASURE; measureFilter.addEventListener('change', function() { ACTIVE_MEASURE = measureFilter.value; renderGroupingTable((document.getElementById('breakdownFilter') || {value:'factory'}).value); }); }
+
 // ── YTD KPI cards / measure view ──
 let YTD_MEASURE = 'qty';
 document.getElementById('ytdVolume').textContent = DATA.totalVolume.toLocaleString();
@@ -466,9 +594,9 @@ function ytdCumulativeTable() {
 function renderYtdFactoryTable() {
   const head = document.getElementById('ytdFactoryHead');
   if (YTD_MEASURE === 'orders') {
-    head.innerHTML = '<th>Factory</th><th class="right">No of Orders</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th><th class="right">Qarma Orders Checked</th><th class="right">Qarma Rejected Orders</th><th class="right">Qarma Remake % (Orders)</th>';
+    head.innerHTML = '<th>Factory</th><th class="right">No of Orders</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake %</th><th class="right">Qarma Orders Checked</th><th class="right">Qarma Rejected Orders</th><th class="right">Qarma Defect % (Orders)</th>';
   } else {
-    head.innerHTML = '<th>Factory</th><th class="right">Total Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Remake % (Sample)</th>';
+    head.innerHTML = '<th>Factory</th><th class="right">Total Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th><th class="right">Qarma Sample QTY</th><th class="right">Qarma Defects QTY</th><th class="right">Qarma Defect % (Sample)</th>';
   }
   const prev = ACTIVE_MEASURE;
   ACTIVE_MEASURE = YTD_MEASURE;
