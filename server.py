@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import base64, csv, io, json, os, socketserver, urllib.parse, urllib.request
+import base64, csv, hashlib, hmac, io, json, os, secrets, socketserver, time, urllib.parse, urllib.request
 from collections import Counter
 from datetime import datetime, timezone
 from html import escape
@@ -14,6 +14,36 @@ DQC_API_KEY = os.environ.get("DQC_API_KEY", "")
 DQC_USER = os.environ.get("DQC_DASH_USER", "")
 DQC_PASS = os.environ.get("DQC_DASH_PASSWORD", "")
 DQC_SKILL_VERSION = os.environ.get("DQC_SKILL_VERSION", "0.5.5")
+
+SSO_ENABLED = os.environ.get("CUSTIMOO_SSO_ENABLED", "1").lower() not in ("0", "false", "no", "off")
+SSO_TENANT_ID = os.environ.get("CUSTIMOO_SSO_TENANT_ID") or os.environ.get("CUSTIMOO_GRAPH_TENANT_ID", "")
+SSO_CLIENT_ID = os.environ.get("CUSTIMOO_SSO_CLIENT_ID") or os.environ.get("CUSTIMOO_GRAPH_CLIENT_ID", "")
+SSO_CLIENT_SECRET = os.environ.get("CUSTIMOO_SSO_CLIENT_SECRET") or os.environ.get("CUSTIMOO_GRAPH_CLIENT_SECRET", "")
+SSO_SESSION_SECRET = os.environ.get("CUSTIMOO_SSO_SESSION_SECRET", "")
+SSO_ALLOWED_DOMAIN = os.environ.get("CUSTIMOO_SSO_ALLOWED_DOMAIN", "custimoo.com").lower().lstrip("@")
+SSO_COOKIE = "custimoo_report_session"
+SSO_STATE_COOKIE = "custimoo_report_oauth_state"
+SSO_NONCE_COOKIE = "custimoo_report_oauth_nonce"
+SSO_SESSION_TTL = int(os.environ.get("CUSTIMOO_SSO_SESSION_TTL", str(12 * 3600)))
+def b64url_decode(segment):
+    segment += "=" * (-len(segment) % 4)
+    return base64.urlsafe_b64decode(segment.encode())
+
+def b64url_json(segment):
+    return json.loads(b64url_decode(segment).decode())
+
+def cookie_header(name, value, max_age=None):
+    parts = [f"{name}={value}", "Path=/", "HttpOnly", "Secure", "SameSite=Lax"]
+    if max_age is not None:
+        parts.append(f"Max-Age={int(max_age)}")
+    return "; ".join(parts)
+
+def clear_cookie_header(name):
+    return cookie_header(name, "", 0)
+
+def sso_configured():
+    return all([SSO_TENANT_ID, SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_SESSION_SECRET])
+
 REASON_KEYS = ("rejection_reason", "reject_reason", "reason", "failure_reason", "qc_reason", "notes", "message")
 
 def event_reason(e):
@@ -82,8 +112,153 @@ class H(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory="/app", **kwargs)
 
+    def _cookies(self):
+        out = {}
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            if "=" in part:
+                k, v = part.strip().split("=", 1)
+                out[k] = urllib.parse.unquote(v)
+        return out
+
+    def _external_base_url(self):
+        proto = self.headers.get("X-Forwarded-Proto") or "https"
+        host = self.headers.get("X-Forwarded-Host") or self.headers.get("Host") or "custimoo-defect-report-lars.fly.dev"
+        return f"{proto}://{host}"
+
+    def _redirect_uri(self):
+        return self._external_base_url() + "/auth/callback"
+
+    def _sign(self, payload):
+        raw = json.dumps(payload, separators=(",", ":"), sort_keys=True).encode()
+        data = base64.urlsafe_b64encode(raw).decode().rstrip("=")
+        sig = hmac.new(SSO_SESSION_SECRET.encode(), data.encode(), hashlib.sha256).digest()
+        return data + "." + base64.urlsafe_b64encode(sig).decode().rstrip("=")
+
+    def _unsign(self, token):
+        try:
+            data, sig = token.split(".", 1)
+            expected = hmac.new(SSO_SESSION_SECRET.encode(), data.encode(), hashlib.sha256).digest()
+            actual = b64url_decode(sig)
+            if not hmac.compare_digest(expected, actual):
+                return None
+            payload = json.loads(b64url_decode(data).decode())
+            if int(payload.get("exp", 0)) < int(time.time()):
+                return None
+            return payload
+        except Exception:
+            return None
+
+    def _current_user(self):
+        if not SSO_ENABLED:
+            return {"email": "sso-disabled"}
+        if not sso_configured():
+            return None
+        return self._unsign(self._cookies().get(SSO_COOKIE, ""))
+
+    def _is_public_path(self, path):
+        return path.startswith("/auth/") or path in ("/favicon.ico",)
+
+    def _require_auth(self, path):
+        if not SSO_ENABLED or self._is_public_path(path):
+            return True
+        if not sso_configured():
+            self._html("""<!doctype html><title>SSO setup required</title><body style='font-family:sans-serif;padding:32px'><h1>Custimoo SSO is not configured</h1><p>Missing one or more server secrets: tenant id, client id, client secret, or session secret.</p></body>""", code=503)
+            return False
+        if self._current_user():
+            return True
+        next_path = self.path if self.path.startswith("/") else "/"
+        return self._redirect("/auth/login?next=" + urllib.parse.quote(next_path, safe=""))
+
+    def _auth_login(self):
+        if not sso_configured():
+            return self._json(503, {"error": "Custimoo SSO is not configured"})
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        next_path = query.get("next", ["/"])[0]
+        if not next_path.startswith("/") or next_path.startswith("//"):
+            next_path = "/"
+        state = secrets.token_urlsafe(24)
+        nonce = secrets.token_urlsafe(24)
+        params = {
+            "client_id": SSO_CLIENT_ID,
+            "response_type": "code",
+            "redirect_uri": self._redirect_uri(),
+            "response_mode": "query",
+            "scope": "openid email profile",
+            "state": state,
+            "nonce": nonce,
+            "prompt": "select_account",
+        }
+        self.send_response(302)
+        self.send_header("Set-Cookie", cookie_header(SSO_STATE_COOKIE, self._sign({"state": state, "next": next_path, "exp": int(time.time()) + 600}), 600))
+        self.send_header("Set-Cookie", cookie_header(SSO_NONCE_COOKIE, nonce, 600))
+        self.send_header("Location", f"https://login.microsoftonline.com/{SSO_TENANT_ID}/oauth2/v2.0/authorize?" + urllib.parse.urlencode(params))
+        self.end_headers()
+
+    def _auth_callback(self):
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        if query.get("error"):
+            return self._html("<h1>Custimoo SSO login failed</h1><pre>%s</pre>" % escape(str(query)), code=401)
+        code = query.get("code", [""])[0]
+        state = query.get("state", [""])[0]
+        state_payload = self._unsign(self._cookies().get(SSO_STATE_COOKIE, ""))
+        nonce = self._cookies().get(SSO_NONCE_COOKIE, "")
+        if not code or not state_payload or state_payload.get("state") != state or not nonce:
+            return self._html("<h1>Invalid or expired SSO state</h1><p>Please try logging in again.</p>", code=401)
+        body = urllib.parse.urlencode({
+            "client_id": SSO_CLIENT_ID,
+            "client_secret": SSO_CLIENT_SECRET,
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": self._redirect_uri(),
+            "scope": "openid email profile",
+        }).encode()
+        req = urllib.request.Request(
+            f"https://login.microsoftonline.com/{SSO_TENANT_ID}/oauth2/v2.0/token",
+            data=body,
+            method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                token = json.loads(r.read().decode())
+        except Exception as e:
+            return self._html("<h1>Custimoo SSO token exchange failed</h1><pre>%s</pre>" % escape(str(e)[:500]), code=401)
+        id_token = token.get("id_token", "")
+        try:
+            claims = b64url_json(id_token.split(".")[1])
+        except Exception:
+            return self._html("<h1>Invalid SSO token</h1>", code=401)
+        now = int(time.time())
+        email = (claims.get("preferred_username") or claims.get("email") or claims.get("upn") or "").lower()
+        if claims.get("aud") != SSO_CLIENT_ID or int(claims.get("exp", 0)) < now or claims.get("nonce") != nonce:
+            return self._html("<h1>SSO token validation failed</h1>", code=401)
+        if SSO_ALLOWED_DOMAIN and not email.endswith("@" + SSO_ALLOWED_DOMAIN):
+            return self._html("<h1>Access denied</h1><p>Use your Custimoo account.</p>", code=403)
+        session = self._sign({"email": email, "name": claims.get("name") or email, "exp": now + SSO_SESSION_TTL})
+        self.send_response(302)
+        self.send_header("Set-Cookie", cookie_header(SSO_COOKIE, session, SSO_SESSION_TTL))
+        self.send_header("Set-Cookie", clear_cookie_header(SSO_STATE_COOKIE))
+        self.send_header("Set-Cookie", clear_cookie_header(SSO_NONCE_COOKIE))
+        self.send_header("Location", state_payload.get("next") or "/")
+        self.end_headers()
+
+    def _auth_logout(self):
+        self.send_response(302)
+        self.send_header("Set-Cookie", clear_cookie_header(SSO_COOKIE))
+        self.send_header("Location", "/auth/login")
+        self.end_headers()
+
+    def _redirect(self, location):
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.end_headers()
+
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
+        if path == "/auth/login": return self._auth_login()
+        if path == "/auth/callback": return self._auth_callback()
+        if path == "/auth/logout": return self._auth_logout()
+        if not self._require_auth(path): return
         if path == "/api/refresh": return self._refresh()
         if path == "/api/status": return self._status()
         if path == "/api/dqc/events": return self._dqc_events()
@@ -191,7 +366,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._send(200, bio.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "dqc_usage.xlsx")
         except Exception as e: return self._json(500, {"error": str(e)[:200]})
 
-    def _html(self, html): return self._send(200, html.encode(), "text/html; charset=utf-8")
+    def _html(self, html, code=200): return self._send(code, html.encode(), "text/html; charset=utf-8")
     def _json(self, code, data): return self._send(code, json.dumps(data).encode(), "application/json")
     def _send(self, code, body, content_type, filename=None):
         self.send_response(code); self.send_header("Content-Type", content_type); self.send_header("Access-Control-Allow-Origin", "*"); self.send_header("Content-Length", str(len(body)))
