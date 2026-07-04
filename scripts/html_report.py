@@ -1395,7 +1395,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         <li><strong>Non-QC-catchable issues → Interpretation:</strong> delays, paperwork/admin errors, packing/transit/rework issues, and other non-physical-QC remake causes can inflate Remake QTY Err% even if Qarma coverage improves. These are called out in the interpretation instead of being treated as solvable by more checks.</li>
       </ul>
       <table><thead><tr><th>Factory</th><th class="right">Qarma Err%</th><th class="right">Unchecked QTY</th><th class="right">Implied Unchecked Err%</th><th class="right">Ratio vs Qarma</th><th>Interpretation</th></tr></thead><tbody id="actionPlanDiagnosticsBody"></tbody></table>
-      <div class="footnote">Implied unchecked err% = Remake QTY / (Total Order QTY − Qarma QTY Checked). This is a directional sanity check, not proof of cause: remakes can include QC misses and non-QC-catchable errors.</div>
+      <div class="footnote">Unchecked QTY = Total Order QTY − Qarma QTY Checked. Implied unchecked err% = Remake QTY / Unchecked QTY. This is a directional sanity check, not proof of cause: remakes can include QC misses and non-QC-catchable errors.</div>
     </div>
     <div class="card">
       <div class="section-head"><div><h3 class="section-title" id="exceptionLeadersTitle">Exception Leaders — Fewest Remake Orders</h3><div class="hint" id="exceptionLeadersSub">Based on selected period. Exception rate = remake orders / total orders.</div></div></div>
