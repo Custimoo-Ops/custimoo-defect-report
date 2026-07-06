@@ -2066,7 +2066,15 @@ function renderRemakeMgmt(filterAdmin, filterMonth, filterFlag) {{
   if (filterAdmin) rows = rows.filter(function(r) {{ return r.admin === filterAdmin; }});
   if (filterMonth) rows = rows.filter(function(r) {{ return r.month === filterMonth; }});
   if (filterFlag) rows = rows.filter(function(r) {{ return (r.flag || '') === filterFlag; }});
-  rows = rows.slice().sort(function(a,b) {{ return (remakeIsExcluded(a) - remakeIsExcluded(b)) || ((b.qty||0) - (a.qty||0)); }});
+  rows = rows.slice().sort(function(a,b) {{
+    const ex = remakeIsExcluded(a) - remakeIsExcluded(b);
+    if (ex) return ex;
+    const monthCmp = String(b.month || '').localeCompare(String(a.month || ''));
+    if (monthCmp) return monthCmp;
+    const orderA = parseInt(String(a.order || '').replace(/\D/g, ''), 10) || 0;
+    const orderB = parseInt(String(b.order || '').replace(/\D/g, ''), 10) || 0;
+    return orderB - orderA;
+  }});
   const tbody = document.getElementById('remakeMgmtBody');
   tbody.innerHTML = rows.map(function(r) {{
     const order = String(r.order || '').replace(/^#/, '');
