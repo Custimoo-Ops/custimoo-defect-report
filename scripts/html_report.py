@@ -1217,8 +1217,16 @@ PERIODS_JSON = json.dumps(PERIODS, cls=factory_data.DecimalEncoder)
 PERIODS_JSON_SAFE = PERIODS_JSON.replace('<', '\\\\u003C').replace('>', '\\\\u003E')
 
 # ── Remake Management data ──
-remake_cur = conn.cursor()
-remake_cur.execute("""
+# Primary source: exported by-admin remake report from iCloud Desktop, committed as JSON
+# so GitHub Actions/Fly deploys do not depend on local iCloud files.
+remake_json_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'remake_report_by_admin.json')
+if os.path.exists(remake_json_path):
+    with open(remake_json_path, 'r', encoding='utf-8') as f:
+        REMAKE_MGMT = json.load(f)
+else:
+    # Fallback only: raw remake orders from backend, without category/comment/flag context.
+    remake_cur = conn.cursor()
+    remake_cur.execute("""
 SELECT o.order_no,
        CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED) as qty,
        COALESCE(u.name, u.email, '(unknown)') AS admin_name,
@@ -1233,8 +1241,8 @@ WHERE o.order_type_symbol = 'R'
 GROUP BY o.order_no
 ORDER BY qty DESC
 """, (factory_data.REPORT_START, factory_data.REPORT_END))
-REMAKE_MGMT = [{"order": str(r[0]), "qty": int(r[1]) if r[1] else 0, "admin": r[2], "month": str(r[3])[:7] if r[3] else "?", "factory": r[4]} for r in remake_cur.fetchall()]
-remake_cur.close()
+    REMAKE_MGMT = [{"order": str(r[0]), "qty": int(r[1]) if r[1] else 0, "admin": r[2], "month": str(r[3])[:7] if r[3] else "?", "factory": r[4], "category": "", "comment": "", "flag": ""} for r in remake_cur.fetchall()]
+    remake_cur.close()
 REMAKE_MGMT_JSON = json.dumps(REMAKE_MGMT, cls=factory_data.DecimalEncoder)
 conn.close()
 
@@ -1332,6 +1340,11 @@ html = f"""<!DOCTYPE html>
   .trend-up {{ background: #fef3f2; color: #b42318; }}
   .trend-down {{ background: #ecfdf3; color: #027a48; }}
   .trend-flat {{ background: #f3f4f6; color: #475467; }}
+  .pill {{ display: inline-block; padding: 3px 8px; border-radius: 999px; font-weight: 700; font-size: 12px; }}
+  .status-good {{ background: #ecfdf3; color: #027a48; }}
+  .status-warn {{ background: #fffaeb; color: #b54708; }}
+  .status-bad {{ background: #fef3f2; color: #b42318; }}
+  .status-neutral {{ background: #f2f4f7; color: #344054; }}
   .factory-name {{ font-weight: 700; font-size: 16px; color: var(--text); }}
   .hint {{ font-size: 12px; color: var(--accent); margin-bottom: 10px; }}
   ul.clean {{ margin: 0; padding-left: 20px; line-height: 1.9; font-size: 14px; }}
@@ -1483,7 +1496,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
   <section id="remake-mgmt" class="page">
     <div class="card">
       <h3 class="section-title">Remake Management — Order Admin Review</h3>
-      <p class="muted">All remakes (no invoice) sorted by size. Categorize each to track reasons. Saved locally in your browser.</p>
+      <p class="muted">By-admin remake list from <strong>Remake_Report_By_Admin.html</strong>. Net excludes Cancelled, Disputed, Ex/Other Admin, and No Record rows.</p>
       <div class="remake-filter-row" style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
         <label class="muted" style="font-size:13px;font-weight:700">Filter by admin:</label>
         <select id="remakeAdminFilter" class="filter-select" style="max-width:200px">
@@ -1494,11 +1507,11 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
           <option value="">All months</option>
         </select>
         <span style="margin-left:auto;font-size:13px;color:var(--muted)" id="remakeCount">272 remakes</span>
-        <button class="drill-close" id="remakeClearAll" style="font-size:12px;padding:4px 10px">Clear all saved</button>
+        <select id="remakeFlagFilter" class="filter-select" style="max-width:170px"><option value="">All flags</option></select>
       </div>
       <div style="overflow-x:auto;max-height:65vh;overflow-y:auto">
         <table class="remake-table"><thead>
-          <tr><th>Order</th><th class="right">QTY</th><th>Admin</th><th>Factory</th><th>Month</th><th style="min-width:130px">Category</th><th style="min-width:120px">Fault</th><th style="min-width:200px">Comment</th><th></th></tr>
+          <tr><th>Order</th><th class="right">QTY</th><th>Admin</th><th>Factory</th><th>Month</th><th style="min-width:150px">Category</th><th style="min-width:130px">Flag</th><th style="min-width:320px">Comment</th></tr>
         </thead><tbody id="remakeMgmtBody"></tbody></table>
       </div>
     </div>
@@ -2040,88 +2053,63 @@ renderYtdFactoryTable();
 var remakeData = {{}};
 var remakeSaveTimer = null;
 
-function renderRemakeMgmt(filterAdmin, filterMonth) {{
+const EXCLUDED_REMAKE_FLAGS = new Set(['Cancelled','Disputed','Ex/Other Admin','No Record']);
+function remakeIsExcluded(r) {{ return EXCLUDED_REMAKE_FLAGS.has(r.flag || ''); }}
+function flagClass(flag) {{
+  if (flag === 'Own') return 'status-good';
+  if (EXCLUDED_REMAKE_FLAGS.has(flag || '')) return 'status-bad';
+  if ((flag || '').startsWith('Origin:')) return 'status-warn';
+  return 'status-neutral';
+}}
+function renderRemakeMgmt(filterAdmin, filterMonth, filterFlag) {{
   let rows = REMAKES;
   if (filterAdmin) rows = rows.filter(function(r) {{ return r.admin === filterAdmin; }});
   if (filterMonth) rows = rows.filter(function(r) {{ return r.month === filterMonth; }});
+  if (filterFlag) rows = rows.filter(function(r) {{ return (r.flag || '') === filterFlag; }});
+  rows = rows.slice().sort(function(a,b) {{ return (remakeIsExcluded(a) - remakeIsExcluded(b)) || ((b.qty||0) - (a.qty||0)); }});
   const tbody = document.getElementById('remakeMgmtBody');
   tbody.innerHTML = rows.map(function(r) {{
-    const key = r.order;
-    const sd = remakeData[key] || {{category:'',fault:'',comment:''}};
-    const catOpts = ['','Shipping','Quality','Delay','Bad design'].map(function(v) {{
-      return '<option value="'+v+'"'+(sd.category===v?' selected':'')+'>'+(v||'\u2013')+'</option>';
-    }}).join('');
-    const faultOpts = ['','Custimoo','Customer','Other'].map(function(v) {{
-      return '<option value="'+v+'"'+(sd.fault===v?' selected':'')+'>'+(v||'\u2013')+'</option>';
-    }}).join('');
-    return '<tr><td class="order-num">#'+r.order+'</td><td class="right">'+r.qty.toLocaleString()+'</td><td>'+r.admin+'</td><td>'+r.factory+'</td><td>'+r.month+'</td>'
-      + '<td><select class="rm-cat" data-order="'+r.order+'" style="width:100%">'+catOpts+'</select></td>'
-      + '<td><select class="rm-fault" data-order="'+r.order+'" style="width:100%">'+faultOpts+'</select></td>'
-      + '<td><input class="rm-comment" data-order="'+r.order+'" type="text" value="'+(sd.comment||'')+'" style="width:100%;box-sizing:border-box" placeholder="Comment..."></td>'
-      + '<td style="font-size:11px;color:#888">'+r.admin.split(' ')[0]+'</td></tr>';
-  }}).join('');
-  document.getElementById('remakeCount').textContent = rows.length+' remakes';
-}}
-
-function saveRemakeToAzure(order, key, val) {{
-  if (!remakeData[order]) remakeData[order] = {{category:'',fault:'',comment:''}};
-  remakeData[order][key] = val;
-  // Debounce: wait 2s after last change then write to Azure
-  if (remakeSaveTimer) clearTimeout(remakeSaveTimer);
-  remakeSaveTimer = setTimeout(function() {{
-    remakeSaveTimer = null;
-    if (!REMAKE_SAVE_URL) return;
-    fetch(REMAKE_SAVE_URL, {{
-      method: 'PUT',
-      headers: {{'Content-Type': 'application/json', 'x-ms-blob-type': 'BlockBlob'}},
-      body: JSON.stringify(remakeData)
-    }}).then(function(r) {{
-      if (!r.ok) console.warn('Save failed:', r.status);
-    }}).catch(function(e) {{
-      console.warn('Save error:', e);
-    }});
-  }}, 2000);
+    const order = String(r.order || '').replace(/^#/, '');
+    const flag = r.flag || '';
+    return '<tr>'
+      + '<td class="order-num">#' + esc(order) + '</td>'
+      + '<td class="right">' + (r.qty || 0).toLocaleString() + '</td>'
+      + '<td>' + esc(r.admin || '') + '</td>'
+      + '<td>' + esc(r.factory || '') + '</td>'
+      + '<td>' + esc(r.month || '') + '</td>'
+      + '<td>' + esc(r.category || '') + '</td>'
+      + '<td><span class="pill ' + flagClass(flag) + '">' + esc(flag || '—') + '</span></td>'
+      + '<td>' + esc(r.comment || '') + '</td>'
+      + '</tr>';
+  }}).join('') || '<tr><td colspan="8">No remakes match the filters.</td></tr>';
+  const grossQty = rows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);
+  const netRows = rows.filter(function(r) {{ return !remakeIsExcluded(r); }});
+  const netQty = netRows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);
+  document.getElementById('remakeCount').textContent = rows.length + ' rows · ' + grossQty.toLocaleString() + ' gross pcs · ' + netQty.toLocaleString() + ' net pcs';
 }}
 
 // Init Remake Mgmt
 (function() {{
   if (!document.getElementById('remakeMgmtBody')) return;
-  const admins = [...new Set(REMAKES.map(function(r){{return r.admin;}}))].sort();
-  const months = [...new Set(REMAKES.map(function(r){{return r.month;}}))].sort();
+  const admins = [...new Set(REMAKES.map(function(r){{return r.admin || '(unknown)';}}))].sort();
+  const months = [...new Set(REMAKES.map(function(r){{return r.month || '?';}}))].sort();
+  const flags = [...new Set(REMAKES.map(function(r){{return r.flag || '';}}))].sort();
   var af = document.getElementById('remakeAdminFilter');
   admins.forEach(function(a){{var opt=document.createElement('option');opt.value=a;opt.textContent=a;af.appendChild(opt);}});
   var mf = document.getElementById('remakeMonthFilter');
   months.forEach(function(m){{var opt=document.createElement('option');opt.value=m;opt.textContent=m;mf.appendChild(opt);}});
-  // Load saved data from Azure
-  fetch(REMAKE_DATA_URL + '?t=' + Date.now())
-    .then(function(r) {{ if (r.ok) return r.json(); throw new Error('fetch failed'); }})
-    .then(function(data) {{ remakeData = data || {{}}; }})
-    .catch(function() {{ remakeData = {{}}; }})
-    .finally(function() {{ renderRemakeMgmt('',''); }});
-  af.addEventListener('change', function(){{renderRemakeMgmt(af.value, mf.value);}});
-  mf.addEventListener('change', function(){{renderRemakeMgmt(af.value, mf.value);}});
-  document.getElementById('remakeMgmtBody').addEventListener('change', function(e){{
-    if (e.target.classList.contains('rm-cat')) saveRemakeToAzure(e.target.dataset.order,'category',e.target.value);
-    if (e.target.classList.contains('rm-fault')) saveRemakeToAzure(e.target.dataset.order,'fault',e.target.value);
-  }});
-  document.getElementById('remakeMgmtBody').addEventListener('input', function(e){{
-    if (e.target.classList.contains('rm-comment')) saveRemakeToAzure(e.target.dataset.order,'comment',e.target.value);
-  }});
-  document.getElementById('remakeClearAll').addEventListener('click', function(){{
-    remakeData = {{}};
-    if (REMAKE_SAVE_URL) {{
-      fetch(REMAKE_SAVE_URL, {{
-        method: 'PUT',
-        headers: {{'Content-Type': 'application/json', 'x-ms-blob-type': 'BlockBlob'}},
-        body: JSON.stringify({{}})
-      }}).catch(function(e){{console.warn('Clear save error:', e);}});
-    }}
-    renderRemakeMgmt(af.value, mf.value);
-  }});
+  var ff = document.getElementById('remakeFlagFilter');
+  flags.forEach(function(f){{var opt=document.createElement('option');opt.value=f;opt.textContent=f || '—';ff.appendChild(opt);}});
+  function rerender() {{ renderRemakeMgmt(af.value, mf.value, ff.value); }}
+  af.addEventListener('change', rerender);
+  mf.addEventListener('change', rerender);
+  ff.addEventListener('change', rerender);
   document.querySelectorAll('.tab[data-target="remake-mgmt"]').forEach(function(btn){{
-    btn.addEventListener('click', function(){{setTimeout(function(){{renderRemakeMgmt(af.value, mf.value);}},0);}});
+    btn.addEventListener('click', function(){{setTimeout(rerender,0);}});
   }});
+  rerender();
 }})();
+
 </script>
 </body>
 </html>"""

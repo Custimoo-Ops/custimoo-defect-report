@@ -1,0 +1,2812 @@
+[
+  {
+    "order": "20676",
+    "qty": 23,
+    "admin": "(unknown)",
+    "factory": "(none)",
+    "month": "2025-11",
+    "category": "No Record Found",
+    "comment": "Unable to find this order in the system",
+    "flag": "No Record"
+  },
+  {
+    "order": "22553",
+    "qty": 12,
+    "admin": "(unknown)",
+    "factory": "Mavic Sports",
+    "month": "2026-02",
+    "category": "Print / Sublimation",
+    "comment": "Bottom rib was sublimated showing visible white parts; whiteness on the legs",
+    "flag": "Own"
+  },
+  {
+    "order": "23008",
+    "qty": 3,
+    "admin": "(unknown)",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "For order #22503 the customer wanted to remove two jerseys and 1 pair of socks, but it shipped with this quantity; that's why we didn't charge for them in this order 23008",
+    "flag": "Origin: #22503"
+  },
+  {
+    "order": "25423",
+    "qty": 1,
+    "admin": "(unknown)",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Quantity Short / Missing",
+    "comment": "Customer was missing them but was sent an extra pair of small pants; techpack correct but these were missing",
+    "flag": "Own"
+  },
+  {
+    "order": "21517",
+    "qty": 0,
+    "admin": "(unknown)",
+    "factory": "(none)",
+    "month": "2025-12",
+    "category": "No Record Found",
+    "comment": "Unable to find this order in the system",
+    "flag": "No Record"
+  },
+  {
+    "order": "21284",
+    "qty": 24,
+    "admin": "Abdul Saeed",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Logo / Design",
+    "comment": "Remake with correct branding (neck tape and sizing label) and accurate front logo same as mockup",
+    "flag": "Own"
+  },
+  {
+    "order": "20732",
+    "qty": 17,
+    "admin": "Abdul Saeed",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Logo / Design",
+    "comment": "Logo to match what customer has attached; also notes on hoodie construction — same wide sleeves and bottom cuff which doesn't sit properly",
+    "flag": "Own"
+  },
+  {
+    "order": "21116",
+    "qty": 4,
+    "admin": "Abdul Saeed",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Color Mismatch",
+    "comment": "The stripes on the full button ended up being bright yellow, not the black gold 1235 C",
+    "flag": "Own"
+  },
+  {
+    "order": "21277",
+    "qty": 4,
+    "admin": "Abdul Saeed",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Damaged / Soiled",
+    "comment": "Belt ripped off!",
+    "flag": "Own"
+  },
+  {
+    "order": "20507",
+    "qty": 1,
+    "admin": "Abdul Saeed",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Other",
+    "comment": "We sent two bags with No. 60 and 3 bags (instead of 4) with no number.",
+    "flag": "Own"
+  },
+  {
+    "order": "20828",
+    "qty": 1,
+    "admin": "Abdul Saeed",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Damaged / Soiled",
+    "comment": "Belt ripped off!",
+    "flag": "Own"
+  },
+  {
+    "order": "24196",
+    "qty": 125,
+    "admin": "Afaq Ahmad",
+    "factory": "Ghani Sportswear",
+    "month": "2026-04",
+    "category": "Color Mismatch",
+    "comment": "Dyed sock color variation from last year",
+    "flag": "Own"
+  },
+  {
+    "order": "19621",
+    "qty": 70,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "Custimoo's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "20733",
+    "qty": 63,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Stitching / Construction",
+    "comment": "Mavic's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "20502",
+    "qty": 32,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Color Mismatch",
+    "comment": "Mavic's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "23091",
+    "qty": 21,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order lost in transit, considered it as Custimoo's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "21090",
+    "qty": 20,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Logo / Design",
+    "comment": "Custimoo's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "19646",
+    "qty": 18,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "Custimoo's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "21125",
+    "qty": 18,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Other",
+    "comment": "Custimoo's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "22266",
+    "qty": 17,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Quantity Short / Missing",
+    "comment": "Custimoo's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "24807",
+    "qty": 15,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Logo / Design",
+    "comment": "Custimoo's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "24942",
+    "qty": 13,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Uncategorized",
+    "comment": "No order exists under this number",
+    "flag": "Own"
+  },
+  {
+    "order": "19586",
+    "qty": 10,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "Custimoo's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "21715",
+    "qty": 10,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Color Mismatch",
+    "comment": "Remake of order #21125. Only one of the two was redone; #21715 is the correct version and should not be counted as a remake.",
+    "flag": "Disputed"
+  },
+  {
+    "order": "23090",
+    "qty": 10,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order lost in transit (same issue as #23091).",
+    "flag": "Own"
+  },
+  {
+    "order": "24903",
+    "qty": 8,
+    "admin": "Haider Abbas",
+    "factory": "Silver-Star Group",
+    "month": "2026-05",
+    "category": "Other",
+    "comment": "Customer error in the roster. Of approximately 700 pieces, 8 were affected and redone.",
+    "flag": "Own"
+  },
+  {
+    "order": "20904",
+    "qty": 4,
+    "admin": "Haider Abbas",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-11",
+    "category": "Sizing / Fit",
+    "comment": "Custimoo's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "23254",
+    "qty": 4,
+    "admin": "Haider Abbas",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Logo / Design",
+    "comment": "Custimoo's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "19674",
+    "qty": 3,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "Remake of order #19017. The factory omitted the 'A' and 'C' markings on the front of the jerseys; not caught by QC.",
+    "flag": "Origin: #19017"
+  },
+  {
+    "order": "19686",
+    "qty": 3,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Quantity Short / Missing",
+    "comment": "Missing nameplates from order #19218",
+    "flag": "Origin: #19218"
+  },
+  {
+    "order": "19806",
+    "qty": 3,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Quantity Short / Missing",
+    "comment": "Three missing jerseys from order #18701.",
+    "flag": "Origin: #18701"
+  },
+  {
+    "order": "22784",
+    "qty": 3,
+    "admin": "Haider Abbas",
+    "factory": "Silver-Star Group",
+    "month": "2026-02",
+    "category": "Other",
+    "comment": "Remake of order #18076. Order #22784 was produced correctly and should not be attributed as a remake against us.",
+    "flag": "Disputed"
+  },
+  {
+    "order": "19962",
+    "qty": 2,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Sizing / Fit",
+    "comment": "Custimoo's Mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "19881",
+    "qty": 1,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Quantity Short / Missing",
+    "comment": "Missing jersey from order #18781.",
+    "flag": "Origin: #18781"
+  },
+  {
+    "order": "20619",
+    "qty": 1,
+    "admin": "Haider Abbas",
+    "factory": "Silver-Star Group",
+    "month": "2025-11",
+    "category": "Other",
+    "comment": "Remake of order #19074. The order was produced correctly and should not be attributed as a remake against us.",
+    "flag": "Disputed"
+  },
+  {
+    "order": "21168",
+    "qty": 1,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Other",
+    "comment": "Customer made a spelling mistake in the player's name.",
+    "flag": "Own"
+  },
+  {
+    "order": "21278",
+    "qty": 1,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Other",
+    "comment": "Factory mistakenly used the wrong shoulder panel; PSS Calgary received jerseys carrying Classic Source's logo due to a mix-up.",
+    "flag": "Own"
+  },
+  {
+    "order": "21559",
+    "qty": 1,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Other",
+    "comment": "This is a reorder, not a remake.",
+    "flag": "Disputed"
+  },
+  {
+    "order": "21746",
+    "qty": 1,
+    "admin": "Haider Abbas",
+    "factory": "Selberian Sports Wear",
+    "month": "2026-01",
+    "category": "Quantity Short / Missing",
+    "comment": "Missing jersey from order #21254 (Herning Bluefox).",
+    "flag": "Origin: #21254"
+  },
+  {
+    "order": "22770",
+    "qty": 1,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2026-02",
+    "category": "Other",
+    "comment": "This is a reorder, not a remake.",
+    "flag": "Disputed"
+  },
+  {
+    "order": "24873",
+    "qty": 1,
+    "admin": "Haider Abbas",
+    "factory": "Selberian Sports Wear",
+    "month": "2026-05",
+    "category": "Other",
+    "comment": "This is a reorder, not a remake.",
+    "flag": "Disputed"
+  },
+  {
+    "order": "25989",
+    "qty": 1,
+    "admin": "Haider Abbas",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Other",
+    "comment": "This is a reorder, not a remake.",
+    "flag": "Disputed"
+  },
+  {
+    "order": "22028",
+    "qty": 350,
+    "admin": "Haseeb Iqbal",
+    "factory": "Rajco",
+    "month": "2026-01",
+    "category": "Other",
+    "comment": "This is not a remake",
+    "flag": "Disputed"
+  },
+  {
+    "order": "25815",
+    "qty": 200,
+    "admin": "Haseeb Iqbal",
+    "factory": "Ghani Sportswear, Rajco",
+    "month": "2026-06",
+    "category": "Stitching / Construction",
+    "comment": "For Knickers, there was an issue in fit/sizing and broken stitches",
+    "flag": "Own"
+  },
+  {
+    "order": "20985",
+    "qty": 68,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Stitching / Construction",
+    "comment": "Remake due to broken strapes of ringette pants as claimed by factory",
+    "flag": "Own"
+  },
+  {
+    "order": "23124",
+    "qty": 64,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Main order 21987 was missed so a remake was entered.",
+    "flag": "Own"
+  },
+  {
+    "order": "21506",
+    "qty": 55,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Wrong Product / SKU",
+    "comment": "Customer wanted to have same number on sleeves which was not communicated and customer approved the main order which is a mistake by CSm brandon, so we made compensation by sending heart shape plates.",
+    "flag": "Own"
+  },
+  {
+    "order": "23095",
+    "qty": 40,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "order was cancelled not remade and was due to missing of main order 20919",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23941",
+    "qty": 35,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Customer asked to remake thinking the design submitted was for front and back of socks despite clearly on the dashboard having left and right socks.",
+    "flag": "Own"
+  },
+  {
+    "order": "21483",
+    "qty": 30,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Stitching / Construction",
+    "comment": "This order was required to be made in 2 ply but factory made this in single ply main order was 19438 handled by simab",
+    "flag": "Own"
+  },
+  {
+    "order": "21611",
+    "qty": 25,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Stitching / Construction",
+    "comment": "Panels were stitched wrong and were changed",
+    "flag": "Own"
+  },
+  {
+    "order": "23128",
+    "qty": 25,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "No Data against this order",
+    "flag": "Own"
+  },
+  {
+    "order": "22340",
+    "qty": 24,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Other",
+    "comment": "Because the order was in single ply therefore, it was seen through which customer didn't complained during sampling , secondly the tech pack was followed for colors, customer wanted to have other red color which was modified later",
+    "flag": "Own"
+  },
+  {
+    "order": "25071",
+    "qty": 21,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Other",
+    "comment": "Wrong Tags were applied which were skipped during QC as well but the order was not remade",
+    "flag": "Own"
+  },
+  {
+    "order": "20836",
+    "qty": 16,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Wrong Product / SKU",
+    "comment": "The roster was wrong having coach all on the roster which was followed. It was supposed to be only in two hoodies",
+    "flag": "Own"
+  },
+  {
+    "order": "22149",
+    "qty": 16,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Sizing / Fit",
+    "comment": "Files were correct during stitching factory make them short and the sizing was changed",
+    "flag": "Own"
+  },
+  {
+    "order": "23227",
+    "qty": 15,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Wrong Product / SKU",
+    "comment": "Customer wanted aadult sizing in main order but the order had youth roster.",
+    "flag": "Own"
+  },
+  {
+    "order": "21809",
+    "qty": 12,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Customer Change",
+    "comment": "Customer wanted to add outline which was skipped by OA",
+    "flag": "Own"
+  },
+  {
+    "order": "22017",
+    "qty": 12,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Sizing / Fit",
+    "comment": "Customer wanted to have specific sizing which was not mentioned.",
+    "flag": "Own"
+  },
+  {
+    "order": "22159",
+    "qty": 12,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Other",
+    "comment": "Order not present",
+    "flag": "Own"
+  },
+  {
+    "order": "22162",
+    "qty": 12,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Wrong Product / SKU",
+    "comment": "customer wanted this product as cap sleeves instead main order was entered as sleeveless volley ball",
+    "flag": "Own"
+  },
+  {
+    "order": "22601",
+    "qty": 10,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-02",
+    "category": "Fabric / Material",
+    "comment": "main order had quality issues like cuts etc",
+    "flag": "Own"
+  },
+  {
+    "order": "23126",
+    "qty": 10,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "main order was lost due to war in logistics.",
+    "flag": "Own"
+  },
+  {
+    "order": "22897",
+    "qty": 7,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-02",
+    "category": "Sizing / Fit",
+    "comment": "Customer wanted to have 24'' in previous order 22376 which was not followed by previous admin.",
+    "flag": "Ex/Other Admin"
+  },
+  {
+    "order": "19882",
+    "qty": 4,
+    "admin": "Haseeb Iqbal",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "This is a reorder",
+    "flag": "Own"
+  },
+  {
+    "order": "21302",
+    "qty": 4,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Other",
+    "comment": "Customer complained that there is difference in fit sizing, despite the files being the same as previous order.",
+    "flag": "Own"
+  },
+  {
+    "order": "23262",
+    "qty": 4,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Sizing / Fit",
+    "comment": "Remake due to fitting customer wanted to use the previous patterns but it was not mentioned.",
+    "flag": "Own"
+  },
+  {
+    "order": "22187",
+    "qty": 3,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Damaged / Soiled",
+    "comment": "Remake due to damaged product.",
+    "flag": "Own"
+  },
+  {
+    "order": "21270",
+    "qty": 2,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Other",
+    "comment": "Remake due to wrong order was entered having spelling error.",
+    "flag": "Own"
+  },
+  {
+    "order": "19675",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "These pieces were missing in previous order 18714 as claimed by the customer",
+    "flag": "Own"
+  },
+  {
+    "order": "19984",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Damaged / Soiled",
+    "comment": "One piece had stains in previous order 18808",
+    "flag": "Own"
+  },
+  {
+    "order": "20336",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Fabric / Material",
+    "comment": "Factory made this in wrong material.",
+    "flag": "Own"
+  },
+  {
+    "order": "20519",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Stitching / Construction",
+    "comment": "One broken belt loop in main order 19529",
+    "flag": "Own"
+  },
+  {
+    "order": "20660",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Stitching / Construction",
+    "comment": "Remake due to wrong stitching by factory",
+    "flag": "Own"
+  },
+  {
+    "order": "20837",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Damaged / Soiled",
+    "comment": "Remake due to broken belt of the pants in previous order 18913",
+    "flag": "Own"
+  },
+  {
+    "order": "20890",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Damaged / Soiled",
+    "comment": "Remake due to broken belt",
+    "flag": "Own"
+  },
+  {
+    "order": "20950",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Other",
+    "comment": "The main order was supposed to be in Goalie, but the customer didn't entered that Goalie.",
+    "flag": "Own"
+  },
+  {
+    "order": "20978",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Other",
+    "comment": "There was one piece of pair shipped ion previous order 19422",
+    "flag": "Own"
+  },
+  {
+    "order": "20994",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Logo / Design",
+    "comment": "Remake due to extra T in name",
+    "flag": "Own"
+  },
+  {
+    "order": "21043",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Damaged / Soiled",
+    "comment": "This is remake due to broken belt of ringette pants",
+    "flag": "Own"
+  },
+  {
+    "order": "21268",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Damaged / Soiled",
+    "comment": "This is remake due to broken belts of the pant.",
+    "flag": "Own"
+  },
+  {
+    "order": "21501",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Stitching / Construction",
+    "comment": "Previous order 20055 had 1 piece made wrong with logo upside down due to wrong stitching.",
+    "flag": "Own"
+  },
+  {
+    "order": "21710",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Color Mismatch",
+    "comment": "In previous order proceeded the one piece was made in wrong shoulder.",
+    "flag": "Own"
+  },
+  {
+    "order": "22263",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Sizing / Fit",
+    "comment": "Customer changed the Racer back patterns but this order was required in previous patterns and was not mentioned.",
+    "flag": "Own"
+  },
+  {
+    "order": "25275",
+    "qty": 1,
+    "admin": "Haseeb Iqbal",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Other",
+    "comment": "One piece was remake due to wrong roster added by the CSM",
+    "flag": "Own"
+  },
+  {
+    "order": "23093",
+    "qty": 86,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Middle East War (LOST ORDER)",
+    "flag": "Own"
+  },
+  {
+    "order": "25245",
+    "qty": 84,
+    "admin": "Hunain Shafique",
+    "factory": "Silver-Star Group",
+    "month": "2026-05",
+    "category": "Stitching / Construction",
+    "comment": "Standard Not being Followed",
+    "flag": "Own"
+  },
+  {
+    "order": "23251",
+    "qty": 31,
+    "admin": "Hunain Shafique",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Stitching / Construction",
+    "comment": "Overlooked in the final isnpection and gto shipped without Fight Strap",
+    "flag": "Own"
+  },
+  {
+    "order": "23856",
+    "qty": 29,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order Hold by Admin. Shipping team shipped the order by mistake",
+    "flag": "Own"
+  },
+  {
+    "order": "26010",
+    "qty": 25,
+    "admin": "Hunain Shafique",
+    "factory": "Silver-Star Group",
+    "month": "2026-06",
+    "category": "Color Mismatch",
+    "comment": "Base Order Colors were wrong, Proceeded by Ex Order admin in the last year",
+    "flag": "Ex/Other Admin"
+  },
+  {
+    "order": "23110",
+    "qty": 13,
+    "admin": "Hunain Shafique",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Middle East War (LOST ORDER)",
+    "flag": "Own"
+  },
+  {
+    "order": "25584",
+    "qty": 9,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Logo / Design",
+    "comment": "Base Order was proceeded as wrong, thats caused problem",
+    "flag": "Own"
+  },
+  {
+    "order": "25929",
+    "qty": 7,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Other",
+    "comment": "Customer wants change in the patterns",
+    "flag": "Own"
+  },
+  {
+    "order": "23094",
+    "qty": 4,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Middle East War (LOST ORDER)",
+    "flag": "Own"
+  },
+  {
+    "order": "26011",
+    "qty": 4,
+    "admin": "Hunain Shafique",
+    "factory": "Silver-Star Group",
+    "month": "2026-06",
+    "category": "Other",
+    "comment": "Order Cancelled",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "25619",
+    "qty": 3,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Quantity Short / Missing",
+    "comment": "Miss Piece during Shipment",
+    "flag": "Own"
+  },
+  {
+    "order": "25846",
+    "qty": 3,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Other",
+    "comment": "Customer comment Overlooked",
+    "flag": "Own"
+  },
+  {
+    "order": "25822",
+    "qty": 3,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Other",
+    "comment": "Order Cancelled",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "25384",
+    "qty": 2,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Quantity Short / Missing",
+    "comment": "Miss Piece during Shipment",
+    "flag": "Own"
+  },
+  {
+    "order": "25511",
+    "qty": 2,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Quantity Short / Missing",
+    "comment": "Miss Piece during Shipment",
+    "flag": "Own"
+  },
+  {
+    "order": "25070",
+    "qty": 2,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Other",
+    "comment": "Name Missed due to unclear Name",
+    "flag": "Own"
+  },
+  {
+    "order": "25313",
+    "qty": 1,
+    "admin": "Hunain Shafique",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Other",
+    "comment": "Spelling Mistake in the Name",
+    "flag": "Own"
+  },
+  {
+    "order": "25051",
+    "qty": 580,
+    "admin": "Iqra Iqbal",
+    "factory": "Rajco",
+    "month": "2026-05",
+    "category": "Color Mismatch",
+    "comment": "FPF Club, this was moved from Selberian to Rajco.   Colors were not approved by me though I just created order on backend.",
+    "flag": "Own"
+  },
+  {
+    "order": "24256",
+    "qty": 367,
+    "admin": "Iqra Iqbal",
+    "factory": "Rajco",
+    "month": "2026-04",
+    "category": "Color Mismatch",
+    "comment": "CC United club, this was moved from Selberian to Rajco. Colors were not approved by me though I just created order on backend.",
+    "flag": "Own"
+  },
+  {
+    "order": "24059",
+    "qty": 134,
+    "admin": "Iqra Iqbal",
+    "factory": "Rajco",
+    "month": "2026-04",
+    "category": "Damaged / Soiled",
+    "comment": "Carolina core Dark kit, 3D silicon logos were not of the good quality so these were falling off the jerseys.",
+    "flag": "Own"
+  },
+  {
+    "order": "24156",
+    "qty": 124,
+    "admin": "Iqra Iqbal",
+    "factory": "Rajco",
+    "month": "2026-04",
+    "category": "Sizing / Fit",
+    "comment": "Compressions, we had to remake due to patterns changes from customer. we are not the ones at fault.",
+    "flag": "Own"
+  },
+  {
+    "order": "24058",
+    "qty": 74,
+    "admin": "Iqra Iqbal",
+    "factory": "Rajco",
+    "month": "2026-04",
+    "category": "Color Mismatch",
+    "comment": "FPF Club, this was moved from Selberian to Rajco. Colors were not approved by me though I just created order on backend.",
+    "flag": "Own"
+  },
+  {
+    "order": "22572",
+    "qty": 60,
+    "admin": "Iqra Iqbal",
+    "factory": "Rajco",
+    "month": "2026-02",
+    "category": "Color Mismatch",
+    "comment": "And we had given approval to proceed with white buttons. However, this was not accepted by the customer. But we had to ship so that team can play match at least. we are not the ones at fault.",
+    "flag": "Own"
+  },
+  {
+    "order": "24049",
+    "qty": 60,
+    "admin": "Iqra Iqbal",
+    "factory": "Intermarket Knit",
+    "month": "2026-04",
+    "category": "Logo / Design",
+    "comment": "At 1st customer approved the design but later on they wanted us to remake the whole order with new design. we are not the ones at fault.",
+    "flag": "Own"
+  },
+  {
+    "order": "24577",
+    "qty": 60,
+    "admin": "Iqra Iqbal",
+    "factory": "Rajco",
+    "month": "2026-04",
+    "category": "Color Mismatch",
+    "comment": "Due to production of multiple samples and customer need same colors as last year, but last year these clubs were produced in Selberian instead of Rajco. so we had issue in matching colors.",
+    "flag": "Own"
+  },
+  {
+    "order": "22762",
+    "qty": 52,
+    "admin": "Iqra Iqbal",
+    "factory": "Rajco",
+    "month": "2026-02",
+    "category": "Uncategorized",
+    "comment": "not a remake, it was added wrongly on backend. I will change it on backend after your instructions.",
+    "flag": "Disputed"
+  },
+  {
+    "order": "24061",
+    "qty": 40,
+    "admin": "Iqra Iqbal",
+    "factory": "Rajco",
+    "month": "2026-04",
+    "category": "Color Mismatch",
+    "comment": "FPF Club, this was moved from Selberian to Rajco.   Colors were not approved by me though I just created order on backend.",
+    "flag": "Own"
+  },
+  {
+    "order": "23767",
+    "qty": 45,
+    "admin": "Maryam Zahid",
+    "factory": "Mavic Sports, Selberian Sports Wear",
+    "month": "2026-03",
+    "category": "Color Mismatch",
+    "comment": "Factory mistake they didn't match the exact color which i provide them",
+    "flag": "Own"
+  },
+  {
+    "order": "22009",
+    "qty": 32,
+    "admin": "Maryam Zahid",
+    "factory": "Rajco",
+    "month": "2026-01",
+    "category": "Sizing / Fit",
+    "comment": "used previous pattern because that time we don't have our own pattern for SP",
+    "flag": "Own"
+  },
+  {
+    "order": "21591",
+    "qty": 30,
+    "admin": "Maryam Zahid",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-12",
+    "category": "Logo / Design",
+    "comment": "This was also a Mehroz order with stripes issue and i just proceed re-make for customer",
+    "flag": "Own"
+  },
+  {
+    "order": "26015",
+    "qty": 23,
+    "admin": "Maryam Zahid",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Damaged / Soiled",
+    "comment": "Fabric ripping",
+    "flag": "Own"
+  },
+  {
+    "order": "21936",
+    "qty": 18,
+    "admin": "Maryam Zahid",
+    "factory": "Selberian Sports Wear",
+    "month": "2026-01",
+    "category": "Logo / Design",
+    "comment": "This is Mehroz's order, which was shipped with a design that did not match the approved mock-up.",
+    "flag": "Own"
+  },
+  {
+    "order": "25923",
+    "qty": 16,
+    "admin": "Maryam Zahid",
+    "factory": "Rajco",
+    "month": "2026-06",
+    "category": "Logo / Design",
+    "comment": "Stripes comes in seam and customer reject that",
+    "flag": "Own"
+  },
+  {
+    "order": "25139",
+    "qty": 15,
+    "admin": "Maryam Zahid",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Logo / Design",
+    "comment": "customer want stripes same as his refer order which was not followed",
+    "flag": "Own"
+  },
+  {
+    "order": "25922",
+    "qty": 13,
+    "admin": "Maryam Zahid",
+    "factory": "Rajco",
+    "month": "2026-06",
+    "category": "Logo / Design",
+    "comment": "Stripes comes in seam and customer reject that",
+    "flag": "Own"
+  },
+  {
+    "order": "25924",
+    "qty": 13,
+    "admin": "Maryam Zahid",
+    "factory": "Rajco",
+    "month": "2026-06",
+    "category": "Logo / Design",
+    "comment": "Stripes comes in seam and customer reject that",
+    "flag": "Own"
+  },
+  {
+    "order": "25925",
+    "qty": 12,
+    "admin": "Maryam Zahid",
+    "factory": "Rajco",
+    "month": "2026-06",
+    "category": "Logo / Design",
+    "comment": "Stripes comes in seam and customer reject that",
+    "flag": "Own"
+  },
+  {
+    "order": "22638",
+    "qty": 4,
+    "admin": "Maryam Zahid",
+    "factory": "Rajco",
+    "month": "2026-02",
+    "category": "Damaged / Soiled",
+    "comment": "pcs were damage and fight strap was not added properly",
+    "flag": "Own"
+  },
+  {
+    "order": "22055",
+    "qty": 3,
+    "admin": "Maryam Zahid",
+    "factory": "Selberian Sports Wear",
+    "month": "2026-01",
+    "category": "Sizing / Fit",
+    "comment": "Womens sizeing isse we develop new pattern for this order",
+    "flag": "Own"
+  },
+  {
+    "order": "22578",
+    "qty": 3,
+    "admin": "Maryam Zahid",
+    "factory": "Mavic Sports",
+    "month": "2026-02",
+    "category": "Damaged / Soiled",
+    "comment": "Straps broken",
+    "flag": "Own"
+  },
+  {
+    "order": "21904",
+    "qty": 2,
+    "admin": "Maryam Zahid",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Damaged / Soiled",
+    "comment": "Inner seam sewn together mistakenly by factory",
+    "flag": "Own"
+  },
+  {
+    "order": "22232",
+    "qty": 2,
+    "admin": "Maryam Zahid",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Color Mismatch",
+    "comment": "remake because of wrong color of armpit mesh",
+    "flag": "Own"
+  },
+  {
+    "order": "22544",
+    "qty": 1,
+    "admin": "Maryam Zahid",
+    "factory": "Selberian Sports Wear",
+    "month": "2026-02",
+    "category": "Sizing / Fit",
+    "comment": "customer needds women but mistakenly we proceeded in adult",
+    "flag": "Own"
+  },
+  {
+    "order": "23487",
+    "qty": 1,
+    "admin": "Maryam Zahid",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Damaged / Soiled",
+    "comment": "straps and belt broken",
+    "flag": "Own"
+  },
+  {
+    "order": "24397",
+    "qty": 1,
+    "admin": "Maryam Zahid",
+    "factory": "Selberian Sports Wear",
+    "month": "2026-04",
+    "category": "Other",
+    "comment": "It's a re-order not a remake",
+    "flag": "Disputed"
+  },
+  {
+    "order": "25816",
+    "qty": 1,
+    "admin": "Maryam Zahid",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Quantity Short / Missing",
+    "comment": "missing i 1pc",
+    "flag": "Own"
+  },
+  {
+    "order": "20070",
+    "qty": 404,
+    "admin": "Mehroz Amjad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-10",
+    "category": "No Record Found",
+    "comment": "",
+    "flag": "Own"
+  },
+  {
+    "order": "20208",
+    "qty": 60,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "Wrong printer was used / color was wrong",
+    "flag": "Own"
+  },
+  {
+    "order": "19665",
+    "qty": 53,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Quantity Short / Missing",
+    "comment": "Pcs were missing from the shipment",
+    "flag": "Own"
+  },
+  {
+    "order": "20109",
+    "qty": 52,
+    "admin": "Mehroz Amjad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "The Indigenous Sports Academy logo is way too large; the image in the CSSHL logo should be white (looks black, hard to see)",
+    "flag": "Own"
+  },
+  {
+    "order": "20090",
+    "qty": 38,
+    "admin": "Mehroz Amjad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "Remake of order 19058 due to difference in colors",
+    "flag": "Origin: #19058"
+  },
+  {
+    "order": "20591",
+    "qty": 33,
+    "admin": "Mehroz Amjad",
+    "factory": "Rajco",
+    "month": "2025-11",
+    "category": "No Record Found",
+    "comment": "",
+    "flag": "Own"
+  },
+  {
+    "order": "19931",
+    "qty": 30,
+    "admin": "Mehroz Amjad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "Colors were supposed to be same as order 17501",
+    "flag": "Own"
+  },
+  {
+    "order": "20230",
+    "qty": 30,
+    "admin": "Mehroz Amjad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "Incorrect number alignment and missing fonts; different fonts front vs back on several jerseys; poor alignment. Photos to be shared via Google Drive",
+    "flag": "Own"
+  },
+  {
+    "order": "19868",
+    "qty": 12,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "Remake because of wrong colors",
+    "flag": "Own"
+  },
+  {
+    "order": "20324",
+    "qty": 10,
+    "admin": "Mehroz Amjad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-11",
+    "category": "Quantity Short / Missing",
+    "comment": "We missed sending patches in the original order",
+    "flag": "Own"
+  },
+  {
+    "order": "19663",
+    "qty": 9,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Quantity Short / Missing",
+    "comment": "Missing pcs from original shipment",
+    "flag": "Own"
+  },
+  {
+    "order": "20274",
+    "qty": 6,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "Front logo not aligned; the Small Pettipas shirt has a pick across the logo",
+    "flag": "Own"
+  },
+  {
+    "order": "20691",
+    "qty": 6,
+    "admin": "Mehroz Amjad",
+    "factory": "Rajco",
+    "month": "2025-11",
+    "category": "No Record Found",
+    "comment": "",
+    "flag": "Own"
+  },
+  {
+    "order": "19824",
+    "qty": 3,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Quantity Short / Missing",
+    "comment": "Missing: #7 (Adult Medium), #18 (Adult Medium), #15 (Adult Large)",
+    "flag": "Own"
+  },
+  {
+    "order": "20229",
+    "qty": 3,
+    "admin": "Mehroz Amjad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-10",
+    "category": "Quantity Short / Missing",
+    "comment": "Missing shells 3 pcs; factory claimed to ship but customer never received",
+    "flag": "Own"
+  },
+  {
+    "order": "19793",
+    "qty": 2,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Quantity Short / Missing",
+    "comment": "Missing socks",
+    "flag": "Own"
+  },
+  {
+    "order": "19795",
+    "qty": 2,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "No Record Found",
+    "comment": "",
+    "flag": "Own"
+  },
+  {
+    "order": "19854",
+    "qty": 2,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "Customer needed a different red — a mistake from the customer",
+    "flag": "Own"
+  },
+  {
+    "order": "20280",
+    "qty": 2,
+    "admin": "Mehroz Amjad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-10",
+    "category": "Sizing / Fit",
+    "comment": "2 jerseys sizing mixed up: #18 Player Adult XL came as Large; #1 Goalie Adult XL came as Player XL",
+    "flag": "Own"
+  },
+  {
+    "order": "20414",
+    "qty": 2,
+    "admin": "Mehroz Amjad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-11",
+    "category": "Color Mismatch",
+    "comment": "Nameplates had the wrong color",
+    "flag": "Own"
+  },
+  {
+    "order": "22233",
+    "qty": 2,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "No Record Found",
+    "comment": "",
+    "flag": "Own"
+  },
+  {
+    "order": "19640",
+    "qty": 1,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "No Record Found",
+    "comment": "",
+    "flag": "Own"
+  },
+  {
+    "order": "19794",
+    "qty": 1,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Damaged / Soiled",
+    "comment": "Fabric seemed rubbed on the shoulder",
+    "flag": "Own"
+  },
+  {
+    "order": "19918",
+    "qty": 1,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Damaged / Soiled",
+    "comment": "Bad fabric",
+    "flag": "Own"
+  },
+  {
+    "order": "19922",
+    "qty": 1,
+    "admin": "Mehroz Amjad",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Sizing / Fit",
+    "comment": "Asked for both large in #89 (order 18742) but the white jersey came in medium",
+    "flag": "Own"
+  },
+  {
+    "order": "21998",
+    "qty": 388,
+    "admin": "Muhammad Khizer",
+    "factory": "Silver-Star Group",
+    "month": "2026-01",
+    "category": "Sizing / Fit",
+    "comment": "We shipped the size run from Mavic, and once we received the order, we proceeded with another size run using the same Mavic pattern to avoid any sizing issues. However, we still experienced the pattern-related issues.",
+    "flag": "Own"
+  },
+  {
+    "order": "22573",
+    "qty": 47,
+    "admin": "Muhammad Khizer",
+    "factory": "Mavic Sports",
+    "month": "2026-02",
+    "category": "Other",
+    "comment": "There was no issue with this order. The customer requested a colour change, and Tony approved the remake.",
+    "flag": "Own"
+  },
+  {
+    "order": "20797",
+    "qty": 21,
+    "admin": "Muhammad Khizer",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Logo / Design",
+    "comment": "The customer left this comment, but it was missed on my end.",
+    "flag": "Own"
+  },
+  {
+    "order": "19588",
+    "qty": 17,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "This is not my remake, this order is a remake of #17853 that was handled by Sammar Nasir originally",
+    "flag": "Own"
+  },
+  {
+    "order": "23154",
+    "qty": 16,
+    "admin": "Muhammad Khizer",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "The shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Own"
+  },
+  {
+    "order": "19998",
+    "qty": 15,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "This is not my remake, this order is a remake of #18994 that was handled by Sammar Nasir originally",
+    "flag": "Own"
+  },
+  {
+    "order": "23129",
+    "qty": 15,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict..",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "20701",
+    "qty": 14,
+    "admin": "Muhammad Khizer",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Logo / Design",
+    "comment": "This is not my remake, this order is a remake of #18695 that was handled by Simab originally/ Name was added on the socks as per customer request.",
+    "flag": "Own"
+  },
+  {
+    "order": "22513",
+    "qty": 10,
+    "admin": "Muhammad Khizer",
+    "factory": "Silver-Star Group",
+    "month": "2026-02",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict..",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23530",
+    "qty": 10,
+    "admin": "Muhammad Khizer",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Fabric / Material",
+    "comment": "Wrong fabric was used that was missed from my end.",
+    "flag": "Own"
+  },
+  {
+    "order": "23127",
+    "qty": 8,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23131",
+    "qty": 8,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23130",
+    "qty": 5,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23138",
+    "qty": 5,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23134",
+    "qty": 4,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23139",
+    "qty": 4,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23133",
+    "qty": 3,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23135",
+    "qty": 3,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23137",
+    "qty": 3,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "21956",
+    "qty": 2,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-01",
+    "category": "Logo / Design",
+    "comment": "The front and back jersey numbers were different, and this issue was also missed during QC.",
+    "flag": "Own"
+  },
+  {
+    "order": "23911",
+    "qty": 2,
+    "admin": "Muhammad Khizer",
+    "factory": "Selberian Sports Wear",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "This is not my remake, this order is a remake of #22787 that was handled by Maryam Zahid originally",
+    "flag": "Own"
+  },
+  {
+    "order": "25164",
+    "qty": 2,
+    "admin": "Muhammad Khizer",
+    "factory": "Silver-Star Group",
+    "month": "2026-05",
+    "category": "Logo / Design",
+    "comment": "Back number dimension Issue",
+    "flag": "Own"
+  },
+  {
+    "order": "26057",
+    "qty": 2,
+    "admin": "Muhammad Khizer",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Customer Change",
+    "comment": "customer add the number",
+    "flag": "Own"
+  },
+  {
+    "order": "19709",
+    "qty": 1,
+    "admin": "Muhammad Khizer",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-10",
+    "category": "Customer Change",
+    "comment": "Number was added by the customer as order were shipped",
+    "flag": "Own"
+  },
+  {
+    "order": "19861",
+    "qty": 1,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "This is not my remake, this order is a remake of #17554 that was handled by Sammar Nasir originally",
+    "flag": "Own"
+  },
+  {
+    "order": "20141",
+    "qty": 1,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "This is not my remake, this order is a remake of #18903 that was handled by Sammar Nasir originally",
+    "flag": "Own"
+  },
+  {
+    "order": "20868",
+    "qty": 1,
+    "admin": "Muhammad Khizer",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Customer Change",
+    "comment": "This is not my remake, this order is a remake of #18903 that was handled by Mehroz Amjad originally",
+    "flag": "Own"
+  },
+  {
+    "order": "23132",
+    "qty": 1,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23136",
+    "qty": 1,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23140",
+    "qty": 1,
+    "admin": "Muhammad Khizer",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "24470",
+    "qty": 1,
+    "admin": "Muhammad Khizer",
+    "factory": "Silver-Star Group",
+    "month": "2026-04",
+    "category": "Sizing / Fit",
+    "comment": "There was error in XS size.",
+    "flag": "Own"
+  },
+  {
+    "order": "23182",
+    "qty": 84,
+    "admin": "Qasim Butt",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "This remake was entered because original order was shipped when the flights were cancelled due to war. However this remake was not produced and cancelled in the system as well. No cost incurred.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23183",
+    "qty": 61,
+    "admin": "Qasim Butt",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "This remake was entered because original order was shipped when the flights were cancelled due to war. This was produced and shipped.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23184",
+    "qty": 61,
+    "admin": "Qasim Butt",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "This remake was entered because original order was shipped when the flights were cancelled due to war. However this remake was not produced and cancelled in the system as well. No cost incurred.",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "23324",
+    "qty": 60,
+    "admin": "Qasim Butt",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Color Mismatch",
+    "comment": "Color not matched with Approved standard.",
+    "flag": "Own"
+  },
+  {
+    "order": "19850",
+    "qty": 48,
+    "admin": "Qasim Butt",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "Color was matched with pantone while customer was comparing with dyed jersey that we didnt have with us.",
+    "flag": "Own"
+  },
+  {
+    "order": "23704",
+    "qty": 3,
+    "admin": "Qasim Butt",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Factory used wrong dyed fabric color. Instead of Crimson they used Burgundy.",
+    "flag": "Own"
+  },
+  {
+    "order": "23707",
+    "qty": 3,
+    "admin": "Qasim Butt",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Sizing / Fit",
+    "comment": "Customer changed patterns. No fault from our side.",
+    "flag": "Own"
+  },
+  {
+    "order": "20562",
+    "qty": 1,
+    "admin": "Qasim Butt",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Wrong Product / SKU",
+    "comment": "Name spelling error.",
+    "flag": "Own"
+  },
+  {
+    "order": "24496",
+    "qty": 84,
+    "admin": "Saddam Hussain",
+    "factory": "Rajco",
+    "month": "2026-04",
+    "category": "Color Mismatch",
+    "comment": "Socks order with below 250 qty often has the colour issues due to manual dying, but now we advised strict instructions to our vendor do not use any away color until customer final approval.",
+    "flag": "Own"
+  },
+  {
+    "order": "23857",
+    "qty": 180,
+    "admin": "Salman Faisal",
+    "factory": "Rajco",
+    "month": "2026-03",
+    "category": "Color Mismatch",
+    "comment": "Colors were not matched because we moved this order from Mavic to Rajco however the colors were not approved by me i just created the order on Backend",
+    "flag": "Own"
+  },
+  {
+    "order": "20644",
+    "qty": 122,
+    "admin": "Salman Faisal",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-11",
+    "category": "Other",
+    "comment": "i cannot find this order in my Record or on Backend",
+    "flag": "Own"
+  },
+  {
+    "order": "23937",
+    "qty": 100,
+    "admin": "Salman Faisal",
+    "factory": "Rajco",
+    "month": "2026-03",
+    "category": "Sizing / Fit",
+    "comment": "at first the customer approved the new size chart and general size run we shipped for sizing but later on they came out of nowhere and asked that they need the socks on Old size chart",
+    "flag": "Own"
+  },
+  {
+    "order": "20650",
+    "qty": 75,
+    "admin": "Salman Faisal",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-11",
+    "category": "Color Mismatch",
+    "comment": "Selbarian didn't follow the actual approved sample colors and shipped the order with wrong colors",
+    "flag": "Own"
+  },
+  {
+    "order": "20358",
+    "qty": 49,
+    "admin": "Salman Faisal",
+    "factory": "Rajco",
+    "month": "2025-11",
+    "category": "Other",
+    "comment": "these were the pieces which customer claimed that he did not received so we had to remake",
+    "flag": "Own"
+  },
+  {
+    "order": "19819",
+    "qty": 22,
+    "admin": "Salman Faisal",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "Colors were not matched because we moved this order from Mavic to Rajco however the colors were not approved by me i just created the order on Backend",
+    "flag": "Own"
+  },
+  {
+    "order": "22505",
+    "qty": 8,
+    "admin": "Salman Faisal",
+    "factory": "Rajco",
+    "month": "2026-02",
+    "category": "Other",
+    "comment": "these are samples not an order it was accidentally created as remake with no invoice however i have changed it to sample with no invoice",
+    "flag": "Own"
+  },
+  {
+    "order": "25576",
+    "qty": 8,
+    "admin": "Salman Faisal",
+    "factory": "Rajco",
+    "month": "2026-06",
+    "category": "Other",
+    "comment": "The customer said that he did not received 8 PCS while the factory claimed that they did ship those",
+    "flag": "Own"
+  },
+  {
+    "order": "22780",
+    "qty": 5,
+    "admin": "Salman Faisal",
+    "factory": "Rajco",
+    "month": "2026-02",
+    "category": "Other",
+    "comment": "This order was shipped in 2025 even before i joined and after a whole year customer came back and wanted a remake because of colors out of nowhere",
+    "flag": "Own"
+  },
+  {
+    "order": "19816",
+    "qty": 2,
+    "admin": "Salman Faisal",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "This PO was cancelled we did not shipped and did not remake",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "19817",
+    "qty": 1,
+    "admin": "Salman Faisal",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "Colors were not matched because we moved this order from Mavic to Rajco however the colors were not approved by me i just created the order on Backend",
+    "flag": "Own"
+  },
+  {
+    "order": "19818",
+    "qty": 1,
+    "admin": "Salman Faisal",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "Colors were not matched because we moved this order from Mavic to Rajco however the colors were not approved by me i just created the order on Backend",
+    "flag": "Own"
+  },
+  {
+    "order": "23701",
+    "qty": 5,
+    "admin": "Samar Abbas",
+    "factory": "Rajco",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "this is not remake and pcs missed in the shipment by factory",
+    "flag": "Own"
+  },
+  {
+    "order": "20402",
+    "qty": 563,
+    "admin": "Sameea Arshad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-11",
+    "category": "Print / Sublimation",
+    "comment": "Printing issue from factory",
+    "flag": "Own"
+  },
+  {
+    "order": "20399",
+    "qty": 253,
+    "admin": "Sameea Arshad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-11",
+    "category": "Other",
+    "comment": "Customer messed up with jerseys while transferring logos by themselves and blamed us so we had to remake.",
+    "flag": "Own"
+  },
+  {
+    "order": "20360",
+    "qty": 176,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-11",
+    "category": "Quantity Short / Missing",
+    "comment": "Complete order was shipped but customer claimed 176 PCs were missed, it turned out these were lost in custom.",
+    "flag": "Own"
+  },
+  {
+    "order": "21299",
+    "qty": 140,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-12",
+    "category": "Color Mismatch",
+    "comment": "The order was moved from Selberian to Rajco, we had issues in color matching.",
+    "flag": "Own"
+  },
+  {
+    "order": "20182",
+    "qty": 118,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "customer did not informed us before head.",
+    "flag": "Own"
+  },
+  {
+    "order": "19983",
+    "qty": 55,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "The order was moved from Selberian to Rajco, we had issues in color matching.",
+    "flag": "Own"
+  },
+  {
+    "order": "20034",
+    "qty": 49,
+    "admin": "Sameea Arshad",
+    "factory": "BMC",
+    "month": "2025-10",
+    "category": "Quantity Short / Missing",
+    "comment": "Complete order was shipped but customer claimed 176 PCs were missed, it turned out these were lost in custom.",
+    "flag": "Own"
+  },
+  {
+    "order": "20299",
+    "qty": 25,
+    "admin": "Sameea Arshad",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "File was wrong from designer and the design was so detailed that no one could catch out.",
+    "flag": "Own"
+  },
+  {
+    "order": "19887",
+    "qty": 22,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "The order was moved from Selberian to Rajco, we had issues in color matching.",
+    "flag": "Own"
+  },
+  {
+    "order": "20033",
+    "qty": 19,
+    "admin": "Sameea Arshad",
+    "factory": "BMC",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "wrong entry on backend",
+    "flag": "Own"
+  },
+  {
+    "order": "20450",
+    "qty": 13,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-11",
+    "category": "Logo / Design",
+    "comment": "wrong file was made and forwarded to factory.",
+    "flag": "Own"
+  },
+  {
+    "order": "21110",
+    "qty": 10,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-12",
+    "category": "Color Mismatch",
+    "comment": "The order was moved from Selberian to Rajco, we had issues in color matching.",
+    "flag": "Own"
+  },
+  {
+    "order": "19925",
+    "qty": 5,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Color Mismatch",
+    "comment": "The order was moved from Selberian to Rajco, we had issues in color matching.",
+    "flag": "Own"
+  },
+  {
+    "order": "25624",
+    "qty": 5,
+    "admin": "Sameea Arshad",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Other",
+    "comment": "On hold from customer's side (not confirm yet if we will remake it or not)",
+    "flag": "Own"
+  },
+  {
+    "order": "19971",
+    "qty": 2,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "There was no remake of Cal heat so far. In one order 3 pcs were missed so we produce and shipped.",
+    "flag": "Own"
+  },
+  {
+    "order": "19988",
+    "qty": 2,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "wrong file was made and forwarded to factory.",
+    "flag": "Own"
+  },
+  {
+    "order": "19991",
+    "qty": 2,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "wrong file was made and forwarded to factory.",
+    "flag": "Own"
+  },
+  {
+    "order": "25199",
+    "qty": 2,
+    "admin": "Sameea Arshad",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Sizing / Fit",
+    "comment": "Its remake of 24624, customer mistakenly ordered AL WAWATIE  Jersey with #96 but Correct no was 88.",
+    "flag": "Own"
+  },
+  {
+    "order": "25253",
+    "qty": 2,
+    "admin": "Sameea Arshad",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Sizing / Fit",
+    "comment": "Its remake of 24641 customer complained he received 4 AL and 4 AXL Royal shorts from order 24641. But we shipped correct sizes 3 AXL and 5 AL royal blue shorts.",
+    "flag": "Origin: #24641"
+  },
+  {
+    "order": "25946",
+    "qty": 2,
+    "admin": "Sameea Arshad",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Sizing / Fit",
+    "comment": "Its remake of Order 25258. Factory mistakenly produced the Men's Small hoodie in Light Weight, whereas it should have been made in standard weight. Fabric of both hoodies is different.",
+    "flag": "Origin: #25258"
+  },
+  {
+    "order": "19660",
+    "qty": 1,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "The patterns used were wrong, made wrong hence used wrong.",
+    "flag": "Own"
+  },
+  {
+    "order": "19886",
+    "qty": 1,
+    "admin": "Sameea Arshad",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "The order was moved from Selberian to Rajco, we had issues in color matching.",
+    "flag": "Own"
+  },
+  {
+    "order": "21121",
+    "qty": 1,
+    "admin": "Sameea Arshad",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Other",
+    "comment": "wrong entry on backend, we just needed this for internal use.",
+    "flag": "Own"
+  },
+  {
+    "order": "20788",
+    "qty": 253,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Wrong Product / SKU",
+    "comment": "Velcro on the nameplate was not required, yet factory added it",
+    "flag": "Own"
+  },
+  {
+    "order": "20271",
+    "qty": 64,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Sizing / Fit",
+    "comment": "This is not my remake, this order is a remake of 19229 that was handled by Haseeb Iqbal originally",
+    "flag": "Own"
+  },
+  {
+    "order": "20036",
+    "qty": 62,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "This is not my remake, this order is a remake of #17806 that was handled by Qasim Butt originally",
+    "flag": "Own"
+  },
+  {
+    "order": "20352",
+    "qty": 52,
+    "admin": "Sammar",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-11",
+    "category": "Logo / Design",
+    "comment": "This is not my remake, this order is a remake of #18698 that was handled by Qasim Butt originally",
+    "flag": "Own"
+  },
+  {
+    "order": "20515",
+    "qty": 48,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Logo / Design",
+    "comment": "This was caught by me, while the order was in production. The size of the logos on the shoulder panels was too small on some sizes. We created this remake order and sent the jerseys to the customer with correct logo size",
+    "flag": "Own"
+  },
+  {
+    "order": "22463",
+    "qty": 40,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2026-02",
+    "category": "Customer Change",
+    "comment": "Samples were approved by the customer with old logo colours. They asked to change colours when the order was already produced. CSM Pelle asked me to generate new remake order for them with new colours requested by the customer.",
+    "flag": "Own"
+  },
+  {
+    "order": "20945",
+    "qty": 36,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Print / Sublimation",
+    "comment": "This order was a repeat order of #3339 (old system). As Mavic handles repeat order files, they did the same for this order too. However, the font used did not match the one used for old order. We caught this before shipment and factory was charged for it. Customer received new jerseys with correct f",
+    "flag": "Own"
+  },
+  {
+    "order": "20171",
+    "qty": 32,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Customer Change",
+    "comment": "This remake order covers two previous orders. Order 19601 was originally handled by Mehroz Amjad, where a technical glitch in the builder fetched incorrect sizes, resulting in a remake of two jerseys. For order 19681, we followed the logo size specified in the tech pack. After shipment, the customer",
+    "flag": "Origin: #19681"
+  },
+  {
+    "order": "21020",
+    "qty": 31,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Other",
+    "comment": "This is not my remake. Original order was handled by some other admin, name cannot be found.",
+    "flag": "Ex/Other Admin"
+  },
+  {
+    "order": "22119",
+    "qty": 30,
+    "admin": "Sammar",
+    "factory": "Selberian Sports Wear",
+    "month": "2026-01",
+    "category": "Logo / Design",
+    "comment": "This is not my remake. It is a remake of order #16897, which was originally handled by Hira Sarfaraz",
+    "flag": "Origin: #16897"
+  },
+  {
+    "order": "21652",
+    "qty": 28,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Customer Change",
+    "comment": "They provided order 18897 as a reference, which had Velcro on the back.",
+    "flag": "Own"
+  },
+  {
+    "order": "23099",
+    "qty": 24,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Was asked to prepare replacement orders for all lost shipments.",
+    "flag": "Own"
+  },
+  {
+    "order": "20041",
+    "qty": 22,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "This is not my remake, this order is a remake of an order that was handled by Qasim Butt originally",
+    "flag": "Own"
+  },
+  {
+    "order": "23143",
+    "qty": 21,
+    "admin": "Sammar",
+    "factory": "Karrizo",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "This order was cancelled",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "19944",
+    "qty": 20,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "This is not my remake, this order is a remake of #13868 that was handled by some other admin originally. Name not mentioned on backend",
+    "flag": "Ex/Other Admin"
+  },
+  {
+    "order": "20136",
+    "qty": 20,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "This is not my remake, this order is a remake of #18891 that was handled by Simab Butt originally.",
+    "flag": "Own"
+  },
+  {
+    "order": "21140",
+    "qty": 15,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Sizing / Fit",
+    "comment": "We proceeded remake order as per Pelle's instructions with smaller sizes",
+    "flag": "Own"
+  },
+  {
+    "order": "21303",
+    "qty": 15,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Stitching / Construction",
+    "comment": "This is not my remake, this order is a remake of order 18791  that was handled by Simab Butt originally",
+    "flag": "Origin: #18791"
+  },
+  {
+    "order": "20063",
+    "qty": 12,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Print / Sublimation",
+    "comment": "This is not my remake, this order is a remake of order 18151 that was handled by Qasim Butt originally",
+    "flag": "Origin: #18151"
+  },
+  {
+    "order": "20560",
+    "qty": 8,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Stitching / Construction",
+    "comment": "Factory prepared sublimated C and A patches instead of tackle twill ones",
+    "flag": "Own"
+  },
+  {
+    "order": "20623",
+    "qty": 4,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Logo / Design",
+    "comment": "This order is a remake of 2 orders, 17467 (Handled by Qasim Butt) and 13428 (Handled by some other admin, not mentioned on the backend)",
+    "flag": "Ex/Other Admin"
+  },
+  {
+    "order": "23226",
+    "qty": 4,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2026-03",
+    "category": "Wrong Product / SKU",
+    "comment": "Velcro on the namplates missed by the factory",
+    "flag": "Own"
+  },
+  {
+    "order": "20349",
+    "qty": 3,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Quantity Short / Missing",
+    "comment": "This is not my remake, this order is a remake of order 19345 that was handled by Qasim Butt originally",
+    "flag": "Origin: #19345"
+  },
+  {
+    "order": "20451",
+    "qty": 3,
+    "admin": "Sammar",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-11",
+    "category": "Sizing / Fit",
+    "comment": "This order is a remake of 2 orders, 19534 (Handled by myself) and 13935 (Handled by some other admin, not mentioned on the backend)",
+    "flag": "Ex/Other Admin"
+  },
+  {
+    "order": "25385",
+    "qty": 3,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Quantity Short / Missing",
+    "comment": "Qunatity is 2 and not 3",
+    "flag": "Own"
+  },
+  {
+    "order": "25391",
+    "qty": 3,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2026-05",
+    "category": "Customer Change",
+    "comment": "Quantity is 2 not 3 and this is not a remake",
+    "flag": "Disputed"
+  },
+  {
+    "order": "23799",
+    "qty": 2,
+    "admin": "Sammar",
+    "factory": "Silver-Star Group",
+    "month": "2026-03",
+    "category": "Color Mismatch",
+    "comment": "Factory error",
+    "flag": "Own"
+  },
+  {
+    "order": "24399",
+    "qty": 2,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2026-04",
+    "category": "Logo / Design",
+    "comment": "This is not my remake, this order is a remake of order 18532 that was handled by Simab Butt originally",
+    "flag": "Origin: #18532"
+  },
+  {
+    "order": "21521",
+    "qty": 1,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Damaged / Soiled",
+    "comment": "This was communicated to the CSM before shipping. We shipped the defective piece so the customer could use it for their game, as the affected area was hidden under the shirt. A replacement piece was sent afterward.",
+    "flag": "Own"
+  },
+  {
+    "order": "21582",
+    "qty": 1,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2025-12",
+    "category": "Other",
+    "comment": "Wrong Spelling by the customer",
+    "flag": "Own"
+  },
+  {
+    "order": "22044",
+    "qty": 1,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2026-01",
+    "category": "Other",
+    "comment": "Wrong Spelling by the CSM",
+    "flag": "Own"
+  },
+  {
+    "order": "25477",
+    "qty": 1,
+    "admin": "Sammar",
+    "factory": "Mavic Sports",
+    "month": "2026-06",
+    "category": "Other",
+    "comment": "The language was foreign, so we didn't notice the mistake, and the AI also generated the wrong name.",
+    "flag": "Own"
+  },
+  {
+    "order": "20458",
+    "qty": 50,
+    "admin": "Sania Naseer",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Stitching / Construction",
+    "comment": "We sent ringette pants to this customer and their straps broke. We sent them new straps as a replacement so they apply them on jerseys.",
+    "flag": "Own"
+  },
+  {
+    "order": "20421",
+    "qty": 2,
+    "admin": "Sania Naseer",
+    "factory": "Mavic Sports",
+    "month": "2025-11",
+    "category": "Damaged / Soiled",
+    "comment": "The fabric seemed rubbed on the front. Small damage spots on the jerseys",
+    "flag": "Own"
+  },
+  {
+    "order": "22688",
+    "qty": 570,
+    "admin": "Simab",
+    "factory": "Rajco",
+    "month": "2026-02",
+    "category": "Color Mismatch",
+    "comment": "The factory did not match the sublimation color of the 3D logo correctly. I only created the order and was not involved in the communication regarding this issue.",
+    "flag": "Own"
+  },
+  {
+    "order": "23943",
+    "qty": 291,
+    "admin": "Simab",
+    "factory": "Rajco",
+    "month": "2026-03",
+    "category": "Wrong Product / SKU",
+    "comment": "The customer did not inform us that they wanted a dyed or sublimation Shorts .  Previously, the customer only mentioned that they needed dyed shorts.",
+    "flag": "Own"
+  },
+  {
+    "order": "21005",
+    "qty": 192,
+    "admin": "Simab",
+    "factory": "Selberian Sports Wear",
+    "month": "2025-11",
+    "category": "Color Mismatch",
+    "comment": "Sublimation Printing Issue",
+    "flag": "Own"
+  },
+  {
+    "order": "20032",
+    "qty": 175,
+    "admin": "Simab",
+    "factory": "BMC",
+    "month": "2025-10",
+    "category": "Other",
+    "comment": "we had to remake because these PCs were missed in custom when we shipped an order from pk so we ha to rerun in BMC for fast production.",
+    "flag": "Own"
+  },
+  {
+    "order": "24160",
+    "qty": 150,
+    "admin": "Simab",
+    "factory": "Custimoo factory",
+    "month": "2026-04",
+    "category": "Sizing / Fit",
+    "comment": "at first the customer approved the new size chart and general size run we shipped for sizing but later on they came out of nowhere and asked that they need the socks on Old size chart",
+    "flag": "Own"
+  },
+  {
+    "order": "20826",
+    "qty": 75,
+    "admin": "Simab",
+    "factory": "Rajco",
+    "month": "2025-11",
+    "category": "Color Mismatch",
+    "comment": "Colors were not matched because we moved this order from Mavic to Rajco however the colors were not approved by me i just created the order on Backend",
+    "flag": "Own"
+  },
+  {
+    "order": "20827",
+    "qty": 53,
+    "admin": "Simab",
+    "factory": "Rajco",
+    "month": "2025-11",
+    "category": "Color Mismatch",
+    "comment": "Colors were not matched because we moved this order from Mavic to Rajco however the colors were not approved by me i just created the order on Backend",
+    "flag": "Own"
+  },
+  {
+    "order": "21601",
+    "qty": 50,
+    "admin": "Simab",
+    "factory": "Rajco",
+    "month": "2025-12",
+    "category": "Sizing / Fit",
+    "comment": "GGT Department made the patterns and shorten the sleeves by 10 CM",
+    "flag": "Own"
+  },
+  {
+    "order": "20011",
+    "qty": 16,
+    "admin": "Simab",
+    "factory": "Rajco",
+    "month": "2025-10",
+    "category": "Sizing / Fit",
+    "comment": "While doing the excel sheet manually wrong sizes were entered",
+    "flag": "Own"
+  },
+  {
+    "order": "22615",
+    "qty": 5,
+    "admin": "Simab",
+    "factory": "Rajco",
+    "month": "2026-02",
+    "category": "Print / Sublimation",
+    "comment": "Wrong print file was forwarded to factory Designer made the wrong file and DQC approved the file.",
+    "flag": "Own"
+  },
+  {
+    "order": "21491",
+    "qty": 3,
+    "admin": "Simab",
+    "factory": "Rajco",
+    "month": "2025-12",
+    "category": "Other",
+    "comment": "This order was cancelled and was not remade",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "21677",
+    "qty": 3,
+    "admin": "Simab",
+    "factory": "Rajco",
+    "month": "2025-12",
+    "category": "Other",
+    "comment": "This order was cancelled and was not remade",
+    "flag": "Cancelled"
+  },
+  {
+    "order": "21871",
+    "qty": 3,
+    "admin": "Simab",
+    "factory": "Rajco",
+    "month": "2026-01",
+    "category": "Sizing / Fit",
+    "comment": "Neck Workmanship was wrong so we had top adjust the patterns",
+    "flag": "Own"
+  },
+  {
+    "order": "23875",
+    "qty": 3,
+    "admin": "Simab",
+    "factory": "Rajco",
+    "month": "2026-03",
+    "category": "Other",
+    "comment": "Customer claimed that these pieces were missed from the shipment so we had to remake",
+    "flag": "Own"
+  },
+  {
+    "order": "20062",
+    "qty": 1,
+    "admin": "Simab",
+    "factory": "Mavic Sports",
+    "month": "2025-10",
+    "category": "Logo / Design",
+    "comment": "The factory missed the stars on the front logo of the jersey.",
+    "flag": "Own"
+  }
+]
