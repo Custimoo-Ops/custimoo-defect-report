@@ -1604,9 +1604,15 @@ async function loadDqcUsage() {{
     var ev = d.events || [];
     var vc = {{PASSED:0, REJECTED:0, UNKNOWN:0}};
     var uc = {{}};
-    function dqcUser(e) {{ return e.display_user || e.windows_login || e.windows_user || e.windows_username || e.login_name || e.username || e.user || '(unknown)'; }}
+    function escHtml(v) {{ return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) {{ return {{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[c]; }}); }}
+    function dqcUser(e) {{
+      var reviewer = e.reviewer && typeof e.reviewer === 'object' ? e.reviewer : {{}};
+      return e.display_user || reviewer.name || e.windows_login || e.windows_user || e.windows_username || e.login_name || e.username || e.user || '(unknown)';
+    }}
     ev.forEach(function(e) {{
-      var v = (e.verdict || 'UNKNOWN').toUpperCase();
+      var v = String(e.verdict || e.status || 'UNKNOWN').toUpperCase();
+      if (v === 'PASS') v = 'PASSED';
+      if (v === 'FAIL' || v === 'FAILED') v = 'REJECTED';
       vc[v] = (vc[v] || 0) + 1;
       var u = dqcUser(e);
       uc[u] = (uc[u] || 0) + 1;
@@ -1617,15 +1623,17 @@ async function loadDqcUsage() {{
     document.getElementById('dqcUsers').textContent = Object.keys(uc).length.toLocaleString();
     msg.textContent = 'API generated: ' + (d.generated_at || 'n/a') + ' · ' + ev.length.toLocaleString() + ' audit runs' + (d.stale_error ? ' · Warning: ' + d.stale_error : '');
     var users = Object.entries(uc).sort(function(a,b) {{ return b[1] - a[1]; }});
-    document.getElementById('dqcUserBody').innerHTML = users.length ? users.map(function(x) {{ return '<tr><td>' + x[0] + '</td><td class="right">' + x[1].toLocaleString() + '</td></tr>'; }}).join('') : '<tr><td colspan="2">No users</td></tr>';
+    document.getElementById('dqcUserBody').innerHTML = users.length ? users.map(function(x) {{ return '<tr><td>' + escHtml(x[0]) + '</td><td class="right">' + x[1].toLocaleString() + '</td></tr>'; }}).join('') : '<tr><td colspan="2">No users</td></tr>';
     document.getElementById('dqcRunBody').innerHTML = ev.length ? ev.map(function(e) {{
-      var verdict = e.verdict || 'UNKNOWN';
+      var verdict = String(e.verdict || e.status || 'UNKNOWN').toUpperCase();
+      if (verdict === 'PASS') verdict = 'PASSED';
+      if (verdict === 'FAIL' || verdict === 'FAILED') verdict = 'REJECTED';
       var reason = e.rejection_reason || e.reject_reason || e.reason || e.failure_reason || e.qc_reason || e.notes || e.message || '—';
       var version = e.dqc_skill_version || e.version || '';
-      return '<tr><td>' + ((e.ts || '').slice(0,10)) + '</td><td>' + dqcUser(e) + '</td><td>' + (e.order || '') + '</td><td><strong>' + verdict + '</strong></td><td>' + reason + '</td><td>' + version + '</td><td>' + (e.ts || '') + '</td></tr>';
+      return '<tr><td>' + escHtml((e.ts || '').slice(0,10)) + '</td><td>' + escHtml(dqcUser(e)) + '</td><td>' + escHtml(e.order || e.order_no || '') + '</td><td><strong>' + escHtml(verdict) + '</strong></td><td>' + escHtml(reason) + '</td><td>' + escHtml(version) + '</td><td>' + escHtml(e.ts || '') + '</td></tr>';
     }}).join('') : '<tr><td colspan="7">No audits logged</td></tr>';
   }} catch(e) {{
-    msg.innerHTML = '<span style="color:#b42318;font-weight:700">' + e.message + '</span>';
+    msg.innerHTML = '<span style="color:#b42318;font-weight:700">' + escHtml(e.message) + '</span>';
   }}
 }}
 var dqcRefreshBtn = document.getElementById('dqcRefreshBtn');
