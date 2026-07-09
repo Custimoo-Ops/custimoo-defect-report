@@ -1,0 +1,346 @@
+{
+  "source_file": "/Users/lakr-macmini/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Remake_Backend_Actions_for_Lars.html",
+  "generated_from_source_at": "",
+  "cancelled": [
+    {
+      "order": "23182",
+      "qty": 84,
+      "month": "2026-03",
+      "credited_admin": "Qasim Butt",
+      "reason": "This remake was entered because original order was shipped when the flights were cancelled"
+    },
+    {
+      "order": "23183",
+      "qty": 61,
+      "month": "2026-03",
+      "credited_admin": "Qasim Butt",
+      "reason": "This remake was entered because original order was shipped when the flights were cancelled"
+    },
+    {
+      "order": "23184",
+      "qty": 61,
+      "month": "2026-03",
+      "credited_admin": "Qasim Butt",
+      "reason": "This remake was entered because original order was shipped when the flights were cancelled"
+    },
+    {
+      "order": "23095",
+      "qty": 40,
+      "month": "2026-03",
+      "credited_admin": "Haseeb Iqbal",
+      "reason": "order was cancelled not remade and was due to missing of main order 20919"
+    },
+    {
+      "order": "23143",
+      "qty": 21,
+      "month": "2026-03",
+      "credited_admin": "Sammar",
+      "reason": "This order was cancelled"
+    },
+    {
+      "order": "23129",
+      "qty": 15,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.."
+    },
+    {
+      "order": "22513",
+      "qty": 10,
+      "month": "2026-02",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict.."
+    },
+    {
+      "order": "23127",
+      "qty": 8,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    },
+    {
+      "order": "23131",
+      "qty": 8,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    },
+    {
+      "order": "23130",
+      "qty": 5,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    },
+    {
+      "order": "23138",
+      "qty": 5,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    },
+    {
+      "order": "26011",
+      "qty": 4,
+      "month": "2026-06",
+      "credited_admin": "Hunain Shafique",
+      "reason": "Order Cancelled"
+    },
+    {
+      "order": "23134",
+      "qty": 4,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    },
+    {
+      "order": "23139",
+      "qty": 4,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    },
+    {
+      "order": "25822",
+      "qty": 3,
+      "month": "2026-06",
+      "credited_admin": "Hunain Shafique",
+      "reason": "Order Cancelled"
+    },
+    {
+      "order": "23133",
+      "qty": 3,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    },
+    {
+      "order": "23135",
+      "qty": 3,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    },
+    {
+      "order": "23137",
+      "qty": 3,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    },
+    {
+      "order": "21491",
+      "qty": 3,
+      "month": "2025-12",
+      "credited_admin": "Simab",
+      "reason": "This order was cancelled and was not remade"
+    },
+    {
+      "order": "21677",
+      "qty": 3,
+      "month": "2025-12",
+      "credited_admin": "Simab",
+      "reason": "This order was cancelled and was not remade"
+    },
+    {
+      "order": "19816",
+      "qty": 2,
+      "month": "2025-10",
+      "credited_admin": "Salman Faisal",
+      "reason": "This PO was cancelled we did not shipped and did not remake"
+    },
+    {
+      "order": "23132",
+      "qty": 1,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    },
+    {
+      "order": "23136",
+      "qty": 1,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    },
+    {
+      "order": "23140",
+      "qty": 1,
+      "month": "2026-03",
+      "credited_admin": "Muhammad Khizer",
+      "reason": "Order is cancelled on backend/ the shipment disturbed due to the Iran–USA conflict."
+    }
+  ],
+  "admin_changes": [
+    {
+      "order": "22784",
+      "qty": 3,
+      "month": "2026-02",
+      "from_admin": "Haider Abbas",
+      "to_admin": "Mehroz Amjad",
+      "why": "remake of origin #18076 (Mehroz Amjad)",
+      "verified_by": "Haider Abbas · 7 Jul"
+    },
+    {
+      "order": "20619",
+      "qty": 1,
+      "month": "2025-11",
+      "from_admin": "Haider Abbas",
+      "to_admin": "Simab",
+      "why": "remake of origin #19074 (Simab)",
+      "verified_by": "Haider Abbas · 7 Jul"
+    },
+    {
+      "order": "20623",
+      "qty": 2,
+      "month": "2025-11",
+      "from_admin": "Sammar Nasir",
+      "to_admin": "Qasim Butt",
+      "why": "remake of origin #17467 (Qasim Butt) — 2 of 4 pcs",
+      "verified_by": "Sammar Nasir · 8 Jul"
+    },
+    {
+      "order": "20623",
+      "qty": 2,
+      "month": "2025-11",
+      "from_admin": "Sammar Nasir",
+      "to_admin": "Rukhsar Kanwel",
+      "why": "remake of origin #13428 (Rukhsar Kanwel) — 2 of 4 pcs",
+      "verified_by": "Sammar Nasir · 8 Jul"
+    },
+    {
+      "order": "20451",
+      "qty": 2,
+      "month": "2025-11",
+      "from_admin": "Sammar Nasir",
+      "to_admin": "Mubeen Amjad",
+      "why": "remake of origin #13935 (Mubeen Amjad) — 2 of 3 pcs; 1 pc stays Sammar",
+      "verified_by": "Sammar Nasir · 8 Jul"
+    },
+    {
+      "order": "22897",
+      "qty": 7,
+      "month": "2026-02",
+      "from_admin": "Haseeb Iqbal",
+      "to_admin": "Simab",
+      "why": "remake of origin #15678 (Simab)",
+      "verified_by": "Haseeb Iqbal · 6 Jul"
+    },
+    {
+      "order": "26010",
+      "qty": 25,
+      "month": "2026-06",
+      "from_admin": "Hunain Shafique",
+      "to_admin": "Abdul Moiez",
+      "why": "base order by Abdul Moiez (Dec 2025)",
+      "verified_by": "Hunain Shafique · 6 Jul"
+    }
+  ],
+  "not_remake": [
+    {
+      "order": "22028",
+      "qty": 350,
+      "month": "2026-01",
+      "admin": "Haseeb Iqbal",
+      "reason": "This is not a remake"
+    },
+    {
+      "order": "23093",
+      "qty": 86,
+      "month": "2026-03",
+      "admin": "Hunain Shafique",
+      "reason": "Middle East War (LOST ORDER)"
+    },
+    {
+      "order": "22762",
+      "qty": 52,
+      "month": "2026-02",
+      "admin": "Iqra Iqbal",
+      "reason": "not a remake, it was added wrongly on backend. I will change it on backend after your instructions."
+    },
+    {
+      "order": "21020",
+      "qty": 31,
+      "month": "2025-11",
+      "admin": "Sammar",
+      "reason": "New order, not a remake."
+    },
+    {
+      "order": "19944",
+      "qty": 20,
+      "month": "2025-10",
+      "admin": "Sammar",
+      "reason": "Regular repeat order, not a remake."
+    },
+    {
+      "order": "23110",
+      "qty": 13,
+      "month": "2026-03",
+      "admin": "Hunain Shafique",
+      "reason": "Middle East War (LOST ORDER)"
+    },
+    {
+      "order": "23094",
+      "qty": 4,
+      "month": "2026-03",
+      "admin": "Hunain Shafique",
+      "reason": "Middle East War (LOST ORDER)"
+    },
+    {
+      "order": "25391",
+      "qty": 2,
+      "month": "2026-05",
+      "admin": "Sammar",
+      "reason": "Not a remake — customer ordering error (wrong size/spelling on 2 jerseys), customer was charged."
+    },
+    {
+      "order": "21559",
+      "qty": 1,
+      "month": "2025-12",
+      "admin": "Haider Abbas",
+      "reason": "Reorder of #20123, not a remake."
+    },
+    {
+      "order": "22770",
+      "qty": 1,
+      "month": "2026-02",
+      "admin": "Haider Abbas",
+      "reason": "Reorder of #22420, not a remake."
+    },
+    {
+      "order": "24873",
+      "qty": 1,
+      "month": "2026-05",
+      "admin": "Haider Abbas",
+      "reason": "Reorder of #22350, not a remake."
+    },
+    {
+      "order": "25989",
+      "qty": 1,
+      "month": "2026-06",
+      "admin": "Haider Abbas",
+      "reason": "Reorder of #25423, not a remake."
+    },
+    {
+      "order": "24397",
+      "qty": 1,
+      "month": "2026-04",
+      "admin": "Maryam Zahid",
+      "reason": "It's a re-order not a remake"
+    }
+  ],
+  "missing_in_backend": [
+    {
+      "order": "20676",
+      "qty": 23,
+      "month": "2025-11",
+      "note": "Unable to find this order in the system"
+    },
+    {
+      "order": "21517",
+      "qty": 0,
+      "month": "2025-12",
+      "note": "Unable to find this order in the system"
+    }
+  ]
+}

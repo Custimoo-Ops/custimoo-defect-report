@@ -8,6 +8,7 @@ import csv, gzip, io, urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import factory_data
+import remake_backend_actions
 
 # Generate summary data
 data = factory_data.generate()
@@ -809,7 +810,7 @@ def finalize_groups(groups):
 conn = __import__('pymysql').connect(host="127.0.0.1", port=3307, database="custimoo_backend_prod", user="custimoo_backend_usr", password=__import__('os').environ.get("CUSTIMOO_DB_PASSWORD", ""), connect_timeout=10)
 remake_cur = conn.cursor()
 remake_cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol = 'R' AND o.created_at >= %s AND o.created_at < %s", (factory_data.REPORT_START, factory_data.REPORT_END))
-REMAKE_ORDERS = set(str(r[0]) for r in remake_cur.fetchall())
+REMAKE_ORDERS = set(str(r[0]) for r in remake_cur.fetchall()) - remake_backend_actions.EXCLUDED_REMAKE_ORDERS
 remake_cur.close()
 # Don't close main conn — used later
 
@@ -833,9 +834,16 @@ for ono, meta in all_order_meta.items():
     if is_remake:
         for ser in rollup_sku_groups(series):
             sku_groups[ser]['remake_orders_set'].add(ono)
+            sku_groups[ser]['remake_qty_total'] += meta['qty']
         for sport in classify_sport_text(text):
             sport_groups[sport]['remake_orders_set'].add(ono)
-        admin_groups[admin]['remake_orders_set'].add(ono)
+            sport_groups[sport]['remake_qty_total'] += meta['qty']
+        for credit_admin, credit_qty, credit_key in remake_backend_actions.remake_admin_allocations(ono, admin, meta.get('qty', 0)):
+            if credit_admin != admin:
+                admin_groups[credit_admin]['volume'] += credit_qty
+                admin_groups[credit_admin]['orders_set'].add(credit_key)
+            admin_groups[credit_admin]['remake_orders_set'].add(credit_key)
+            admin_groups[credit_admin]['remake_qty_total'] += credit_qty
 
 order_lookup = {d['order']: d for d in order_details}
 for ono, d in order_lookup.items():
@@ -1033,8 +1041,12 @@ def build_groupings_for_months(month_keys):
         admin_groups[admin]['volume'] += meta['qty']
         admin_groups[admin]['orders_set'].add(ono)
         if is_remake:
-            admin_groups[admin]['remake_orders_set'].add(ono)
-            admin_groups[admin]['remake_qty_total'] += meta['qty']
+            for credit_admin, credit_qty, credit_key in remake_backend_actions.remake_admin_allocations(ono, admin, meta.get('qty', 0)):
+                if credit_admin != admin:
+                    admin_groups[credit_admin]['volume'] += credit_qty
+                    admin_groups[credit_admin]['orders_set'].add(credit_key)
+                admin_groups[credit_admin]['remake_orders_set'].add(credit_key)
+                admin_groups[credit_admin]['remake_qty_total'] += credit_qty
     for ono, d in order_lookup.items():
         if d.get('fu_month') not in month_set:
             continue
@@ -1111,9 +1123,19 @@ def build_exception_leaders(month_keys):
                 g = groups[mode][name]
                 g['orders_set'].add(ono)
                 g['qty'] += qty
-                if is_remake:
+                if is_remake and mode != 'admin':
                     g['remake_orders_set'].add(ono)
                     g['remake_qty'] += qty
+        if is_remake:
+            for credit_admin, credit_qty, credit_key in remake_backend_actions.remake_admin_allocations(ono, admin_name, qty):
+                if not credit_admin or credit_admin == '(unknown)':
+                    continue
+                g = groups['admin'][credit_admin]
+                if credit_admin != admin_name:
+                    g['orders_set'].add(credit_key)
+                    g['qty'] += credit_qty
+                g['remake_orders_set'].add(credit_key)
+                g['remake_qty'] += credit_qty
     out = {}
     for mode, people in groups.items():
         rows = []
@@ -1243,7 +1265,22 @@ ORDER BY qty DESC
 """, (factory_data.REPORT_START, factory_data.REPORT_END))
     REMAKE_MGMT = [{"order": str(r[0]), "qty": int(r[1]) if r[1] else 0, "admin": r[2], "month": str(r[3])[:7] if r[3] else "?", "factory": r[4], "category": "", "comment": "", "flag": ""} for r in remake_cur.fetchall()]
     remake_cur.close()
+
+for _r in REMAKE_MGMT:
+    _order = str(_r.get('order') or '').replace('#', '').strip()
+    _note = remake_backend_actions.admin_action_note(_order)
+    if not _note:
+        continue
+    _existing_comment = str(_r.get('comment') or '').strip()
+    _r['comment'] = (_note + (' · ' + _existing_comment if _existing_comment else ''))[:800]
+    if _order in remake_backend_actions.CANCELLED:
+        _r['flag'] = 'Cancelled'
+    elif _order in remake_backend_actions.NOT_REMAKE:
+        _r['flag'] = 'Not remake'
+    elif _order in remake_backend_actions.ADMIN_CHANGES:
+        _r['flag'] = 'Admin changed'
 REMAKE_MGMT_JSON = json.dumps(REMAKE_MGMT, cls=factory_data.DecimalEncoder)
+REMAKE_MGMT_JSON = REMAKE_MGMT_JSON.replace('<', '\\u003C').replace('>', '\\u003E')
 conn.close()
 
 # ── Remake Mgmt SAS token for universal save ──
@@ -2061,7 +2098,7 @@ renderYtdFactoryTable();
 var remakeData = {{}};
 var remakeSaveTimer = null;
 
-const EXCLUDED_REMAKE_FLAGS = new Set(['Cancelled','Disputed','Ex/Other Admin','No Record']);
+const EXCLUDED_REMAKE_FLAGS = new Set(['Cancelled','Disputed','Ex/Other Admin','No Record','Not remake']);
 function remakeIsExcluded(r) {{ return EXCLUDED_REMAKE_FLAGS.has(r.flag || ''); }}
 function flagClass(flag) {{
   if (flag === 'Own') return 'status-good';

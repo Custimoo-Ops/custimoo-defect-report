@@ -5,6 +5,7 @@ import os, json, re, urllib.request
 from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime, timezone
+import remake_backend_actions
 
 REPORT_START = '2025-10-01'
 _now = datetime.now(timezone.utc)
@@ -229,7 +230,7 @@ WHERE oi.status_updated_at >= %s
         if f in EXCLUDED_FACTORIES:
             continue
         qty = r[2] or 0
-        ono = r[3]
+        ono = str(r[3])
         order_type_symbol = r[4]
         factory_month_pipe[f][month]['qty'] += qty
         # Count each order once per factory per month
@@ -237,7 +238,7 @@ WHERE oi.status_updated_at >= %s
         if key not in seen_order_factories:
             seen_order_factories.add(key)
             factory_month_pipe[f][month]['orders'] += 1
-        if order_type_symbol == 'R':
+        if order_type_symbol == 'R' and not remake_backend_actions.is_excluded_remake(ono):
             factory_month_pipe[f][month]['remake_qty'] += qty
             if key not in seen_remake_order_factories:
                 seen_remake_order_factories.add(key)
@@ -253,9 +254,15 @@ WHERE oi.status_updated_at >= %s
             total_monthly_pipe[month] += vals.get('qty', 0)
             total_monthly_orders[month] += vals.get('orders', 0)
 
-    # Remake (no invoice) counts by shipping month
+    # Remake (no invoice) counts by shipping month, with backend-action exclusions applied.
     remake_by_month = {}
     cur2 = conn.cursor()
+    excluded_remake_orders = sorted(remake_backend_actions.EXCLUDED_REMAKE_ORDERS)
+    exclude_sql = ''
+    params = [REPORT_START, REPORT_END]
+    if excluded_remake_orders:
+        exclude_sql = ' AND o.order_no NOT IN (' + ','.join(['%s'] * len(excluded_remake_orders)) + ')'
+        params.extend(excluded_remake_orders)
     cur2.execute("""
 SELECT DATE_FORMAT(oi.status_updated_at, '%%Y-%%m') as month,
        COUNT(DISTINCT o.id) as cnt,
@@ -266,9 +273,10 @@ WHERE o.order_type_symbol = 'R'
   AND oi.status_updated_at >= %s
   AND oi.status_updated_at < %s
   AND (oi.status IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
+""" + exclude_sql + """
 GROUP BY month
 ORDER BY month
-""", (REPORT_START, REPORT_END))
+""", params)
     for r in cur2.fetchall():
         month = r[0]
         remake_by_month[month] = {'orders': r[1], 'qty': r[2]}
