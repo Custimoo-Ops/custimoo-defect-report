@@ -3,8 +3,9 @@ name: Generate & Deploy Report
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: '0 * * * *'
+  # Hourly schedule disabled 2026-07-24: RDS is unreachable from the SSH bastion,
+  # causing repeated failure notification emails. Re-enable after AWS/RDS network
+  # access from cs_jumpbox_sg to the RDS security group on TCP 3306 is restored.
   workflow_dispatch:
 
 jobs:
