@@ -1911,7 +1911,7 @@ function aggregateFactories(list) {{
   }}, {{volume:0, orders:0, remake_orders:0, remake_qty:0, qarma:{{sample_qty:0, defects:0, inspections:0, orders_checked:0, rejected_orders:0}}}});
 }}
 function valWithDelta(html) {{ return html; }}
-function qarmaRate(q) {{ return (q.sample_qty || 0) > 0 ? (q.defects || 0) / q.sample_qty * 100 : 0; }}
+function qarmaRate(q, totalOrderQty) {{ return (totalOrderQty || 0) > 0 ? (q.defects || 0) / totalOrderQty * 100 : 0; }}
 function qarmaOrderRate(q) {{ return (q.orders_checked || 0) > 0 ? (q.rejected_orders || 0) / q.orders_checked * 100 : 0; }}
 function actionPlanQty(f) {{
   // More Qarma quantity needed so remake_qty / Qarma Quantity Checked is below the 0.5% goal.
@@ -1991,7 +1991,7 @@ function actionPlanTooltip(f) {{
     + line('0.2%', 0.002);
 }}
 function measureCells(f, q) {{
-  const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q) : qarmaRate(q);
+  const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q) : qarmaRate(q, f.volume);
   if (ACTIVE_MEASURE === 'orders') {{
     return '<td class="right">' + (f.orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + (q.orders_checked || 0).toLocaleString() + '</td>'
@@ -2063,7 +2063,7 @@ function renderActionPlanDiagnostics(mode) {{
     const q = f.qarma || {{}};
     const checked = q.sample_qty || 0;
     const unchecked = Math.max(0, (f.volume || 0) - checked);
-    const qRate = qarmaRate(q);
+    const qRate = qarmaRate(q, f.volume);
     const implied = unchecked > 0 ? (f.remake_qty || 0) / unchecked * 100 : null;
     const ratio = (implied !== null && qRate > 0) ? implied / qRate : null;
     let interp = 'Coverage gap check';
