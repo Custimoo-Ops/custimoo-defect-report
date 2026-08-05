@@ -1527,6 +1527,11 @@ html = f"""<!DOCTYPE html>
   table {{ width: 100%; border-collapse: collapse; font-size: 14px; }}
   th, td {{ padding: 11px 10px; border-bottom: 1px solid var(--border); text-align: left; }}
   th {{ font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: #fafbff; }}
+  .wrap:has(#qc-rejections.active) {{ max-width: 1800px; }}
+  .qc-rejections-scroll {{ overflow: auto; max-height: 70vh; }}
+  .qc-rejections-table {{ min-width: 2050px; }}
+  .qc-rejections-table thead th {{ position: sticky; top: 0; z-index: 3; background: #fafbff; box-shadow: 0 1px 0 var(--border); }}
+  .qc-comment {{ min-width: 420px; max-width: 560px; white-space: pre-wrap; vertical-align: top; }}
   tr.clickable {{ cursor: pointer; transition: background 0.12s ease; }}
   tr.clickable:hover {{ background: #f0f6ff; }}
   tr.selected {{ background: #eaf2ff !important; box-shadow: inset 4px 0 0 var(--accent); }}
@@ -1731,9 +1736,9 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         <span style="font-size:13px;color:var(--muted)" id="qcRejectionCount">0 rejected orders</span>
         <span id="qcRejectionSaveStatus" class="muted" style="font-size:13px;margin-left:auto">Changes save automatically</span>
       </div>
-      <div style="overflow-x:auto;max-height:70vh;overflow-y:auto">
-        <table class="remake-table"><thead><tr>
-          <th>Order</th><th>QC Date</th><th>Factory</th><th>Items</th><th class="right">Order QTY</th><th class="right">QTY Checked</th><th class="right">Defect QTY</th><th>Severity</th><th>Inspector</th><th>Final QC Approved</th><th>Shipped</th><th>Tracking</th><th style="min-width:170px">Error Type</th><th style="min-width:260px">How to Avoid</th><th style="min-width:320px">Work Notes</th>
+      <div class="qc-rejections-scroll">
+        <table class="remake-table qc-rejections-table"><thead><tr>
+          <th>Order</th><th>QC Date</th><th>Factory</th><th>Items</th><th class="qc-comment">QC Comment</th><th class="right">Order QTY</th><th class="right">QTY Checked</th><th class="right">Defect QTY</th><th>Severity</th><th>Inspector</th><th>Final QC Approved</th><th>Shipped</th><th>Tracking</th><th style="min-width:170px">Error Type</th><th style="min-width:260px">How to Avoid</th><th style="min-width:320px">Work Notes</th>
         </tr></thead><tbody id="qcRejectionBody"></tbody></table>
       </div>
     </div>
@@ -2444,7 +2449,8 @@ function renderQcRejections() {{
       + '<td class="order-num">' + qcBackendOrderHtml(r) + '</td>'
       + '<td>' + esc(r.date || r.month || '') + '</td>'
       + '<td>' + esc(r.factory || '') + '</td>'
-      + '<td>' + esc(r.items || '') + (r.qc_comment ? '<div class="muted" style="font-size:12px;margin-top:4px">QC: ' + esc(r.qc_comment) + '</div>' : '') + '</td>'
+      + '<td>' + esc(r.items || '') + '</td>'
+      + '<td class="qc-comment">' + esc(r.qc_comment || '—') + '</td>'
       + '<td class="right">' + (r.total_qty || 0).toLocaleString() + '</td>'
       + '<td class="right">' + (r.sample_qty || 0).toLocaleString() + '</td>'
       + '<td class="right">' + (r.defects_qty || 0).toLocaleString() + '</td>'
@@ -2457,7 +2463,7 @@ function renderQcRejections() {{
       + '<td><input class="qc-edit qc-avoidance" aria-label="How to avoid error for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.avoidance_action || '') + '" placeholder="Preventive action"></td>'
       + '<td><input class="qc-edit qc-work-comment" aria-label="Work notes for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.work_comment || '') + '" placeholder="Investigation / follow-up"></td>'
       + '</tr>';
-  }}).join('') || '<tr><td colspan="15">No eligible QC rejections in the report period.</td></tr>';
+  }}).join('') || '<tr><td colspan="16">No eligible QC rejections in the report period.</td></tr>';
   document.getElementById('qcRejectionCount').textContent = rows.length + ' rejected orders';
 }}
 function saveQcRejections() {{
