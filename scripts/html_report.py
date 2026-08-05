@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate interactive HTML Defect Report with drill-down."""
-import sys, os, json, pymysql
+import sys, os, json
 from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime, timezone
@@ -9,6 +9,7 @@ import csv, gzip, io, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import factory_data
 import remake_backend_actions
+import db
 
 # Generate summary data
 data = factory_data.generate()
@@ -69,14 +70,14 @@ def is_qarma_included(row):
     return (
         row.get('Status') == 'Report'
         and str(row.get('Inspection type') or '').strip() == 'Final'
-        and str(row.get('Conclusion') or '').strip() == 'Approved'
+        and str(row.get('Conclusion') or '').strip() in ('Approved', 'Rejected')
         and str(row.get('Supplier qc') or '').strip().lower() != 'true'
         and str(row.get('Inspector email') or '').strip().lower().endswith('@custimoo.com')
         and not str(row.get('Reinspection of') or '').strip()
     )
 
 def load_qarma_rows():
-    """Read Qarma's live CSV.GZ export. Qarma updates this file around midnight Danish time."""
+    """Read Qarma's internal direct CSV.GZ export. No API key; refreshes roughly hourly."""
     global QARMA_ROWS_CACHE, QARMA_SOURCE_META
     if QARMA_ROWS_CACHE is not None:
         return QARMA_ROWS_CACHE
@@ -102,7 +103,7 @@ def iter_qarma_rows(month_filter=None):
     for row in load_qarma_rows():
         if not is_qarma_included(row):
             continue
-        month = dt_to_month(row.get('Inspection end time') or row.get('Scheduled inspection date'))
+        month = dt_to_month(row.get('Scheduled inspection date') or row.get('Inspection end time'))
         if month not in months_allowed:
             continue
         filtered += 1
@@ -125,8 +126,9 @@ def load_qarma_stats(month_filter=None):
         order_no = str(row.get('Order number') or '').strip()
         sample_qty = safe_int(row.get('Actual sample quantity'))
         defects = safe_int(row.get('Minor defects pieces affected')) + safe_int(row.get('Major defects pieces affected')) + safe_int(row.get('Critical defects pieces affected'))
+        is_rejected = str(row.get('Conclusion') or '').strip() == 'Rejected'
         stats[f]['defects'] += defects
-        if order_no and defects > 0:
+        if order_no and is_rejected:
             stats[f]['rejected_orders'].add(order_no)
         if order_no:
             stats[f]['orders'].add(order_no)
@@ -166,7 +168,10 @@ def load_qarma_order_stats(month_filter=None):
         report_id = str(row.get('Report inspection id') or row.get('Inspection id') or '')
         sample_qty = safe_int(row.get('Actual sample quantity'))
         defects = safe_int(row.get('Minor defects pieces affected')) + safe_int(row.get('Major defects pieces affected')) + safe_int(row.get('Critical defects pieces affected'))
+        is_rejected = str(row.get('Conclusion') or '').strip() == 'Rejected'
         stats[order_no]['defects'] += defects
+        if is_rejected:
+            stats[order_no]['is_rejected'] = True
         if report_id:
             stats[order_no]['reports'].add(report_id)
             key = (order_no, report_id)
@@ -182,8 +187,8 @@ def load_qarma_order_stats(month_filter=None):
             'defects': defects,
             'rate': round(defects / sample * 100, 2) if sample > 0 else 0,
             'orders_checked': 1,
-            'rejected_orders': 1 if defects > 0 else 0,
-            'order_rate': 100 if defects > 0 else 0,
+            'rejected_orders': 1 if v.get('is_rejected') else 0,
+            'order_rate': 100 if v.get('is_rejected') else 0,
             'inspections': len(v['reports']),
         }
     QARMA_ORDER_STATS_CACHE[cache_key] = out
@@ -339,8 +344,7 @@ FACTORY_COLORS = json.dumps({
 # Load order-level data — use factory_data.MANUAL for consistency
 import urllib.request, urllib.parse, re
 
-pw = os.environ.get("CUSTIMOO_DB_PASSWORD", "")
-conn = pymysql.connect(host="127.0.0.1", port=3307, database="custimoo_backend_prod", user="custimoo_backend_usr", password=pw, connect_timeout=10)
+conn = db.connect()
 cur = conn.cursor()
 
 # FU/customer-feedback data is intentionally excluded from the shared report.
@@ -354,9 +358,17 @@ order_factory = {}
 order_qty = {}
 db_order_nums = set()
 if ALL_ORDER_NUMS:
-    cur.execute("SELECT o.order_no, CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED), COALESCE(oi.factory_name, '(unknown)') FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id WHERE o.order_no IN (%s)" % qs, list(ALL_ORDER_NUMS))
+    cur.execute("""
+        SELECT o.order_no,
+               COALESCE(NULLIF(o.price_info->>'total_quantity', '')::numeric, 0)::int,
+               COALESCE(oi.factory_name, '(unknown)')
+        FROM orders o
+        LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
+        WHERE o.order_no = ANY(%s)
+          AND o.deleted_at IS NULL
+    """, (list(map(str, ALL_ORDER_NUMS)),))
 else:
-    cur.execute("SELECT NULL, NULL, NULL WHERE 0")
+    cur.execute("SELECT NULL, NULL, NULL WHERE false")
 for r in cur.fetchall():
     ono = str(r[0])
     db_order_nums.add(ono)
@@ -707,7 +719,7 @@ def collect_product_design_ids(raw):
     if not raw:
         return ids
     try:
-        parsed = json.loads(raw)
+        parsed = json.loads(raw) if isinstance(raw, (str, bytes, bytearray)) else raw
     except Exception:
         return ids
     def walk(x):
@@ -748,10 +760,10 @@ for row in cur.fetchall():
 
 # Build per-order SKU text, admin login, and actual designer login(s) for all backend orders in report window.
 cur.execute("""
-SELECT o.order_no, CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED) AS qty,
+SELECT o.order_no, COALESCE(NULLIF(o.price_info->>'total_quantity', '')::numeric, 0)::int AS qty,
        oi.status_updated_at AS shipping_date,
-       COALESCE(u.name, u.email, '(unknown)') AS admin_name,
-       u.email AS admin_email,
+       COALESCE(u.name, u.email::text, '(unknown)') AS admin_name,
+       u.email::text AS admin_email,
        COALESCE(oi.factory_name, '(unknown)') AS raw_factory,
        oi.factory_products, oi.order_line
 FROM orders o
@@ -759,7 +771,9 @@ LEFT JOIN users u ON u.id = o.order_administrator_id
 LEFT JOIN order_items oi ON oi.order_id = o.id
 WHERE oi.status_updated_at >= %s
   AND oi.status_updated_at < %s
-  AND (oi.status IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
+  AND o.deleted_at IS NULL
+  AND oi.deleted_at IS NULL
+  AND (oi.status::text IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
 """, (factory_data.REPORT_START, factory_data.REPORT_END))
 all_order_meta = defaultdict(lambda: {'qty': 0, 'admin': '(unknown)', 'designers': set(), 'texts': [], 'month': '?'})
 for ono, qty, shipping_date, admin_name, admin_email, raw_factory, factory_products, order_line in cur.fetchall():
@@ -773,12 +787,27 @@ for ono, qty, shipping_date, admin_name, admin_email, raw_factory, factory_produ
         if not raw:
             continue
         try:
-            parsed = json.loads(raw)
+            parsed = json.loads(raw) if isinstance(raw, (str, bytes, bytearray)) else raw
         except Exception:
             continue
         txt = clean_sku_text(collect_sku_text(parsed))
         if txt:
             all_order_meta[ono]['texts'].append(txt)
+
+# For any order with Qarma physical-QC data, Qarma is authoritative for denominator qty/date.
+# Preserve backend admin/SKU text where available, but replace qty/month with Qarma shipment data.
+qarma_meta_qty = defaultdict(int)
+qarma_meta_month = {}
+for qr in factory_data.load_qarma_shipment_rows():
+    ono = str(qr.get('order_no') or '')
+    if not ono:
+        continue
+    qarma_meta_qty[ono] += int(qr.get('qty') or 0)
+    qarma_meta_month[ono] = max(qarma_meta_month.get(ono, ''), qr.get('month') or '')
+for ono, qty in qarma_meta_qty.items():
+    all_order_meta[ono]['qty'] = qty
+    if qarma_meta_month.get(ono):
+        all_order_meta[ono]['month'] = qarma_meta_month[ono]
 
 def empty_group():
     return {'volume': 0, 'orders_set': set(), 'defects': 0, 'defect_orders_set': set(), 'remake_orders_set': set(), 'remake_qty_total': 0, 'qarma_order_set': set(), 'qarma': {'sample_qty': 0, 'defects': 0, 'rate': 0, 'orders_checked': 0, 'inspections': 0, 'rejected_orders': 0, 'order_rate': 0}}
@@ -807,9 +836,8 @@ def finalize_groups(groups):
     return rows
 
 # Build remake orders lookup
-conn = __import__('pymysql').connect(host="127.0.0.1", port=3307, database="custimoo_backend_prod", user="custimoo_backend_usr", password=__import__('os').environ.get("CUSTIMOO_DB_PASSWORD", ""), connect_timeout=10)
 remake_cur = conn.cursor()
-remake_cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol = 'R' AND o.created_at >= %s AND o.created_at < %s", (factory_data.REPORT_START, factory_data.REPORT_END))
+remake_cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol = 'R' AND o.created_at >= %s AND o.created_at < %s AND o.deleted_at IS NULL", (factory_data.REPORT_START, factory_data.REPORT_END))
 REMAKE_ORDERS = set(str(r[0]) for r in remake_cur.fetchall()) - remake_backend_actions.EXCLUDED_REMAKE_ORDERS
 remake_cur.close()
 # Don't close main conn — used later
@@ -1250,17 +1278,18 @@ else:
     remake_cur = conn.cursor()
     remake_cur.execute("""
 SELECT o.order_no,
-       CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED) as qty,
-       COALESCE(u.name, u.email, '(unknown)') AS admin_name,
-       DATE_FORMAT(o.created_at, '%%Y-%%m') as month,
-       COALESCE(GROUP_CONCAT(DISTINCT oi.factory_name ORDER BY oi.factory_name SEPARATOR ', '), '(unknown)') as factories
+       COALESCE(NULLIF(o.price_info->>'total_quantity', '')::numeric, 0)::int as qty,
+       COALESCE(u.name, u.email::text, '(unknown)') AS admin_name,
+       to_char(o.created_at, 'YYYY-MM') as month,
+       COALESCE(string_agg(DISTINCT oi.factory_name, ', ' ORDER BY oi.factory_name), '(unknown)') as factories
 FROM orders o
 LEFT JOIN users u ON u.id = o.order_administrator_id
-LEFT JOIN order_items oi ON oi.order_id = o.id
+LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
 WHERE o.order_type_symbol = 'R'
   AND o.created_at >= %s
   AND o.created_at < %s
-GROUP BY o.order_no
+  AND o.deleted_at IS NULL
+GROUP BY o.order_no, o.price_info, u.name, u.email, o.created_at
 ORDER BY qty DESC
 """, (factory_data.REPORT_START, factory_data.REPORT_END))
     REMAKE_MGMT = [{"order": str(r[0]), "qty": int(r[1]) if r[1] else 0, "admin": r[2], "month": str(r[3])[:7] if r[3] else "?", "factory": r[4], "category": "", "comment": "", "flag": ""} for r in remake_cur.fetchall()]
@@ -1511,8 +1540,8 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         <li>Reporting window is <strong>{report_month_labels[0]} – {report_month_labels[-1]}</strong>.</li>
         <li>Total month volume uses proper products only (excludes name plates, fight straps, logo patches, accessories).</li>
         <li>The shared report uses <strong>remake orders</strong> from the backend and <strong>Qarma physical QC</strong> from the live Qarma export.</li>
-        <li>Factory comparisons use total shipped order quantity per factory from the backend database, bucketed by <strong>order_items.status_updated_at</strong> for shipped/completed/shipping-status rows.</li>
-        <li>Qarma physical QC uses the live Qarma <strong>inspections.csv.gz</strong> export, updated by Qarma around midnight Danish time. The hourly report run picks up the newest Qarma file automatically.</li>
+        <li>Factory comparisons use Qarma physical-QC shipment/order quantity and scheduled inspection date when a Qarma row exists; otherwise they fall back to shipped order quantity per factory from the bronze backend database, bucketed by <strong>order_items.status_updated_at</strong> for shipped/completed/shipping-status rows.</li>
+        <li>Qarma physical QC uses the live Qarma <strong>inspections.csv.gz</strong> export, which refreshes roughly hourly. The report run picks up the newest Qarma export automatically.</li>
         <li>Qarma sample quantity is deduplicated by <strong>Report inspection id</strong>; Qarma defects are Minor + Major + Critical defect pieces affected.</li>
         <li>Remakes are bucketed by backend order month; Qarma is bucketed by inspection month from the Qarma export.</li>
         <li>{report_month_labels[-1]} is <span class="in-progress">still in progress</span>.</li>
@@ -1852,7 +1881,7 @@ function setBreakdownHeader(mode) {{
   thead.innerHTML = '<th>' + first + '</th>' + measureHeaders() + '<th class="right">Qarma QC to 0.5% / 0.2%</th>';
   document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Remake / Qarma Breakdown — All' : (mode === 'factory' ? 'Remake / Qarma Breakdown — Factories' : (mode === 'sku' ? 'Remake / Qarma Breakdown — SKU' : (mode === 'sport' ? 'Remake / Qarma Breakdown — Sports' : (mode === 'category' ? 'Remake / Qarma Breakdown — Category' : 'Remake / Qarma Breakdown — Order Admin'))));
   const qsrc = DATA.qarmaSource || {{}};
-  const qnote = qsrc.ok ? (' Qarma source: live CSV · ' + (qsrc.filtered_rows || 0).toLocaleString() + ' included rows / ' + (qsrc.rows || 0).toLocaleString() + ' raw rows; Qarma updates around midnight Danish time, report refreshes hourly.') : (' Qarma source unavailable: ' + (qsrc.error || 'unknown error'));
+  const qnote = qsrc.ok ? (' Qarma source: live CSV · ' + (qsrc.filtered_rows || 0).toLocaleString() + ' included rows / ' + (qsrc.rows || 0).toLocaleString() + ' raw rows; Qarma export refreshes roughly hourly.') : (' Qarma source unavailable: ' + (qsrc.error || 'unknown error'));
   document.getElementById('breakdownHint').textContent = (mode === 'factory' ? 'Factory view combines backend remake data with Qarma physical QC catch data.' : 'Selected grouping combines backend remake data with Qarma measures where order matching is available.') + qnote;
 }}
 function renderFactoryTable(tbodyId, list, clickable, opts) {{

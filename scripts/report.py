@@ -5,11 +5,12 @@ Custimoo Failure Report — generates error % trend from fu@custimoo.com vs back
 Outputs three buckets: Exact (known from email) / Estimate (full-order proxy) / Skipped (non-defects).
 
 Usage: python3 scripts/report.py
-Requires: CUSTIMOO_GRAPH_* env vars, SSH tunnel to RDS on port 3307, pymysql
+Requires: CUSTIMOO_GRAPH_* env vars, SSH tunnel to PostgreSQL bronze on port 5433, psycopg2
 """
 
-import pymysql, os, json, urllib.request, urllib.parse, re
+import os, json, urllib.request, urllib.parse, re
 from collections import defaultdict
+import db
 
 # ── Word-number dictionary ──
 WORD_NUMS = {
@@ -148,15 +149,15 @@ def classify_product(order_no, db_conn):
     cur = db_conn.cursor()
     # Check all order_items for sku_id, sku_name, product_name, design_name
     cur.execute("""
-        SELECT JSON_EXTRACT(oi.factory_products, '$[0].sku.sku_id') as sku_id,
-               JSON_EXTRACT(oi.factory_products, '$[0].sku_name') as sku_name,
-               JSON_EXTRACT(oi.factory_products, '$[0].product_name') as prod_name,
-               JSON_EXTRACT(oi.factory_products, '$[0].design_nick_name') as design_name
+        SELECT oi.factory_products->0->'sku'->>'sku_id' as sku_id,
+               oi.factory_products->0->>'sku_name' as sku_name,
+               oi.factory_products->0->>'product_name' as prod_name,
+               oi.factory_products->0->>'design_nick_name' as design_name
         FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
         WHERE o.order_no = %s
         LIMIT 1
-    """, (order_no,))
+    """, (str(order_no),))
     row = cur.fetchone()
     if not row:
         return "Unknown", True  # default to product if no data
@@ -318,43 +319,41 @@ def get_fu_messages():
 
 
 def query_db(order_nums):
-    """Query Custimoo backend for pipeline totals and order data.
+    """Query Custimoo bronze for pipeline totals and order data.
     Returns (pipeline, orders, conn) — caller must close conn."""
-    conn = pymysql.connect(
-        host="127.0.0.1", port=3307,
-        database="custimoo_backend_prod",
-        user="custimoo_backend_usr",
-        password=os.environ.get("CUSTIMOO_DB_PASSWORD", ""),
-    )
+    conn = db.connect()
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT DATE_FORMAT(created_at, '%Y-%m') as month,
-               SUM(CAST(JSON_EXTRACT(price_info, '$.total_quantity') AS SIGNED)),
+        SELECT to_char(created_at, 'YYYY-MM') as month,
+               COALESCE(SUM(COALESCE(NULLIF(price_info->>'total_quantity', '')::numeric, 0)), 0)::int,
                COUNT(*)
         FROM orders
         WHERE created_at >= '2025-09-01 00:00:00'
-        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+          AND deleted_at IS NULL
+        GROUP BY to_char(created_at, 'YYYY-MM')
         ORDER BY month
     """)
     pipeline = {row[0]: {"qty": row[1] or 0, "count": row[2]} for row in cur.fetchall()}
 
-    placeholders = ",".join(["%s"] * len(order_nums))
-    cur.execute(
-        f"""
-        SELECT o.order_no, o.id, o.created_at,
-               CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED) as total_qty
-        FROM orders o WHERE o.order_no IN ({placeholders})
-        """,
-        list(order_nums),
-    )
     orders = {}
-    for row in cur.fetchall():
-        orders[str(row[0])] = {
-            "id": row[1],
-            "created": str(row[2])[:7] if row[2] else "?",
-            "total_qty": row[3] or 0,
-        }
+    if order_nums:
+        cur.execute(
+            """
+            SELECT o.order_no, o.id, o.created_at,
+                   COALESCE(NULLIF(o.price_info->>'total_quantity', '')::numeric, 0)::int as total_qty
+            FROM orders o
+            WHERE o.order_no = ANY(%s)
+              AND o.deleted_at IS NULL
+            """,
+            (list(map(str, order_nums)),),
+        )
+        for row in cur.fetchall():
+            orders[str(row[0])] = {
+                "id": row[1],
+                "created": str(row[2])[:7] if row[2] else "?",
+                "total_qty": row[3] or 0,
+            }
     return pipeline, orders, conn
 
 

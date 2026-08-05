@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Generate factory-level failure report data. Can be run standalone or imported."""
 
-import os, json, re, urllib.request
+import os, json, re, urllib.request, csv, gzip, io
 from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime, timezone
 import remake_backend_actions
+import db
 
 REPORT_START = '2025-10-01'
 _now = datetime.now(timezone.utc)
@@ -38,6 +39,86 @@ def norm_factory(name):
     if "custimoo" in n: return "Custimoo factory"
     if "augusta" in n: return "Augusta De Mexico"
     return name.strip()[:30]
+
+QARMA_SOURCE_URL = os.environ.get('QARMA_INSPECTIONS_URL', 'https://app.qarmainspect.com/q/nocache/objects/files_cache/a65150a8-0509-4492-8ac9-c88526e83732/39ce57c5-f096-4758-8a7d-e5796d5199ab/inspections.csv.gz')
+_QARMA_ROWS_CACHE = None
+
+def safe_int(v):
+    try:
+        if v is None or v == '':
+            return 0
+        return int(float(str(v).replace(',', '').strip()))
+    except Exception:
+        return 0
+
+def dt_to_month(v):
+    if isinstance(v, datetime):
+        return v.strftime('%Y-%m')
+    if v:
+        return str(v)[:7]
+    return None
+
+def load_qarma_rows():
+    """Fetch Qarma's internal direct csv.gz export. No API key is required."""
+    global _QARMA_ROWS_CACHE
+    if _QARMA_ROWS_CACHE is not None:
+        return _QARMA_ROWS_CACHE
+    try:
+        req = urllib.request.Request(QARMA_SOURCE_URL, headers={'Accept': 'text/csv,application/gzip,*/*', 'User-Agent': 'custimoo-defect-report/1.0'})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            raw = resp.read()
+        with gzip.GzipFile(fileobj=io.BytesIO(raw)) as gz:
+            text = io.TextIOWrapper(gz, encoding='utf-8-sig', newline='')
+            _QARMA_ROWS_CACHE = list(csv.DictReader(text))
+    except Exception as e:
+        print('Warning: could not load Qarma CSV for shipment denominator:', e)
+        _QARMA_ROWS_CACHE = []
+    return _QARMA_ROWS_CACHE
+
+def is_qarma_physical_qc_row(row):
+    """Rows eligible to replace backend shipment qty/date in the report denominator."""
+    return (
+        str(row.get('Status') or '').strip() == 'Report'
+        and str(row.get('Inspection type') or '').strip() == 'Final'
+        and str(row.get('Conclusion') or '').strip() in ('Approved', 'Rejected')
+        and str(row.get('Supplier qc') or '').strip().lower() != 'true'
+        and str(row.get('Inspector email') or '').strip().lower().endswith('@custimoo.com')
+        and not str(row.get('Reinspection of') or '').strip()
+    )
+
+def load_qarma_shipment_rows(month_filter=None):
+    """Return denominator rows where Qarma is authoritative for qty + shipment/QC month.
+
+    If an order has Qarma physical-QC data, the report uses Qarma's Scheduled
+    inspection date as both the shipment and QC date, and Original total quantity
+    as the order/shipment qty. Backend shipment rows are used only for orders
+    that do not appear here.
+    """
+    months_allowed = set(month_filter) if month_filter else None
+    rows = []
+    seen = set()
+    for row in load_qarma_rows():
+        if not is_qarma_physical_qc_row(row):
+            continue
+        order_no = str(row.get('Order number') or '').strip()
+        if not order_no:
+            continue
+        month = dt_to_month(row.get('Scheduled inspection date') or row.get('Inspection end time'))
+        if not month or (months_allowed is not None and month not in months_allowed):
+            continue
+        factory = norm_factory(row.get('Supplier name'))
+        if factory in EXCLUDED_FACTORIES:
+            continue
+        report_id = str(row.get('Report inspection id') or row.get('Inspection id') or '').strip()
+        order_line_id = str(row.get('Order line id') or '').strip()
+        # Deduplicate the repeated item rows in Qarma. Each report/order-line is one shipment slice.
+        key = (factory, order_no, report_id or order_line_id or row.get('Link to report') or month)
+        if key in seen:
+            continue
+        seen.add(key)
+        qty = safe_int(row.get('Original total quantity') or row.get('Quantity available') or row.get('Actual sample quantity'))
+        rows.append({'order_no': order_no, 'month': month, 'factory': factory, 'qty': qty})
+    return rows
 
 MANUAL_EXACT = {
     "22643": 30, "24722": 143, "24516": 20, "23613": 10,
@@ -105,9 +186,7 @@ MANUAL_FACTORY = {
 
 def generate(defects_only=False):
     """Generate factory defect data. Returns dict."""
-    import pymysql
-    pw = os.environ.get("CUSTIMOO_DB_PASSWORD", "")
-    conn = pymysql.connect(host="127.0.0.1", port=3307, database="custimoo_backend_prod", user="custimoo_backend_usr", password=pw, connect_timeout=10)
+    conn = db.connect()
     cur = conn.cursor()
 
     # Fetch fu messages (optional — falls back to manual data)
@@ -155,7 +234,14 @@ def generate(defects_only=False):
     if order_nums_list:
         qs = ",".join(["%s"] * len(order_nums_list))
 
-        cur.execute("SELECT o.order_no, o.created_at, COALESCE(oi.factory_name, '(unknown)') as raw_factory, CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED) as qty FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id WHERE o.order_no IN (%s)" % qs, order_nums_list)
+        cur.execute("""
+            SELECT o.order_no, o.created_at, COALESCE(oi.factory_name, '(unknown)') as raw_factory,
+                   COALESCE(NULLIF(o.price_info->>'total_quantity', '')::numeric, 0)::int as qty
+            FROM orders o
+            LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
+            WHERE o.order_no = ANY(%s)
+              AND o.deleted_at IS NULL
+        """, (list(map(str, order_nums_list)),))
         rows = cur.fetchall()
     else:
         rows = []
@@ -208,22 +294,49 @@ def generate(defects_only=False):
         monthly_factory_defects[f][fu_month] += affected
         monthly_factory_defect_orders[f][fu_month].add(ono)
 
+    factory_month_pipe = defaultdict(lambda: defaultdict(lambda: {'qty':0, 'orders':0, 'remake_qty':0, 'remake_orders':0}))
+    seen_order_factories = set()
+    seen_remake_order_factories = set()
+
+    cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol = 'R' AND o.created_at >= %s AND o.created_at < %s AND o.deleted_at IS NULL", (REPORT_START, REPORT_END))
+    backend_remake_orders = set(str(r[0]) for r in cur.fetchall()) - remake_backend_actions.EXCLUDED_REMAKE_ORDERS
+
+    # Qarma is authoritative for shipment/order qty + month whenever physical-QC data exists.
+    # Backend shipment data is used only for orders absent from the Qarma export.
+    qarma_shipment_rows = load_qarma_shipment_rows()
+    qarma_order_numbers = set()
+    for qr in qarma_shipment_rows:
+        month = qr['month']
+        f = qr['factory']
+        qty = qr['qty']
+        ono = str(qr['order_no'])
+        qarma_order_numbers.add(ono)
+        factory_month_pipe[f][month]['qty'] += qty
+        key = (f, month, ono)
+        if key not in seen_order_factories:
+            seen_order_factories.add(key)
+            factory_month_pipe[f][month]['orders'] += 1
+        if ono in backend_remake_orders:
+            factory_month_pipe[f][month]['remake_qty'] += qty
+            if key not in seen_remake_order_factories:
+                seen_remake_order_factories.add(key)
+                factory_month_pipe[f][month]['remake_orders'] += 1
+
     cur.execute("""
 SELECT oi.status_updated_at AS shipping_date,
        COALESCE(oi.factory_name, '(unknown)') as raw_factory,
-       CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED) as qty,
+       COALESCE(NULLIF(o.price_info->>'total_quantity', '')::numeric, 0)::int as qty,
        o.order_no,
        o.order_type_symbol
 FROM orders o
 JOIN order_items oi ON oi.order_id = o.id
 WHERE oi.status_updated_at >= %s
   AND oi.status_updated_at < %s
-  AND (oi.status IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
+  AND o.deleted_at IS NULL
+  AND oi.deleted_at IS NULL
+  AND (oi.status::text IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
 """, (REPORT_START, REPORT_END))
 
-    factory_month_pipe = defaultdict(lambda: defaultdict(lambda: {'qty':0, 'orders':0, 'remake_qty':0, 'remake_orders':0}))
-    seen_order_factories = set()
-    seen_remake_order_factories = set()
     for r in cur.fetchall():
         month = str(r[0])[:7] if r[0] else "?"
         f = norm_factory(r[1])
@@ -231,6 +344,8 @@ WHERE oi.status_updated_at >= %s
             continue
         qty = r[2] or 0
         ono = str(r[3])
+        if ono in qarma_order_numbers:
+            continue
         order_type_symbol = r[4]
         factory_month_pipe[f][month]['qty'] += qty
         # Count each order once per factory per month
@@ -254,33 +369,15 @@ WHERE oi.status_updated_at >= %s
             total_monthly_pipe[month] += vals.get('qty', 0)
             total_monthly_orders[month] += vals.get('orders', 0)
 
-    # Remake (no invoice) counts by shipping month, with backend-action exclusions applied.
+    # Remake monthly counts derive from the same hybrid Qarma-first/backend-fallback shipment basis.
     remake_by_month = {}
-    cur2 = conn.cursor()
-    excluded_remake_orders = sorted(remake_backend_actions.EXCLUDED_REMAKE_ORDERS)
-    exclude_sql = ''
-    params = [REPORT_START, REPORT_END]
-    if excluded_remake_orders:
-        exclude_sql = ' AND o.order_no NOT IN (' + ','.join(['%s'] * len(excluded_remake_orders)) + ')'
-        params.extend(excluded_remake_orders)
-    cur2.execute("""
-SELECT DATE_FORMAT(oi.status_updated_at, '%%Y-%%m') as month,
-       COUNT(DISTINCT o.id) as cnt,
-       COALESCE(SUM(CAST(JSON_EXTRACT(o.price_info, '$.total_quantity') AS SIGNED)), 0) as qty
-FROM orders o
-JOIN order_items oi ON oi.order_id = o.id
-WHERE o.order_type_symbol = 'R'
-  AND oi.status_updated_at >= %s
-  AND oi.status_updated_at < %s
-  AND (oi.status IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
-""" + exclude_sql + """
-GROUP BY month
-ORDER BY month
-""", params)
-    for r in cur2.fetchall():
-        month = r[0]
-        remake_by_month[month] = {'orders': r[1], 'qty': r[2]}
-    cur2.close()
+    for f, month_map in factory_month_pipe.items():
+        if f in EXCLUDED_FACTORIES:
+            continue
+        for month, vals in month_map.items():
+            remake_by_month.setdefault(month, {'orders': 0, 'qty': 0})
+            remake_by_month[month]['orders'] += vals.get('remake_orders', 0)
+            remake_by_month[month]['qty'] += vals.get('remake_qty', 0)
 
     monthly_defects = defaultdict(int)
     defect_order_count = defaultdict(int)  # unique orders with defects per month

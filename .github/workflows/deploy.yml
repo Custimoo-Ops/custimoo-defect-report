@@ -3,9 +3,8 @@ name: Generate & Deploy Report
 on:
   push:
     branches: [main]
-  # Hourly schedule disabled 2026-07-24: RDS is unreachable from the SSH bastion,
-  # causing repeated failure notification emails. Re-enable after AWS/RDS network
-  # access from cs_jumpbox_sg to the RDS security group on TCP 3306 is restored.
+  schedule:
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -18,9 +17,9 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq openssh-client
-          pip install pymysql azure-storage-blob requests openpyxl
+          pip install psycopg2-binary azure-storage-blob requests openpyxl
 
-      - name: Set up SSH tunnel
+      - name: Set up SSH tunnel to bronze PostgreSQL
         env:
           KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           HOST: ${{ secrets.TUNNEL_HOST }}
@@ -33,16 +32,21 @@ jobs:
           printf '%s\n' "$KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p "$PORT" "$HOST" > ~/.ssh/known_hosts 2>/dev/null
-          ssh -f -N -L 3307:${RDS}:3306 \
+          ssh -f -N -L 5433:${RDS}:5432 \
             -p "$PORT" "$USER@$HOST" \
             -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=60 \
             -o ExitOnForwardFailure=yes
-          echo "Tunnel established"
+          echo "PostgreSQL bronze tunnel established"
 
       - name: Generate report
-        timeout-minutes: 5
+        timeout-minutes: 10
         env:
+          CUSTIMOO_DB_HOST: 127.0.0.1
+          CUSTIMOO_DB_PORT: 5433
+          CUSTIMOO_DB_NAME: custimoo-prod
+          CUSTIMOO_DB_USER: lakr@custimoo.com
+          CUSTIMOO_DB_SSLMODE: require
           CUSTIMOO_DB_PASSWORD: ${{ secrets.CUSTIMOO_DB_PASSWORD }}
           CUSTIMOO_GRAPH_TENANT_ID: ${{ secrets.CUSTIMOO_GRAPH_TENANT_ID }}
           CUSTIMOO_GRAPH_CLIENT_ID: ${{ secrets.CUSTIMOO_GRAPH_CLIENT_ID }}
