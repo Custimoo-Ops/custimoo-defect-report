@@ -2252,6 +2252,12 @@ renderYtdFactoryTable();
 var remakeData = {{}};
 var remakeSaveTimer = null;
 var remakeRows = REMAKES.slice();
+const REMAKE_CATEGORIES = ['Color Mismatch','Customer Change','Damaged / Soiled','Fabric / Material','Logo / Design','No Record Found','Other','Print / Sublimation','Quantity Short / Missing','Sizing / Fit','Stitching / Construction','Uncategorized','Wrong Product / SKU'];
+function remakeCategoryOptions(selected) {{
+  return '<option value="">Select category</option>' + REMAKE_CATEGORIES.map(function(category) {{
+    return '<option value="' + escapeAttr(category) + '"' + (category === selected ? ' selected' : '') + '>' + esc(category) + '</option>';
+  }}).join('');
+}}
 
 const EXCLUDED_REMAKE_FLAGS = new Set(['Cancelled','Disputed','Ex/Other Admin','No Record','Not remake']);
 function remakeIsExcluded(r) {{ return EXCLUDED_REMAKE_FLAGS.has(r.flag || ''); }}
@@ -2283,7 +2289,7 @@ function renderRemakeMgmt(filterAdmin, filterMonth) {{
       + '<td>' + esc(r.admin || '') + '</td>'
       + '<td>' + esc(r.factory || '') + '</td>'
       + '<td>' + esc(r.month || '') + '</td>'
-      + '<td><input class="remake-edit remake-category" aria-label="Category for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.category || '') + '" placeholder="Category"></td>'
+      + '<td><select class="remake-edit remake-category" aria-label="Category for order ' + escapeAttr(order) + '">' + remakeCategoryOptions(r.category || '') + '</select></td>'
       + '<td><input class="remake-edit remake-culprit" aria-label="Culprit for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.culprit || '') + '" placeholder="Culprit"></td>'
       + '<td><input class="remake-edit remake-comment" aria-label="Comment for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.comment || '') + '" placeholder="Comment"></td>'
       + '</tr>';
