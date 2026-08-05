@@ -1630,7 +1630,7 @@ let ACTIVE_PERIOD = 'ytd';
 let ACTIVE_DATA = PERIODS[ACTIVE_PERIOD] || DATA;
 let ACTIVE_MONTH_KEYS = ACTIVE_DATA.monthKeys || MONTH_KEYS;
 let ACTIVE_GROUPINGS = ACTIVE_DATA.groupings || GROUPINGS;
-let ACTIVE_MEASURE = 'qty';
+let ACTIVE_MEASURE = 'orders';
 function activeMonthSet() {{ return new Set(ACTIVE_MONTH_KEYS); }}
 
 // ── Utility ──
