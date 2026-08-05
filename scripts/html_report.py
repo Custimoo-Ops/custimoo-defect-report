@@ -1295,6 +1295,46 @@ ORDER BY qty DESC
     REMAKE_MGMT = [{"order": str(r[0]), "qty": int(r[1]) if r[1] else 0, "admin": r[2], "month": str(r[3])[:7] if r[3] else "?", "factory": r[4], "category": "", "comment": "", "flag": ""} for r in remake_cur.fetchall()]
     remake_cur.close()
 
+# The committed by-admin export carries the human annotations, but can lag the
+# backend. Add any newer backend remake orders without disturbing saved notes.
+remake_cur = conn.cursor()
+remake_cur.execute("""
+SELECT o.order_no,
+       COALESCE(NULLIF(o.price_info->>'total_quantity', '')::numeric, 0)::int,
+       COALESCE(u.name, u.email::text, '(unknown)'),
+       to_char(o.created_at, 'YYYY-MM'),
+       COALESCE(string_agg(DISTINCT oi.factory_name, ', ' ORDER BY oi.factory_name), '(unknown)')
+FROM orders o
+LEFT JOIN users u ON u.id = o.order_administrator_id
+LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
+WHERE o.order_type_symbol = 'R'
+  AND o.created_at >= %s
+  AND o.created_at < %s
+  AND o.deleted_at IS NULL
+GROUP BY o.order_no, o.price_info, u.name, u.email, o.created_at
+""", (factory_data.REPORT_START, factory_data.REPORT_END))
+existing_remake_orders = {str(r.get('order') or '').replace('#', '').strip() for r in REMAKE_MGMT}
+for _row in remake_cur.fetchall():
+    _order = str(_row[0])
+    if _order in existing_remake_orders:
+        continue
+    REMAKE_MGMT.append({
+        "order": _order,
+        "qty": int(_row[1]) if _row[1] else 0,
+        "admin": _row[2],
+        "month": str(_row[3])[:7] if _row[3] else "?",
+        "factory": _row[4],
+        "category": "",
+        "comment": "",
+        "flag": "",
+    })
+remake_cur.close()
+
+# Apply permanent factory exclusions to this management tab as well.
+def _remake_factory_is_excluded(factory_text):
+    return any(factory_data.is_excluded_factory(part.strip()) for part in str(factory_text or '').split(','))
+REMAKE_MGMT = [r for r in REMAKE_MGMT if not _remake_factory_is_excluded(r.get('factory'))]
+
 for _r in REMAKE_MGMT:
     _order = str(_r.get('order') or '').replace('#', '').strip()
     _note = remake_backend_actions.admin_action_note(_order)
@@ -1563,6 +1603,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <div class="card">
       <h3 class="section-title">Remake Management — Order Admin Review</h3>
       <p class="muted">By-admin remake list from <strong>Remake_Report_By_Admin.html</strong>. Net excludes Cancelled, Disputed, Ex/Other Admin, and No Record rows.</p>
+      <p class="hint">New unhandled orders appear first. An order is treated as handled once it has a Category or Comment. <strong>Backend Flag</strong> is a system/source status such as Own, Cancelled, Not remake, Admin changed, or Origin — it is not the handling status.</p>
       <div class="remake-filter-row" style="display:flex;gap:12px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
         <label class="muted" style="font-size:13px;font-weight:700">Filter by admin:</label>
         <select id="remakeAdminFilter" class="filter-select" style="max-width:200px">
@@ -1577,7 +1618,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       </div>
       <div style="overflow-x:auto;max-height:65vh;overflow-y:auto">
         <table class="remake-table"><thead>
-          <tr><th>Order</th><th class="right">QTY</th><th>Admin</th><th>Factory</th><th>Month</th><th style="min-width:150px">Category</th><th style="min-width:130px">Flag</th><th style="min-width:320px">Comment</th></tr>
+          <tr><th>Order</th><th class="right">QTY</th><th>Admin</th><th>Factory</th><th>Month</th><th style="min-width:150px">Category</th><th style="min-width:130px">Backend Flag</th><th style="min-width:320px">Comment</th></tr>
         </thead><tbody id="remakeMgmtBody"></tbody></table>
       </div>
     </div>
@@ -2146,14 +2187,19 @@ function flagClass(flag) {{
   if ((flag || '').startsWith('Origin:')) return 'status-warn';
   return 'status-neutral';
 }}
+function remakeIsHandled(r) {{
+  return Boolean(String(r.category || '').trim() || String(r.comment || '').trim());
+}}
 function renderRemakeMgmt(filterAdmin, filterMonth, filterFlag) {{
   let rows = REMAKES;
   if (filterAdmin) rows = rows.filter(function(r) {{ return r.admin === filterAdmin; }});
   if (filterMonth) rows = rows.filter(function(r) {{ return r.month === filterMonth; }});
   if (filterFlag) rows = rows.filter(function(r) {{ return (r.flag || '') === filterFlag; }});
   rows = rows.slice().sort(function(a,b) {{
-    const ex = remakeIsExcluded(a) - remakeIsExcluded(b);
-    if (ex) return ex;
+    const excludedCmp = remakeIsExcluded(a) - remakeIsExcluded(b);
+    if (excludedCmp) return excludedCmp;
+    const handledCmp = remakeIsHandled(a) - remakeIsHandled(b);
+    if (handledCmp) return handledCmp;
     const monthCmp = String(b.month || '').localeCompare(String(a.month || ''));
     if (monthCmp) return monthCmp;
     const orderA = parseInt(String(a.order || '').replace(/\D/g, ''), 10) || 0;
