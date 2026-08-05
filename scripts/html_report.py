@@ -1348,6 +1348,53 @@ for _r in REMAKE_MGMT:
         _r['flag'] = 'Not remake'
     elif _order in remake_backend_actions.ADMIN_CHANGES:
         _r['flag'] = 'Admin changed'
+# ── QC rejection work queue ──
+# One row per eligible rejected order; repeated item/report rows are aggregated.
+_qc_rejection_groups = {}
+for _row in load_qarma_rows():
+    if not is_qarma_included(_row) or str(_row.get('Conclusion') or '').strip() != 'Rejected':
+        continue
+    _order = str(_row.get('Order number') or '').strip()
+    if not _order:
+        continue
+    _date = _row.get('Scheduled inspection date') or _row.get('Inspection end time') or ''
+    _key = _order
+    _g = _qc_rejection_groups.setdefault(_key, {
+        'order': _order,
+        'month': dt_to_month(_date) or '?',
+        'date': str(_date)[:19],
+        'factory': norm_qarma_supplier(_row.get('Supplier name')),
+        'items': set(),
+        'inspectors': set(),
+        'comments': [],
+        'inspections': set(),
+        'total_qty': 0,
+        'sample_qty': 0,
+        'defects_qty': 0,
+        'error_type': '',
+        'avoidance_action': '',
+        'work_comment': '',
+    })
+    if _row.get('Item name'): _g['items'].add(str(_row['Item name']).strip())
+    if _row.get('Inspector name'): _g['inspectors'].add(str(_row['Inspector name']).strip())
+    if _row.get('Report inspection id') or _row.get('Inspection id'):
+        _g['inspections'].add(str(_row.get('Report inspection id') or _row.get('Inspection id')))
+    _g['total_qty'] = max(_g['total_qty'], safe_int(_row.get('Original total quantity')))
+    _g['sample_qty'] += safe_int(_row.get('Actual sample quantity'))
+    _g['defects_qty'] += sum(safe_int(_row.get(k)) for k in ('Minor defects pieces affected', 'Major defects pieces affected', 'Critical defects pieces affected'))
+    if _row.get('Inspector comment'):
+        _g['comments'].append(str(_row['Inspector comment']).strip())
+QC_REJECTIONS = []
+for _g in _qc_rejection_groups.values():
+    _g['items'] = ', '.join(sorted(_g['items']))
+    _g['inspectors'] = ', '.join(sorted(_g['inspectors']))
+    _g['inspections'] = len(_g['inspections'])
+    _g['qc_comment'] = ' · '.join(dict.fromkeys(x for x in _g['comments'] if x))[:1200]
+    del _g['comments']
+    QC_REJECTIONS.append(_g)
+QC_REJECTIONS.sort(key=lambda r: (r.get('month') or '', int(r.get('order') or 0)), reverse=True)
+QC_REJECTIONS_JSON = json.dumps(QC_REJECTIONS, cls=factory_data.DecimalEncoder).replace('<', '\\\\u003C').replace('>', '\\\\u003E')
+
 REMAKE_MGMT_JSON = json.dumps(REMAKE_MGMT, cls=factory_data.DecimalEncoder)
 REMAKE_MGMT_JSON = REMAKE_MGMT_JSON.replace('<', '\\u003C').replace('>', '\\u003E')
 conn.close()
@@ -1357,21 +1404,27 @@ from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPerm
 from datetime import datetime, timedelta, timezone
 AZURE_ACCOUNT = os.environ.get("AZURE_STORAGE_ACCOUNT", "custimoolivedata")
 AZURE_KEY = os.environ.get("AZURE_STORAGE_KEY", "")
-REMAKE_SAS_URL = ''
-try:
+def make_blob_sas_url(blob_name):
+    if not AZURE_KEY:
+        return ''
     sas_token = generate_blob_sas(
         account_name=AZURE_ACCOUNT,
         container_name='$web',
-        blob_name='remake-mgmt-data.json',
+        blob_name=blob_name,
         account_key=AZURE_KEY,
         permission=BlobSasPermissions(read=True, write=True, create=True),
         expiry=datetime.now(timezone.utc) + timedelta(days=1),
         api_version='2021-12-02'
     )
-    REMAKE_SAS_URL = f'https://{AZURE_ACCOUNT}.blob.core.windows.net/$web/remake-mgmt-data.json?{sas_token}'
+    return f'https://{AZURE_ACCOUNT}.blob.core.windows.net/$web/{blob_name}?{sas_token}'
+REMAKE_SAS_URL = ''
+QC_REJECTIONS_SAS_URL = ''
+try:
+    REMAKE_SAS_URL = make_blob_sas_url('remake-mgmt-data.json')
+    QC_REJECTIONS_SAS_URL = make_blob_sas_url('qc-rejections-data.json')
 except Exception as e:
     print("Warning: could not generate SAS token:", e)
-    REMAKE_SAS_URL = ''
+
 
 
 
@@ -1492,6 +1545,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <button class="tab" data-target="details">Details</button>
     <button class="tab" data-target="methodology">Methodology</button>
     <button class="tab" data-target="remake-mgmt">Remake Mgmt</button>
+    <button class="tab" data-target="qc-rejections">QC Rejections</button>
     <button class="tab" data-target="dqc-usage">DQC Usage</button>
   </div>
   <section id="summary" class="page active">
@@ -1623,6 +1677,22 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       </div>
     </div>
   </section>
+  <section id="qc-rejections" class="page">
+    <div class="card">
+      <h3 class="section-title">QC Rejections — Mistake Prevention Work Queue</h3>
+      <p class="muted">Eligible final Qarma inspections rejected by Custimoo QC. Repeated inspection/item rows are grouped by order. Use the fields to assign responsibility and record how to avoid the mistake.</p>
+      <div class="hint">Attribution options are intentionally limited to <strong>Custimoo error</strong> and <strong>Factory error</strong>. Leave it blank while under investigation.</div>
+      <div class="remake-filter-row" style="display:flex;gap:12px;align-items:center;margin:12px 0;flex-wrap:wrap">
+        <span style="font-size:13px;color:var(--muted)" id="qcRejectionCount">0 rejected orders</span>
+        <span id="qcRejectionSaveStatus" class="muted" style="font-size:13px;margin-left:auto">Changes save automatically</span>
+      </div>
+      <div style="overflow-x:auto;max-height:70vh;overflow-y:auto">
+        <table class="remake-table"><thead><tr>
+          <th>Order</th><th>QC Date</th><th>Factory</th><th>Items</th><th class="right">Order QTY</th><th class="right">QTY Checked</th><th class="right">Defect QTY</th><th>Inspector</th><th style="min-width:170px">Error Type</th><th style="min-width:260px">How to Avoid</th><th style="min-width:320px">Work Notes</th>
+        </tr></thead><tbody id="qcRejectionBody"></tbody></table>
+      </div>
+    </div>
+  </section>
   <section id="dqc-usage" class="page">
     <div class="card">
       <div class="section-head"><h3 class="section-title">Digital QC Usage</h3><div style="display:flex;align-items:center;gap:8px;margin:0;flex-wrap:wrap"><label class="muted" style="font-size:13px;font-weight:700">From:</label><input id="dqcFrom" type="date" class="filter-select" style="max-width:150px"><label class="muted" style="font-size:13px;font-weight:700">To:</label><input id="dqcTo" type="date" class="filter-select" style="max-width:150px"><button class="reset-btn" id="dqcRefreshBtn">Refresh</button><button class="reset-btn" id="dqcCsvBtn">CSV</button><button class="reset-btn" id="dqcXlsxBtn">Excel</button></div></div>
@@ -1664,6 +1734,9 @@ const PERIODS = {PERIODS_JSON_SAFE};
 const REMAKES = {REMAKE_MGMT_JSON};
 const REMAKE_SAVE_URL = '{REMAKE_SAS_URL}';
 const REMAKE_DATA_URL = 'https://custimoolivedata.z13.web.core.windows.net/remake-mgmt-data.json';
+const QC_REJECTIONS = {QC_REJECTIONS_JSON};
+const QC_REJECTIONS_SAVE_URL = '{QC_REJECTIONS_SAS_URL}';
+const QC_REJECTIONS_DATA_URL = 'https://custimoolivedata.z13.web.core.windows.net/qc-rejections-data.json';
 
 const MONTH_LABELS = {{}};
 MONTH_KEYS.forEach((k, i) => {{ MONTH_LABELS[k] = DATA.months[i]; }});
@@ -2276,6 +2349,84 @@ function mergeSavedRemakes(saved) {{
     .then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }})
     .then(function(saved) {{ mergeSavedRemakes(saved); rerender(); setRemakeSaveStatus('Loaded saved annotations'); }})
     .catch(function() {{ setRemakeSaveStatus(REMAKE_SAVE_URL ? 'Using embedded annotations' : 'Local only — save endpoint unavailable'); }});
+}})();
+
+// ── QC Rejections work queue ──
+var qcRejectionRows = QC_REJECTIONS.slice();
+var qcRejectionSaveTimer = null;
+function qcRejectionKey(r) {{ return String(r.order || '').replace(/^#/, '').trim(); }}
+function qcRejectionHandled(r) {{ return Boolean(String(r.error_type || '').trim()); }}
+function setQcRejectionSaveStatus(text) {{
+  const el = document.getElementById('qcRejectionSaveStatus');
+  if (el) el.textContent = text;
+}}
+function renderQcRejections() {{
+  const rows = qcRejectionRows.slice().sort(function(a,b) {{
+    const handledCmp = qcRejectionHandled(a) - qcRejectionHandled(b);
+    if (handledCmp) return handledCmp;
+    return String(b.date || '').localeCompare(String(a.date || '')) || (parseInt(String(b.order || '').replace(/\D/g,''),10) || 0) - (parseInt(String(a.order || '').replace(/\D/g,''),10) || 0);
+  }});
+  const body = document.getElementById('qcRejectionBody');
+  if (!body) return;
+  body.innerHTML = rows.map(function(r) {{
+    const order = qcRejectionKey(r);
+    const selectedCustimoo = r.error_type === 'Custimoo error' ? ' selected' : '';
+    const selectedFactory = r.error_type === 'Factory error' ? ' selected' : '';
+    return '<tr data-order="' + escapeAttr(order) + '">'
+      + '<td class="order-num">#' + esc(order) + '</td>'
+      + '<td>' + esc(r.date || r.month || '') + '</td>'
+      + '<td>' + esc(r.factory || '') + '</td>'
+      + '<td>' + esc(r.items || '') + (r.qc_comment ? '<div class="muted" style="font-size:12px;margin-top:4px">QC: ' + esc(r.qc_comment) + '</div>' : '') + '</td>'
+      + '<td class="right">' + (r.total_qty || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (r.sample_qty || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (r.defects_qty || 0).toLocaleString() + '</td>'
+      + '<td>' + esc(r.inspectors || '') + '</td>'
+      + '<td><select class="qc-edit qc-error-type" aria-label="Error type for order ' + escapeAttr(order) + '"><option value="">Investigating</option><option value="Custimoo error"' + selectedCustimoo + '>Custimoo error</option><option value="Factory error"' + selectedFactory + '>Factory error</option></select></td>'
+      + '<td><input class="qc-edit qc-avoidance" aria-label="How to avoid error for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.avoidance_action || '') + '" placeholder="Preventive action"></td>'
+      + '<td><input class="qc-edit qc-work-comment" aria-label="Work notes for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.work_comment || '') + '" placeholder="Investigation / follow-up"></td>'
+      + '</tr>';
+  }}).join('') || '<tr><td colspan="11">No eligible QC rejections in the report period.</td></tr>';
+  document.getElementById('qcRejectionCount').textContent = rows.length + ' rejected orders';
+}}
+function saveQcRejections() {{
+  if (!QC_REJECTIONS_SAVE_URL) {{ setQcRejectionSaveStatus('Local only — save endpoint unavailable'); return; }}
+  setQcRejectionSaveStatus('Saving…');
+  fetch(QC_REJECTIONS_SAVE_URL, {{method:'PUT', headers:{{'x-ms-blob-type':'BlockBlob','Content-Type':'application/json'}}, body:JSON.stringify(qcRejectionRows)}})
+    .then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); setQcRejectionSaveStatus('Saved'); }})
+    .catch(function(err) {{ console.warn('QC rejection save failed', err); setQcRejectionSaveStatus('Save failed — retrying on next edit'); }});
+}}
+function scheduleQcRejectionSave() {{
+  clearTimeout(qcRejectionSaveTimer);
+  setQcRejectionSaveStatus('Unsaved changes…');
+  qcRejectionSaveTimer = setTimeout(saveQcRejections, 700);
+}}
+function mergeSavedQcRejections(saved) {{
+  if (!Array.isArray(saved)) return;
+  const byOrder = new Map(saved.map(function(r) {{ return [qcRejectionKey(r), r]; }}));
+  qcRejectionRows.forEach(function(r) {{
+    const savedRow = byOrder.get(qcRejectionKey(r));
+    if (savedRow) {{ r.error_type = savedRow.error_type || ''; r.avoidance_action = savedRow.avoidance_action || ''; r.work_comment = savedRow.work_comment || ''; }}
+  }});
+}}
+(function() {{
+  if (!document.getElementById('qcRejectionBody')) return;
+  renderQcRejections();
+  document.getElementById('qcRejectionBody').addEventListener('input', function(ev) {{
+    const input = ev.target;
+    if (!input.classList.contains('qc-edit')) return;
+    const rowEl = input.closest('tr');
+    const row = qcRejectionRows.find(function(r) {{ return qcRejectionKey(r) === rowEl.dataset.order; }});
+    if (!row) return;
+    if (input.classList.contains('qc-error-type')) row.error_type = input.value;
+    if (input.classList.contains('qc-avoidance')) row.avoidance_action = input.value;
+    if (input.classList.contains('qc-work-comment')) row.work_comment = input.value;
+    scheduleQcRejectionSave();
+  }});
+  document.querySelectorAll('.tab[data-target="qc-rejections"]').forEach(function(btn){{ btn.addEventListener('click', function(){{setTimeout(renderQcRejections,0);}}); }});
+  fetch(QC_REJECTIONS_DATA_URL + '?v=' + Date.now())
+    .then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }})
+    .then(function(saved) {{ mergeSavedQcRejections(saved); renderQcRejections(); setQcRejectionSaveStatus('Loaded saved annotations'); }})
+    .catch(function() {{ setQcRejectionSaveStatus(QC_REJECTIONS_SAVE_URL ? 'Using embedded QC rejection data' : 'Local only — save endpoint unavailable'); }});
 }})();
 
 </script>
