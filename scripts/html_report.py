@@ -2415,7 +2415,7 @@ function setQcRejectionSaveStatus(text) {{
 function qcBackendOrderHtml(r) {{
   const id = String(r.backend_id || '').trim();
   if (!id) return '#' + esc(qcRejectionKey(r));
-  return '<a href="' + QC_BACKEND_URL + '/order/' + escapeAttr(id) + '/detail" target="_blank" rel="noopener">#' + esc(qcRejectionKey(r)) + '</a>';
+  return '<a href="' + QC_BACKEND_URL + '/order/' + escapeAttr(id) + '/detail" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:underline">#' + esc(qcRejectionKey(r)) + '</a>';
 }}
 function qcTrackingHtml(r) {{
   const no = String(r.tracking_no || '').trim();
