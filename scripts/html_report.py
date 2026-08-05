@@ -1381,6 +1381,8 @@ for _row in load_qarma_rows():
         'final_approved': False,
         'shipped': False,
         'shipping_date': '',
+        'tracking_no': '',
+        'tracking_link': '',
         'error_type': '',
         'avoidance_action': '',
         'work_comment': '',
@@ -1409,14 +1411,16 @@ if _qc_order_numbers:
     _qc_ship_cur.execute("""
 SELECT o.order_no,
        bool_or(oi.status::text IN ('shipped','completed') OR oi.shipping_status IS NOT NULL) AS shipped,
-       max(CASE WHEN oi.status::text IN ('shipped','completed') OR oi.shipping_status IS NOT NULL THEN oi.status_updated_at END) AS shipping_date
+       max(CASE WHEN oi.status::text IN ('shipped','completed') OR oi.shipping_status IS NOT NULL THEN oi.status_updated_at END) AS shipping_date,
+       string_agg(DISTINCT NULLIF(BTRIM(oi.tracking_no), ''), ' · ') AS tracking_no,
+       string_agg(DISTINCT NULLIF(BTRIM(oi.tracking_link), ''), ' · ') AS tracking_link
 FROM orders o
 JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
 WHERE o.order_no = ANY(%s)
   AND o.deleted_at IS NULL
 GROUP BY o.order_no
 """, (_qc_order_numbers,))
-    _qc_shipment_state = {str(r[0]): (bool(r[1]), str(r[2])[:19] if r[2] else '') for r in _qc_ship_cur.fetchall()}
+    _qc_shipment_state = {str(r[0]): (bool(r[1]), str(r[2])[:19] if r[2] else '', str(r[3] or ''), str(r[4] or '')) for r in _qc_ship_cur.fetchall()}
     _qc_ship_cur.close()
 else:
     _qc_shipment_state = {}
@@ -1428,7 +1432,7 @@ for _g in _qc_rejection_groups.values():
     _g['severities'] = ', '.join(x for x in ('Critical', 'Major', 'Minor') if x in _g['severities']) or 'Not specified'
     _g['inspections'] = len(_g['inspections'])
     _g['final_approved'] = _g['order'] in _qc_final_approved_orders
-    _g['shipped'], _g['shipping_date'] = _qc_shipment_state.get(_g['order'], (False, ''))
+    _g['shipped'], _g['shipping_date'], _g['tracking_no'], _g['tracking_link'] = _qc_shipment_state.get(_g['order'], (False, '', '', ''))
     _g['qc_comment'] = ' · '.join(dict.fromkeys(x for x in _g['comments'] if x))[:1200]
     del _g['comments']
     QC_REJECTIONS.append(_g)
@@ -1721,14 +1725,14 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <div class="card">
       <h3 class="section-title">QC Rejections — Mistake Prevention Work Queue</h3>
       <p class="muted">Eligible final Qarma inspections rejected by Custimoo QC. Repeated inspection/item rows are grouped by order. Use the fields to assign responsibility and record how to avoid the mistake.</p>
-      <div class="hint">Attribution options are intentionally limited to <strong>Investigating</strong>, <strong>Custimoo error</strong>, and <strong>Factory error</strong>. Severity comes from Qarma affected-piece fields. <strong>Final QC Approved</strong> is Yes only when an eligible final inspection for the same order was approved. <strong>Shipped</strong> is Yes when the bronze backend has a shipped/completed order item.</div>
+      <div class="hint">Attribution options are intentionally limited to <strong>Investigating</strong>, <strong>Custimoo error</strong>, and <strong>Factory error</strong>. Severity comes from Qarma affected-piece fields. <strong>Final QC Approved</strong> is Yes only when an eligible final inspection for the same order was approved. <strong>Tracking</strong> shows the backend tracking number and/or clickable tracking link; shipped orders without either show <strong>No tracking</strong>.</div>
       <div class="remake-filter-row" style="display:flex;gap:12px;align-items:center;margin:12px 0;flex-wrap:wrap">
         <span style="font-size:13px;color:var(--muted)" id="qcRejectionCount">0 rejected orders</span>
         <span id="qcRejectionSaveStatus" class="muted" style="font-size:13px;margin-left:auto">Changes save automatically</span>
       </div>
       <div style="overflow-x:auto;max-height:70vh;overflow-y:auto">
         <table class="remake-table"><thead><tr>
-          <th>Order</th><th>QC Date</th><th>Factory</th><th>Items</th><th class="right">Order QTY</th><th class="right">QTY Checked</th><th class="right">Defect QTY</th><th>Severity</th><th>Inspector</th><th>Final QC Approved</th><th>Shipped</th><th style="min-width:170px">Error Type</th><th style="min-width:260px">How to Avoid</th><th style="min-width:320px">Work Notes</th>
+          <th>Order</th><th>QC Date</th><th>Factory</th><th>Items</th><th class="right">Order QTY</th><th class="right">QTY Checked</th><th class="right">Defect QTY</th><th>Severity</th><th>Inspector</th><th>Final QC Approved</th><th>Shipped</th><th>Tracking</th><th style="min-width:170px">Error Type</th><th style="min-width:260px">How to Avoid</th><th style="min-width:320px">Work Notes</th>
         </tr></thead><tbody id="qcRejectionBody"></tbody></table>
       </div>
     </div>
@@ -2406,6 +2410,15 @@ function setQcRejectionSaveStatus(text) {{
   const el = document.getElementById('qcRejectionSaveStatus');
   if (el) el.textContent = text;
 }}
+function qcTrackingHtml(r) {{
+  const no = String(r.tracking_no || '').trim();
+  const link = String(r.tracking_link || '').trim();
+  const linkHtml = /^https?:\\/\\//i.test(link) ? '<a href="' + escapeAttr(link) + '" target="_blank" rel="noopener">Tracking link</a>' : (link ? esc(link) : '');
+  if (no && linkHtml) return esc(no) + '<br>' + linkHtml;
+  if (no) return esc(no);
+  if (linkHtml) return linkHtml;
+  return r.shipped ? 'No tracking' : '—';
+}}
 function renderQcRejections() {{
   const rows = qcRejectionRows.slice().sort(function(a,b) {{
     const handledCmp = qcRejectionHandled(a) - qcRejectionHandled(b);
@@ -2430,11 +2443,12 @@ function renderQcRejections() {{
       + '<td>' + esc(r.inspectors || '') + '</td>'
       + '<td>' + (r.final_approved ? 'Yes' : 'No') + '</td>'
       + '<td>' + (r.shipped ? 'Yes' + (r.shipping_date ? ' · ' + esc(r.shipping_date) : '') : 'No') + '</td>'
+      + '<td>' + qcTrackingHtml(r) + '</td>'
       + '<td><select class="qc-edit qc-error-type" aria-label="Error type for order ' + escapeAttr(order) + '"><option value="">Investigating</option><option value="Custimoo error"' + selectedCustimoo + '>Custimoo error</option><option value="Factory error"' + selectedFactory + '>Factory error</option></select></td>'
       + '<td><input class="qc-edit qc-avoidance" aria-label="How to avoid error for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.avoidance_action || '') + '" placeholder="Preventive action"></td>'
       + '<td><input class="qc-edit qc-work-comment" aria-label="Work notes for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.work_comment || '') + '" placeholder="Investigation / follow-up"></td>'
       + '</tr>';
-  }}).join('') || '<tr><td colspan="14">No eligible QC rejections in the report period.</td></tr>';
+  }}).join('') || '<tr><td colspan="15">No eligible QC rejections in the report period.</td></tr>';
   document.getElementById('qcRejectionCount').textContent = rows.length + ' rejected orders';
 }}
 function saveQcRejections() {{
