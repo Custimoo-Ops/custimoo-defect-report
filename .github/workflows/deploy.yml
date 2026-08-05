@@ -63,4 +63,4 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          flyctl deploy -a custimoo-defect-report-lars --remote-only
+          flyctl deploy -a custimoo-defect-report-lars --remote-only --yes
