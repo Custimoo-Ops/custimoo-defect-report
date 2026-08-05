@@ -28,7 +28,7 @@ def norm_factory(name):
     n = name.strip().lower()
     if "mavic" in n: return "Mavic Sports"
     if "selberian" in n or "seleberian" in n: return "Selberian Sports Wear"
-    if "silver" in n or "star" in n: return "Silver-Star Group"
+    if "silver" in n or "silver-star" in n or "silver star" in n: return "Silver-Star Group"
     if "karrizo" in n or "karizzo" in n: return "Karrizo"
     if "rajco" in n: return "Rajco"
     if "zurdox" in n: return "Zurdox Factory"
