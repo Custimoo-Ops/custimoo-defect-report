@@ -1367,6 +1367,7 @@ for _row in load_qarma_rows():
     _key = _order
     _g = _qc_rejection_groups.setdefault(_key, {
         'order': _order,
+        'backend_id': '',
         'month': dt_to_month(_date) or '?',
         'date': str(_date)[:19],
         'factory': norm_qarma_supplier(_row.get('Supplier name')),
@@ -1409,7 +1410,7 @@ _qc_order_numbers = list(_qc_rejection_groups)
 if _qc_order_numbers:
     _qc_ship_cur = conn.cursor()
     _qc_ship_cur.execute("""
-SELECT o.order_no,
+SELECT o.id, o.order_no,
        bool_or(oi.status::text IN ('shipped','completed') OR oi.shipping_status IS NOT NULL) AS shipped,
        max(CASE WHEN oi.status::text IN ('shipped','completed') OR oi.shipping_status IS NOT NULL THEN oi.status_updated_at END) AS shipping_date,
        string_agg(DISTINCT NULLIF(BTRIM(oi.tracking_no), ''), ' · ') AS tracking_no,
@@ -1418,9 +1419,9 @@ FROM orders o
 JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
 WHERE o.order_no = ANY(%s)
   AND o.deleted_at IS NULL
-GROUP BY o.order_no
+GROUP BY o.id, o.order_no
 """, (_qc_order_numbers,))
-    _qc_shipment_state = {str(r[0]): (bool(r[1]), str(r[2])[:19] if r[2] else '', str(r[3] or ''), str(r[4] or '')) for r in _qc_ship_cur.fetchall()}
+    _qc_shipment_state = {str(r[1]): (str(r[0]), bool(r[2]), str(r[3])[:19] if r[3] else '', str(r[4] or ''), str(r[5] or '')) for r in _qc_ship_cur.fetchall()}
     _qc_ship_cur.close()
 else:
     _qc_shipment_state = {}
@@ -1432,7 +1433,7 @@ for _g in _qc_rejection_groups.values():
     _g['severities'] = ', '.join(x for x in ('Critical', 'Major', 'Minor') if x in _g['severities']) or 'Not specified'
     _g['inspections'] = len(_g['inspections'])
     _g['final_approved'] = _g['order'] in _qc_final_approved_orders
-    _g['shipped'], _g['shipping_date'], _g['tracking_no'], _g['tracking_link'] = _qc_shipment_state.get(_g['order'], (False, '', '', ''))
+    _g['backend_id'], _g['shipped'], _g['shipping_date'], _g['tracking_no'], _g['tracking_link'] = _qc_shipment_state.get(_g['order'], ('', False, '', '', ''))
     _g['qc_comment'] = ' · '.join(dict.fromkeys(x for x in _g['comments'] if x))[:1200]
     del _g['comments']
     QC_REJECTIONS.append(_g)
@@ -1781,6 +1782,7 @@ const REMAKE_DATA_URL = 'https://custimoolivedata.z13.web.core.windows.net/remak
 const QC_REJECTIONS = {QC_REJECTIONS_JSON};
 const QC_REJECTIONS_SAVE_URL = '{QC_REJECTIONS_SAS_URL}';
 const QC_REJECTIONS_DATA_URL = 'https://custimoolivedata.z13.web.core.windows.net/qc-rejections-data.json';
+const QC_BACKEND_URL = 'https://admin.custimoo.com';
 
 const MONTH_LABELS = {{}};
 MONTH_KEYS.forEach((k, i) => {{ MONTH_LABELS[k] = DATA.months[i]; }});
@@ -2410,6 +2412,11 @@ function setQcRejectionSaveStatus(text) {{
   const el = document.getElementById('qcRejectionSaveStatus');
   if (el) el.textContent = text;
 }}
+function qcBackendOrderHtml(r) {{
+  const id = String(r.backend_id || '').trim();
+  if (!id) return '#' + esc(qcRejectionKey(r));
+  return '<a href="' + QC_BACKEND_URL + '/order/' + escapeAttr(id) + '/detail" target="_blank" rel="noopener">#' + esc(qcRejectionKey(r)) + '</a>';
+}}
 function qcTrackingHtml(r) {{
   const no = String(r.tracking_no || '').trim();
   const link = String(r.tracking_link || '').trim();
@@ -2432,7 +2439,7 @@ function renderQcRejections() {{
     const selectedCustimoo = r.error_type === 'Custimoo error' ? ' selected' : '';
     const selectedFactory = r.error_type === 'Factory error' ? ' selected' : '';
     return '<tr data-order="' + escapeAttr(order) + '">'
-      + '<td class="order-num">#' + esc(order) + '</td>'
+      + '<td class="order-num">' + qcBackendOrderHtml(r) + '</td>'
       + '<td>' + esc(r.date || r.month || '') + '</td>'
       + '<td>' + esc(r.factory || '') + '</td>'
       + '<td>' + esc(r.items || '') + (r.qc_comment ? '<div class="muted" style="font-size:12px;margin-top:4px">QC: ' + esc(r.qc_comment) + '</div>' : '') + '</td>'
