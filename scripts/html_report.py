@@ -1995,6 +1995,7 @@ function measureCells(f, q) {{
   if (ACTIVE_MEASURE === 'orders') {{
     return '<td class="right">' + (f.orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + (q.orders_checked || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (q.rejected_orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
       + '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + pctPill((f.orders || 0) > 0 ? (f.remake_orders || 0) / f.orders * 100 : 0) + '</td>';
@@ -2012,6 +2013,7 @@ function measureHeaders() {{
   if (ACTIVE_MEASURE === 'orders') {{
     return '<th class="right">Total Number of Orders</th>'
       + '<th class="right">Qarma Number of Orders</th>'
+      + '<th class="right">No of orders with error in Qarma</th>'
       + '<th class="right">Qarma Err%</th>'
       + '<th class="right">Remake Orders</th>'
       + '<th class="right">Remake Orders Err%</th>';
