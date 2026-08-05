@@ -44,8 +44,8 @@ def norm_qarma_supplier(name):
 
 QARMA_STATS_CACHE = {}
 QARMA_ORDER_STATS_CACHE = {}
-QARMA_SOURCE_URL = os.environ.get('QARMA_INSPECTIONS_URL', 'https://app.qarmainspect.com/q/nocache/objects/files_cache/a65150a8-0509-4492-8ac9-c88526e83732/39ce57c5-f096-4758-8a7d-e5796d5199ab/inspections.csv.gz')
-QARMA_SOURCE_META = {'ok': False, 'rows': 0, 'filtered_rows': 0, 'source': QARMA_SOURCE_URL, 'error': ''}
+QARMA_SOURCE_URL = os.environ.get('QARMA_INSPECTIONS_URL', '')
+QARMA_SOURCE_META = {'ok': False, 'rows': 0, 'filtered_rows': 0, 'source': '[REDACTED]', 'error': ''}
 QARMA_ROWS_CACHE = None
 
 def dt_to_month(v):
@@ -88,11 +88,11 @@ def load_qarma_rows():
         with gzip.GzipFile(fileobj=io.BytesIO(raw)) as gz:
             text = io.TextIOWrapper(gz, encoding='utf-8-sig', newline='')
             rows = list(csv.DictReader(text))
-        QARMA_SOURCE_META = {'ok': True, 'rows': len(rows), 'filtered_rows': 0, 'source': QARMA_SOURCE_URL, 'error': ''}
+        QARMA_SOURCE_META = {'ok': True, 'rows': len(rows), 'filtered_rows': 0, 'source': '[REDACTED]', 'error': ''}
         QARMA_ROWS_CACHE = rows
         return rows
     except Exception as e:
-        QARMA_SOURCE_META = {'ok': False, 'rows': 0, 'filtered_rows': 0, 'source': QARMA_SOURCE_URL, 'error': str(e)[:200]}
+        QARMA_SOURCE_META = {'ok': False, 'rows': 0, 'filtered_rows': 0, 'source': '[REDACTED]', 'error': str(e)[:200]}
         QARMA_ROWS_CACHE = []
         print('Warning: could not load Qarma CSV:', e)
         return []

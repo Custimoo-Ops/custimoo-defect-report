@@ -18,7 +18,12 @@ class DecimalEncoder(json.JSONEncoder):
             return int(obj)
         return super().default(obj)
 
-EXCLUDED_FACTORIES = {"Augusta De Mexico"}
+EXCLUDED_FACTORIES = {
+    "Augusta De Mexico",
+    "Dongguan Yida Textile Co.,Ltd",
+    "FeelGood Printwear",
+    "Hummel",
+}
 
 def is_excluded_factory(name):
     return norm_factory(name) in EXCLUDED_FACTORIES
@@ -35,12 +40,14 @@ def norm_factory(name):
     if "rival" in n: return "Rival Kit"
     if "sportena" in n: return "Sportena"
     if "dksportswear" in n: return "dksportswear"
+    if "dongguan yida" in n or "yida textile" in n: return "Dongguan Yida Textile Co.,Ltd"
+    if "feelgood" in n or "feel good" in n: return "FeelGood Printwear"
     if "hummel" in n: return "Hummel"
     if "custimoo" in n: return "Custimoo factory"
     if "augusta" in n: return "Augusta De Mexico"
     return name.strip()[:30]
 
-QARMA_SOURCE_URL = os.environ.get('QARMA_INSPECTIONS_URL', 'https://app.qarmainspect.com/q/nocache/objects/files_cache/a65150a8-0509-4492-8ac9-c88526e83732/39ce57c5-f096-4758-8a7d-e5796d5199ab/inspections.csv.gz')
+QARMA_SOURCE_URL = os.environ.get('QARMA_INSPECTIONS_URL', '')
 _QARMA_ROWS_CACHE = None
 
 def safe_int(v):
