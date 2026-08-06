@@ -1683,9 +1683,9 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <table><thead><tr><th>Month</th><th class="right">Total Order QTY</th><th class="right">Orders</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th><th class="right">Remake / Total Order QTY</th></tr></thead><tbody id="monthlyBody"></tbody></table>
     </div>
     <div class="card">
-      <h3 class="section-title">Factory &times; Month Remake QTY</h3>
-      <div class="hint">Monthly remake quantity by factory.</div>
-      <table><thead><tr><th>Factory</th><th class="right" id="hdr1"></th><th class="right" id="hdr2"></th><th class="right" id="hdr3"></th><th class="right" id="hdr4"></th><th class="right" id="hdr5"></th><th class="right" id="hdr6"></th><th class="right" id="hdr7"></th><th class="right" id="hdr8"></th><th class="right" id="hdr9"></th></tr></thead><tbody id="factoryMonthBody"></tbody></table>
+      <h3 class="section-title" id="detailsFactoryTitle">Factory &times; Month Remake QTY</h3>
+      <div class="hint" id="detailsFactoryHint">Monthly remake quantity by factory.</div>
+      <table><thead><tr id="factoryMonthHead"><th>Factory</th></tr></thead><tbody id="factoryMonthBody"></tbody></table>
       <div class="footnote">{report_month_labels[-1]} still in progress</div>
     </div>
   </section>
@@ -2161,15 +2161,38 @@ function applyPeriod(key) {{
   renderExceptionLeaders();
   renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value);
   renderTrendChart(null);
+  renderDetails();
 }}
 var breakdownFilter = document.getElementById('breakdownFilter');
 if (breakdownFilter) {{ breakdownFilter.value = 'factory'; breakdownFilter.addEventListener('change', function() {{ renderGroupingTable(breakdownFilter.value); }}); }}
 var periodFilter = document.getElementById('periodFilter');
 if (periodFilter) {{ periodFilter.value = ACTIVE_PERIOD; periodFilter.addEventListener('change', function() {{ applyPeriod(periodFilter.value); }}); }}
 var measureFilter = document.getElementById('measureFilter');
-if (measureFilter) {{ measureFilter.value = ACTIVE_MEASURE; measureFilter.addEventListener('change', function() {{ ACTIVE_MEASURE = measureFilter.value; updateSummaryStats(); renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value); renderTrendChart(currentTrendFactory); }}); }}
+if (measureFilter) {{ measureFilter.value = ACTIVE_MEASURE; measureFilter.addEventListener('change', function() {{ ACTIVE_MEASURE = measureFilter.value; updateSummaryStats(); renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value); renderTrendChart(currentTrendFactory); renderDetails(); }}); }}
 
-// ── YTD KPI cards / measure view ──
+function renderDetails() {{
+  const months = ACTIVE_DATA.months || [];
+  const volume = ACTIVE_DATA.monthlyVolume || [];
+  const orders = ACTIVE_DATA.monthlyOrders || [];
+  const remakeOrders = ACTIVE_DATA.monthlyRemakeOrders || [];
+  const remakeQty = ACTIVE_DATA.monthlyRemakeQty || [];
+  document.getElementById('monthlyBody').innerHTML = months.map(function(m, i) {{
+    const v = volume[i] || 0;
+    const rq = remakeQty[i] || 0;
+    const rate = v > 0 ? rq / v * 100 : 0;
+    return '<tr><td><strong>' + esc(m) + '</strong></td><td class="right">' + v.toLocaleString() + '</td><td class="right">' + (orders[i] || 0).toLocaleString() + '</td><td class="right">' + (remakeOrders[i] || 0).toLocaleString() + '</td><td class="right">' + rq.toLocaleString() + '</td><td class="right">' + rate.toFixed(2) + '%</td></tr>';
+  }}).join('');
+  const head = document.getElementById('factoryMonthHead');
+  head.innerHTML = '<th>Factory</th>' + months.map(function(m) {{ return '<th class="right">' + esc(m) + '</th>'; }}).join('');
+  const useOrders = ACTIVE_MEASURE === 'orders';
+  document.getElementById('detailsFactoryTitle').textContent = 'Factory × Month ' + (useOrders ? 'Remake Orders' : 'Remake QTY');
+  document.getElementById('detailsFactoryHint').textContent = 'Monthly ' + (useOrders ? 'remake orders' : 'remake quantity') + ' by factory; follows the selected measure.';
+  document.getElementById('factoryMonthBody').innerHTML = (ACTIVE_DATA.factories || []).map(function(f) {{
+    const monthly = f.monthly || {{}};
+    const values = monthly[useOrders ? 'remake_orders' : 'remake_qty'] || [];
+    return '<tr><td><strong>' + esc(f.name || '') + '</strong></td>' + months.map(function(_, i) {{ return '<td class="right">' + (values[i] || 0).toLocaleString() + '</td>'; }}).join('') + '</tr>';
+  }}).join('');
+}}
 let YTD_MEASURE = 'orders';
 document.getElementById('ytdVolume').textContent = DATA.totalVolume.toLocaleString();
 
