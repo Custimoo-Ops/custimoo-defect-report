@@ -2242,29 +2242,29 @@ function remakeRates(denoms, remakeValues) {{ return denoms.map(function(v, i) {
 function trendMeasureConfig() {{
   const ordersMode = ACTIVE_MEASURE === 'orders';
   return {{
-    valuesLabel: ordersMode ? 'Remake Orders' : 'Remake QTY',
+    valuesLabel: ordersMode ? 'Total Orders' : 'Total Order QTY',
     rateLabel: ordersMode ? 'Remake % (Orders)' : 'Remake % (Qty)',
-    axisLabel: ordersMode ? 'Orders' : 'Remake QTY'
+    axisLabel: ordersMode ? 'Orders' : 'Order QTY'
   }};
 }}
 function buildTrendDatasets(factoryName) {{
   const cfg = trendMeasureConfig();
   if (!factoryName) {{
-    const values = ACTIVE_DATA[ACTIVE_MEASURE === 'orders' ? 'monthlyRemakeOrders' : 'monthlyRemakeQty'] || [];
-    const denoms = ACTIVE_DATA[ACTIVE_MEASURE === 'orders' ? 'monthlyOrders' : 'monthlyVolume'] || [];
+    const totalValues = ACTIVE_DATA[ACTIVE_MEASURE === 'orders' ? 'monthlyOrders' : 'monthlyVolume'] || [];
+    const remakeValues = ACTIVE_DATA[ACTIVE_MEASURE === 'orders' ? 'monthlyRemakeOrders' : 'monthlyRemakeQty'] || [];
     return [
-      {{ type: 'bar', label: cfg.valuesLabel, data: values, backgroundColor: 'rgba(124, 58, 237, 0.25)', borderColor: 'rgba(124, 58, 237, 0.8)', borderWidth: 1, yAxisID: 'y' }},
-      {{ type: 'line', label: cfg.rateLabel, data: remakeRates(denoms, values), borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.25, yAxisID: 'y1' }}
+      {{ type: 'bar', label: cfg.valuesLabel, data: totalValues, backgroundColor: 'rgba(124, 58, 237, 0.25)', borderColor: 'rgba(124, 58, 237, 0.8)', borderWidth: 1, yAxisID: 'y' }},
+      {{ type: 'line', label: cfg.rateLabel, data: remakeRates(totalValues, remakeValues), borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.25, yAxisID: 'y1' }}
     ];
   }}
   const fd = (ACTIVE_DATA.factories || []).find(function(x) {{ return x.name === factoryName; }});
   if (!fd) return [];
   const monthly = fd.monthly || {{}};
-  const values = monthly[ACTIVE_MEASURE === 'orders' ? 'remake_orders' : 'remake_qty'] || [];
-  const denoms = monthly[ACTIVE_MEASURE === 'orders' ? 'orders' : 'volumes'] || [];
+  const totalValues = monthly[ACTIVE_MEASURE === 'orders' ? 'orders' : 'volumes'] || [];
+  const remakeValues = monthly[ACTIVE_MEASURE === 'orders' ? 'remake_orders' : 'remake_qty'] || [];
   return [
-    {{ type: 'bar', label: factoryName + ' ' + cfg.valuesLabel, data: values, backgroundColor: 'rgba(124, 58, 237, 0.25)', borderColor: 'rgba(124, 58, 237, 0.8)', borderWidth: 1, yAxisID: 'y' }},
-    {{ type: 'line', label: factoryName + ' ' + cfg.rateLabel, data: remakeRates(denoms, values), borderColor: FACTORY_COLORS[factoryName] || '#ef4444', backgroundColor: FACTORY_COLORS[factoryName] || '#ef4444', tension: 0.25, yAxisID: 'y1' }}
+    {{ type: 'bar', label: factoryName + ' ' + cfg.valuesLabel, data: totalValues, backgroundColor: 'rgba(124, 58, 237, 0.25)', borderColor: 'rgba(124, 58, 237, 0.8)', borderWidth: 1, yAxisID: 'y' }},
+    {{ type: 'line', label: factoryName + ' ' + cfg.rateLabel, data: remakeRates(totalValues, remakeValues), borderColor: FACTORY_COLORS[factoryName] || '#ef4444', backgroundColor: FACTORY_COLORS[factoryName] || '#ef4444', tension: 0.25, yAxisID: 'y1' }}
   ];
 }}
 function renderTrendChart(factoryName) {{
