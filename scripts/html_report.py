@@ -66,15 +66,17 @@ def safe_int(v):
     except Exception:
         return 0
 
-def is_qarma_included(row):
+def is_qarma_final_candidate(row):
     return (
         row.get('Status') == 'Report'
         and str(row.get('Inspection type') or '').strip() == 'Final'
         and str(row.get('Conclusion') or '').strip() in ('Approved', 'Rejected')
         and str(row.get('Supplier qc') or '').strip().lower() != 'true'
         and str(row.get('Inspector email') or '').strip().lower().endswith('@custimoo.com')
-        and not str(row.get('Reinspection of') or '').strip()
     )
+
+def is_qarma_included(row):
+    return is_qarma_final_candidate(row) and not str(row.get('Reinspection of') or '').strip()
 
 def load_qarma_rows():
     """Read Qarma's internal direct CSV.GZ export. No API key; refreshes roughly hourly."""
@@ -1352,12 +1354,21 @@ for _r in REMAKE_MGMT:
 # One row per eligible rejected order; repeated item/report rows are aggregated.
 _qc_rejection_groups = {}
 _qc_final_approved_orders = set()
+_qc_final_approval_details = {}
 for _row in load_qarma_rows():
+    _row_order = str(_row.get('Order number') or '').strip()
+    if is_qarma_final_candidate(_row):
+        if str(_row.get('Conclusion') or '').strip() == 'Approved' and _row_order:
+            _approval_date = str(_row.get('Scheduled inspection date') or _row.get('Inspection end time') or '')[:19]
+            _is_reinspection = bool(str(_row.get('Reinspection of') or '').strip())
+            _approval_type = 'Approved reinspection' if _is_reinspection else 'Approved final inspection'
+            _existing = _qc_final_approval_details.get(_row_order)
+            if not _existing or _approval_date > _existing.get('date', ''):
+                _qc_final_approval_details[_row_order] = {'date': _approval_date, 'type': _approval_type}
+            if not _is_reinspection:
+                _qc_final_approved_orders.add(_row_order)
     if not is_qarma_included(_row):
         continue
-    _row_order = str(_row.get('Order number') or '').strip()
-    if str(_row.get('Conclusion') or '').strip() == 'Approved' and _row_order:
-        _qc_final_approved_orders.add(_row_order)
     if str(_row.get('Conclusion') or '').strip() != 'Rejected':
         continue
     _order = _row_order
@@ -1380,6 +1391,8 @@ for _row in load_qarma_rows():
         'sample_qty': 0,
         'defects_qty': 0,
         'final_approved': False,
+        'final_approval_type': '',
+        'final_approval_date': '',
         'shipped': False,
         'shipping_date': '',
         'tracking_no': '',
@@ -1432,7 +1445,10 @@ for _g in _qc_rejection_groups.values():
     _g['inspectors'] = ', '.join(sorted(_g['inspectors']))
     _g['severities'] = ', '.join(x for x in ('Critical', 'Major', 'Minor') if x in _g['severities']) or 'Not specified'
     _g['inspections'] = len(_g['inspections'])
-    _g['final_approved'] = _g['order'] in _qc_final_approved_orders
+    _g['final_approved'] = _g['order'] in _qc_final_approval_details
+    if _g['final_approved']:
+        _g['final_approval_type'] = _qc_final_approval_details[_g['order']]['type']
+        _g['final_approval_date'] = _qc_final_approval_details[_g['order']]['date']
     _g['backend_id'], _g['shipped'], _g['shipping_date'], _g['tracking_no'], _g['tracking_link'] = _qc_shipment_state.get(_g['order'], ('', False, '', '', ''))
     _g['qc_comment'] = ' · '.join(dict.fromkeys(x for x in _g['comments'] if x))[:1200]
     del _g['comments']
@@ -1731,7 +1747,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <div class="card">
       <h3 class="section-title">QC Rejections — Mistake Prevention Work Queue</h3>
       <p class="muted">Eligible final Qarma inspections rejected by Custimoo QC. Repeated inspection/item rows are grouped by order. Use the fields to assign responsibility and record how to avoid the mistake.</p>
-      <div class="hint">Attribution options are intentionally limited to <strong>Investigating</strong>, <strong>Custimoo error</strong>, and <strong>Factory error</strong>. Severity comes from Qarma affected-piece fields. <strong>Final QC Approved</strong> is Yes only when an eligible final inspection for the same order was approved. <strong>Tracking</strong> shows the backend tracking number and/or clickable tracking link; shipped orders without either show <strong>No tracking</strong>.</div>
+      <div class="hint">Attribution options are intentionally limited to <strong>Investigating</strong>, <strong>Custimoo error</strong>, and <strong>Factory error</strong>. Severity comes from Qarma affected-piece fields. <strong>Final QC Approved</strong> is Yes when the order has an approved eligible final inspection or approved final reinspection; the approval type and date are shown. <strong>Tracking</strong> shows the backend tracking number and/or clickable tracking link; shipped orders without either show <strong>No tracking</strong>.</div>
       <div class="remake-filter-row" style="display:flex;gap:12px;align-items:center;margin:12px 0;flex-wrap:wrap">
         <span style="font-size:13px;color:var(--muted)" id="qcRejectionCount">0 rejected orders</span>
         <span id="qcRejectionSaveStatus" class="muted" style="font-size:13px;margin-left:auto">Changes save automatically</span>
@@ -2456,7 +2472,7 @@ function renderQcRejections() {{
       + '<td class="right">' + (r.defects_qty || 0).toLocaleString() + '</td>'
       + '<td>' + esc(r.severities || 'Not specified') + '</td>'
       + '<td>' + esc(r.inspectors || '') + '</td>'
-      + '<td>' + (r.final_approved ? 'Yes' : 'No') + '</td>'
+      + '<td>' + (r.final_approved ? 'Yes' + (r.final_approval_type ? ' · ' + esc(r.final_approval_type) : '') + (r.final_approval_date ? ' · ' + esc(r.final_approval_date) : '') : 'No') + '</td>'
       + '<td>' + (r.shipped ? 'Yes' + (r.shipping_date ? ' · ' + esc(r.shipping_date) : '') : 'No') + '</td>'
       + '<td>' + qcTrackingHtml(r) + '</td>'
       + '<td><select class="qc-edit qc-error-type" aria-label="Error type for order ' + escapeAttr(order) + '"><option value="">Investigating</option><option value="Custimoo error"' + selectedCustimoo + '>Custimoo error</option><option value="Factory error"' + selectedFactory + '>Factory error</option></select></td>'
