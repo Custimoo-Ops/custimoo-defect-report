@@ -1663,7 +1663,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <div class="card metric"><div class="label" id="periodKpiLabel">YTD 2026 Remakes</div><div class="value" id="periodKpiValue"></div><div class="sub" id="periodKpiSub"></div></div>
     </div>
     <div class="card">
-      <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="ytdMeasureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="ytdMeasureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select></div></div>
+      <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="ytdMeasureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="ytdMeasureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div></div>
       <div class="chart-wrap"><canvas id="ytdChart"></canvas></div>
       <div class="footnote">Blue bars show accumulated volume/orders. Red line shows accumulated remake percentage for the selected measure.</div>
     </div>
@@ -2170,7 +2170,7 @@ var measureFilter = document.getElementById('measureFilter');
 if (measureFilter) {{ measureFilter.value = ACTIVE_MEASURE; measureFilter.addEventListener('change', function() {{ ACTIVE_MEASURE = measureFilter.value; updateSummaryStats(); renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value); renderTrendChart(currentTrendFactory); }}); }}
 
 // ── YTD KPI cards / measure view ──
-let YTD_MEASURE = 'qty';
+let YTD_MEASURE = 'orders';
 document.getElementById('ytdVolume').textContent = DATA.totalVolume.toLocaleString();
 
 function updatePeriodKpis() {{
