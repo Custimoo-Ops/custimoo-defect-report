@@ -2167,7 +2167,7 @@ if (breakdownFilter) {{ breakdownFilter.value = 'factory'; breakdownFilter.addEv
 var periodFilter = document.getElementById('periodFilter');
 if (periodFilter) {{ periodFilter.value = ACTIVE_PERIOD; periodFilter.addEventListener('change', function() {{ applyPeriod(periodFilter.value); }}); }}
 var measureFilter = document.getElementById('measureFilter');
-if (measureFilter) {{ measureFilter.value = ACTIVE_MEASURE; measureFilter.addEventListener('change', function() {{ ACTIVE_MEASURE = measureFilter.value; updateSummaryStats(); renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value); }}); }}
+if (measureFilter) {{ measureFilter.value = ACTIVE_MEASURE; measureFilter.addEventListener('change', function() {{ ACTIVE_MEASURE = measureFilter.value; updateSummaryStats(); renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value); renderTrendChart(currentTrendFactory); }}); }}
 
 // ── YTD KPI cards / measure view ──
 let YTD_MEASURE = 'qty';
@@ -2215,40 +2215,56 @@ const chartBaseOptions = {{
 
 let trendChart;
 let currentTrendFactory = null;
-function remakeRates(vols, remakeQty) {{ return vols.map(function(v, i) {{ return v > 0 ? +((remakeQty[i] || 0) / v * 100).toFixed(2) : 0; }}); }}
+function remakeRates(denoms, remakeValues) {{ return denoms.map(function(v, i) {{ return v > 0 ? +((remakeValues[i] || 0) / v * 100).toFixed(2) : 0; }}); }}
+function trendMeasureConfig() {{
+  const ordersMode = ACTIVE_MEASURE === 'orders';
+  return {{
+    valuesLabel: ordersMode ? 'Remake Orders' : 'Remake QTY',
+    rateLabel: ordersMode ? 'Remake % (Orders)' : 'Remake % (Qty)',
+    axisLabel: ordersMode ? 'Orders' : 'Remake QTY'
+  }};
+}}
 function buildTrendDatasets(factoryName) {{
+  const cfg = trendMeasureConfig();
   if (!factoryName) {{
+    const values = ACTIVE_DATA[ACTIVE_MEASURE === 'orders' ? 'monthlyRemakeOrders' : 'monthlyRemakeQty'] || [];
+    const denoms = ACTIVE_DATA[ACTIVE_MEASURE === 'orders' ? 'monthlyOrders' : 'monthlyVolume'] || [];
     return [
-      {{ type: 'bar', label: 'Remake QTY', data: ACTIVE_DATA.monthlyRemakeQty || [], backgroundColor: 'rgba(124, 58, 237, 0.25)', borderColor: 'rgba(124, 58, 237, 0.8)', borderWidth: 1, yAxisID: 'y' }},
-      {{ type: 'line', label: 'Remake % (Qty)', data: remakeRates(ACTIVE_DATA.monthlyVolume || [], ACTIVE_DATA.monthlyRemakeQty || []), borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.25, yAxisID: 'y1' }}
+      {{ type: 'bar', label: cfg.valuesLabel, data: values, backgroundColor: 'rgba(124, 58, 237, 0.25)', borderColor: 'rgba(124, 58, 237, 0.8)', borderWidth: 1, yAxisID: 'y' }},
+      {{ type: 'line', label: cfg.rateLabel, data: remakeRates(denoms, values), borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.25, yAxisID: 'y1' }}
     ];
   }}
   const fd = (ACTIVE_DATA.factories || []).find(function(x) {{ return x.name === factoryName; }});
   if (!fd) return [];
-  const vols = (fd.monthly && fd.monthly.volumes) || [];
-  const remakeQty = (fd.monthly && fd.monthly.remake_qty) || [];
+  const monthly = fd.monthly || {{}};
+  const values = monthly[ACTIVE_MEASURE === 'orders' ? 'remake_orders' : 'remake_qty'] || [];
+  const denoms = monthly[ACTIVE_MEASURE === 'orders' ? 'orders' : 'volumes'] || [];
   return [
-    {{ type: 'bar', label: factoryName + ' Remake QTY', data: remakeQty, backgroundColor: 'rgba(124, 58, 237, 0.25)', borderColor: 'rgba(124, 58, 237, 0.8)', borderWidth: 1, yAxisID: 'y' }},
-    {{ type: 'line', label: factoryName + ' Remake % (Qty)', data: remakeRates(vols, remakeQty), borderColor: FACTORY_COLORS[factoryName] || '#ef4444', backgroundColor: FACTORY_COLORS[factoryName] || '#ef4444', tension: 0.25, yAxisID: 'y1' }}
+    {{ type: 'bar', label: factoryName + ' ' + cfg.valuesLabel, data: values, backgroundColor: 'rgba(124, 58, 237, 0.25)', borderColor: 'rgba(124, 58, 237, 0.8)', borderWidth: 1, yAxisID: 'y' }},
+    {{ type: 'line', label: factoryName + ' ' + cfg.rateLabel, data: remakeRates(denoms, values), borderColor: FACTORY_COLORS[factoryName] || '#ef4444', backgroundColor: FACTORY_COLORS[factoryName] || '#ef4444', tension: 0.25, yAxisID: 'y1' }}
   ];
 }}
 function renderTrendChart(factoryName) {{
   currentTrendFactory = factoryName || null;
-  document.getElementById('trendTitle').textContent = factoryName ? ('Monthly Remake QTY Trend — ' + factoryName) : 'Monthly Remake QTY Trend — All Factories';
+  const cfg = trendMeasureConfig();
+  document.getElementById('trendTitle').textContent = factoryName ? ('Monthly ' + cfg.valuesLabel + ' Trend — ' + factoryName) : 'Monthly ' + cfg.valuesLabel + ' Trend — All Factories';
   document.getElementById('resetBtn').style.display = factoryName ? 'inline-block' : 'none';
   document.getElementById('trendBar').style.display = factoryName ? 'flex' : 'none';
   if (factoryName) {{
     document.getElementById('trendFactory').textContent = factoryName;
     const fd = (ACTIVE_DATA.factories || []).find(function(x) {{ return x.name === factoryName; }});
-    const vols2 = fd && fd.monthly ? fd.monthly.volumes : [];
-    const rem2 = fd && fd.monthly ? fd.monthly.remake_qty : [];
-    const first = vols2[0] > 0 ? (rem2[0] || 0) / vols2[0] * 100 : 0;
-    const lastIdx = vols2.length - 1;
-    const last = vols2[lastIdx] > 0 ? (rem2[lastIdx] || 0) / vols2[lastIdx] * 100 : 0;
+    const monthly2 = fd && fd.monthly ? fd.monthly : {{}};
+    const denoms2 = monthly2[ACTIVE_MEASURE === 'orders' ? 'orders' : 'volumes'] || [];
+    const rem2 = monthly2[ACTIVE_MEASURE === 'orders' ? 'remake_orders' : 'remake_qty'] || [];
+    const first = denoms2[0] > 0 ? (rem2[0] || 0) / denoms2[0] * 100 : 0;
+    const lastIdx = denoms2.length - 1;
+    const last = denoms2[lastIdx] > 0 ? (rem2[lastIdx] || 0) / denoms2[lastIdx] * 100 : 0;
     const delta = last - first;
     document.getElementById('trendPill').textContent = last.toFixed(2) + '%';
     document.getElementById('trendDelta').textContent = (delta >= 0 ? '+' : '') + delta.toFixed(2) + ' pp vs first month';
   }}
+  chartBaseOptions.scales.y.title.text = cfg.axisLabel;
+  chartBaseOptions.scales.y1.title.text = cfg.rateLabel;
   const ctx = document.getElementById('trendChart').getContext('2d');
   if (trendChart) trendChart.destroy();
   trendChart = new Chart(ctx, {{ data: {{ labels: ACTIVE_DATA.months, datasets: buildTrendDatasets(factoryName) }}, options: chartBaseOptions }});
