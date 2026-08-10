@@ -299,7 +299,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         if path == "/dqc":
             self._track_visit(path)
             return self._html(DQC_PAGE)
-        if path in ("/", "/report", "/report.html"):
+        if path in ("/", "/report", "/report.html", "/hummel-pro-na"):
             self._track_visit(path)
             self.path = "/report.html"
             return super().do_GET()

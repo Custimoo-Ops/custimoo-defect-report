@@ -2615,7 +2615,7 @@ function showHummelAccountPage() {{
   if (page) page.classList.add('active');
   renderHummelAccountPage();
 }}
-if (window.location.hash.toLowerCase() === '#hummel-pro-na') showHummelAccountPage();
+if (window.location.hash.toLowerCase() === '#hummel-pro-na' || window.location.pathname.toLowerCase() === '/hummel-pro-na') showHummelAccountPage();
 
 </script>
 </body>
