@@ -299,9 +299,9 @@ class H(http.server.SimpleHTTPRequestHandler):
         if path == "/dqc":
             self._track_visit(path)
             return self._html(DQC_PAGE)
-        if path == "/":
+        if path in ("/", "/report", "/report.html"):
             self._track_visit(path)
-            self.path = "/index.html"
+            self.path = "/report.html"
             return super().do_GET()
         return super().do_GET()
 
