@@ -13,6 +13,7 @@ import db
 
 # Generate summary data
 data = factory_data.generate()
+hummel_account_data = factory_data.generate(customer_company='Hummel Pro NA')
 
 months = data['months']
 total_monthly = {m: {'qty': v['qty'], 'orders': v.get('orders', 0)} for m, v in data['total_monthly'].items()}
@@ -305,6 +306,29 @@ ytd_factories.sort(key=lambda x: -x['rate'])
 
 
 DATA_JSON = json.dumps(report_data, cls=factory_data.DecimalEncoder)
+
+def account_report_json(account_data):
+    months = account_data['months']
+    monthly = account_data['total_monthly']
+    remakes = account_data.get('remake_by_month', {})
+    return {
+        'months': [month_labels.get(m, m) for m in months],
+        'monthlyVolume': [monthly.get(m, {}).get('qty', 0) for m in months],
+        'monthlyOrders': [monthly.get(m, {}).get('orders', 0) for m in months],
+        'monthlyRemakeOrders': [remakes.get(m, {}).get('orders', 0) for m in months],
+        'monthlyRemakeQty': [remakes.get(m, {}).get('qty', 0) for m in months],
+        'totalVolume': sum(monthly.get(m, {}).get('qty', 0) for m in months),
+        'totalOrders': sum(monthly.get(m, {}).get('orders', 0) for m in months),
+        'totalRemakeOrders': sum(remakes.get(m, {}).get('orders', 0) for m in months),
+        'totalRemakeQty': sum(remakes.get(m, {}).get('qty', 0) for m in months),
+        'factories': [{
+            'name': f['name'], 'volume': f.get('volume', 0), 'orders': f.get('orders', 0),
+            'remake_orders': f.get('remake_orders', 0), 'remake_qty': f.get('remake_qty', 0)
+        } for f in account_data.get('factories', [])],
+        'factoryMonthly': account_data.get('factory_monthly', [])
+    }
+
+HUMMEL_DATA_JSON = json.dumps(account_report_json(hummel_account_data), cls=factory_data.DecimalEncoder)
 YTD_DATA_JSON = json.dumps({
     'months': ytd_month_labels,
     'monthKeys': ytd_months,
@@ -1779,6 +1803,17 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <table><thead><tr><th>Date</th><th>User</th><th>Order</th><th>Verdict</th><th>Rejection Reason</th><th>DQC Skill Version</th><th>Timestamp UTC</th></tr></thead><tbody id="dqcRunBody"><tr><td colspan="7">Loading…</td></tr></tbody></table>
     </div>
   </section>
+  <section id="hummel-pro-na" class="page">
+    <div class="card"><h3 class="section-title">Hummel PRO NA — Customer Account View</h3><div class="hint">Hidden account-specific view. Data is restricted to Bronze orders linked to company Hummel Pro NA, with Qarma and remake values filtered to those orders.</div></div>
+    <div class="exec-grid">
+      <div class="card metric"><div class="label">Total Orders</div><div class="value" id="hummelTotalOrders"></div></div>
+      <div class="card metric"><div class="label">Total Order QTY</div><div class="value" id="hummelTotalQty"></div></div>
+      <div class="card metric"><div class="label">Remake Orders</div><div class="value" id="hummelRemakeOrders"></div></div>
+      <div class="card metric"><div class="label">Remake QTY</div><div class="value" id="hummelRemakeQty"></div></div>
+    </div>
+    <div class="card"><h3 class="section-title">Month-wise Hummel PRO NA Summary</h3><table><thead><tr><th>Month</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th></tr></thead><tbody id="hummelMonthlyBody"></tbody></table></div>
+    <div class="card"><h3 class="section-title">Hummel PRO NA by Factory</h3><table><thead><tr><th>Factory</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th></tr></thead><tbody id="hummelFactoryBody"></tbody></table></div>
+  </section>
 
 <!-- Drill-down overlay -->
 <div class="drill-overlay" id="drillOverlay">
@@ -1792,6 +1827,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
 
 <script>
 const DATA = {DATA_JSON};
+const HUMMEL_DATA = {HUMMEL_DATA_JSON};
 const YTD = {YTD_DATA_JSON};
 const FACTORY_COLORS = {FACTORY_COLORS};
 const MONTH_KEYS = {MONTH_KEYS};
@@ -2561,6 +2597,25 @@ function mergeSavedQcRejections(saved) {{
     .then(function(saved) {{ mergeSavedQcRejections(saved); renderQcRejections(); setQcRejectionSaveStatus('Loaded saved annotations'); }})
     .catch(function() {{ setQcRejectionSaveStatus(QC_REJECTIONS_SAVE_URL ? 'Using embedded QC rejection data' : 'Local only — save endpoint unavailable'); }});
 }})();
+
+function renderHummelAccountPage() {{
+  const d = HUMMEL_DATA;
+  document.getElementById('hummelTotalOrders').textContent = (d.totalOrders || 0).toLocaleString();
+  document.getElementById('hummelTotalQty').textContent = (d.totalVolume || 0).toLocaleString();
+  document.getElementById('hummelRemakeOrders').textContent = (d.totalRemakeOrders || 0).toLocaleString();
+  document.getElementById('hummelRemakeQty').textContent = (d.totalRemakeQty || 0).toLocaleString();
+  const remO = d.monthlyRemakeOrders || [], remQ = d.monthlyRemakeQty || [];
+  document.getElementById('hummelMonthlyBody').innerHTML = (d.months || []).map(function(m, i) {{ return '<tr><td><strong>' + esc(m) + '</strong></td><td class="right">' + ((d.monthlyOrders || [])[i] || 0).toLocaleString() + '</td><td class="right">' + ((d.monthlyVolume || [])[i] || 0).toLocaleString() + '</td><td class="right">' + (remO[i] || 0).toLocaleString() + '</td><td class="right">' + (remQ[i] || 0).toLocaleString() + '</td></tr>'; }}).join('');
+  document.getElementById('hummelFactoryBody').innerHTML = (d.factories || []).map(function(f) {{ return '<tr><td><strong>' + esc(f.name || '') + '</strong></td><td class="right">' + (f.orders || 0).toLocaleString() + '</td><td class="right">' + (f.volume || 0).toLocaleString() + '</td><td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td><td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td></tr>'; }}).join('');
+}}
+function showHummelAccountPage() {{
+  document.querySelectorAll('.page').forEach(function(p) {{ p.classList.remove('active'); }});
+  document.querySelectorAll('.tab').forEach(function(t) {{ t.classList.remove('active'); }});
+  const page = document.getElementById('hummel-pro-na');
+  if (page) page.classList.add('active');
+  renderHummelAccountPage();
+}}
+if (window.location.hash.toLowerCase() === '#hummel-pro-na') showHummelAccountPage();
 
 </script>
 </body>

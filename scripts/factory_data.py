@@ -191,10 +191,20 @@ MANUAL_FACTORY = {
     "24728": "Mavic Sports",  # socks made by Mavic, shirts by Rajco — only socks defective
 }
 
-def generate(defects_only=False):
-    """Generate factory defect data. Returns dict."""
+def generate(defects_only=False, customer_company=None):
+    """Generate factory defect data. Optionally restrict to one Bronze customer company."""
     conn = db.connect()
     cur = conn.cursor()
+    customer_order_nums = None
+    if customer_company:
+        cur.execute("""
+            SELECT DISTINCT o.order_no
+            FROM orders o
+            JOIN customers c ON c.id = o.customer_id
+            JOIN companies co ON co.id = c.company_id
+            WHERE co.company_name = %s AND o.deleted_at IS NULL
+        """, (customer_company,))
+        customer_order_nums = {str(r[0]) for r in cur.fetchall()}
 
     # Fetch fu messages (optional — falls back to manual data)
     try:
@@ -256,6 +266,8 @@ def generate(defects_only=False):
     order_map = {}
     for r in rows:
         ono = str(r[0])
+        if customer_order_nums is not None and ono not in customer_order_nums:
+            continue
         month = str(r[1])[:7] if r[1] else "?"
         order_map[ono] = {'month': month, 'factory': norm_factory(r[2]), 'qty': r[3] or 0}
 
@@ -307,6 +319,8 @@ def generate(defects_only=False):
 
     cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol = 'R' AND o.created_at >= %s AND o.created_at < %s AND o.deleted_at IS NULL", (REPORT_START, REPORT_END))
     backend_remake_orders = set(str(r[0]) for r in cur.fetchall()) - remake_backend_actions.EXCLUDED_REMAKE_ORDERS
+    if customer_order_nums is not None:
+        backend_remake_orders &= customer_order_nums
 
     # Qarma is authoritative for shipment/order qty + month whenever physical-QC data exists.
     # Backend shipment data is used only for orders absent from the Qarma export.
@@ -317,6 +331,8 @@ def generate(defects_only=False):
         f = qr['factory']
         qty = qr['qty']
         ono = str(qr['order_no'])
+        if customer_order_nums is not None and ono not in customer_order_nums:
+            continue
         qarma_order_numbers.add(ono)
         factory_month_pipe[f][month]['qty'] += qty
         key = (f, month, ono)
@@ -351,6 +367,8 @@ WHERE oi.status_updated_at >= %s
             continue
         qty = r[2] or 0
         ono = str(r[3])
+        if customer_order_nums is not None and ono not in customer_order_nums:
+            continue
         if ono in qarma_order_numbers:
             continue
         order_type_symbol = r[4]
