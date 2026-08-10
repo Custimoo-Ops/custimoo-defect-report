@@ -301,7 +301,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             return self._html(DQC_PAGE)
         if path in ("/", "/report", "/report.html", "/hummel-pro-na"):
             self._track_visit(path)
-            self.path = "/report.html"
+            self.path = "/index.html"
             return super().do_GET()
         return super().do_GET()
 
