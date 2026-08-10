@@ -1808,11 +1808,11 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <div class="exec-grid">
       <div class="card metric"><div class="label">Total Orders</div><div class="value" id="hummelTotalOrders"></div></div>
       <div class="card metric"><div class="label">Total Order QTY</div><div class="value" id="hummelTotalQty"></div></div>
-      <div class="card metric"><div class="label">Remake Orders</div><div class="value" id="hummelRemakeOrders"></div></div>
-      <div class="card metric"><div class="label">Remake QTY</div><div class="value" id="hummelRemakeQty"></div></div>
+      <div class="card metric"><div class="label">Remake Orders</div><div class="value" id="hummelRemakeOrders"></div><div class="sub" id="hummelOrderErrorRate"></div></div>
+      <div class="card metric"><div class="label">Remake QTY</div><div class="value" id="hummelRemakeQty"></div><div class="sub" id="hummelQtyErrorRate"></div></div>
     </div>
-    <div class="card"><h3 class="section-title">Month-wise Hummel PRO NA Summary</h3><table><thead><tr><th>Month</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th></tr></thead><tbody id="hummelMonthlyBody"></tbody></table></div>
-    <div class="card"><h3 class="section-title">Hummel PRO NA by Factory</h3><table><thead><tr><th>Factory</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake QTY</th></tr></thead><tbody id="hummelFactoryBody"></tbody></table></div>
+    <div class="card"><h3 class="section-title">Month-wise Hummel PRO NA Summary</h3><table><thead><tr><th>Month</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake Orders Error%</th><th class="right">Remake QTY</th><th class="right">Remake QTY Error%</th></tr></thead><tbody id="hummelMonthlyBody"></tbody></table></div>
+    <div class="card"><h3 class="section-title">Hummel PRO NA by Factory</h3><table><thead><tr><th>Factory</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remake Orders</th><th class="right">Remake Orders Error%</th><th class="right">Remake QTY</th><th class="right">Remake QTY Error%</th></tr></thead><tbody id="hummelFactoryBody"></tbody></table></div>
   </section>
 
 <!-- Drill-down overlay -->
@@ -2600,13 +2600,16 @@ function mergeSavedQcRejections(saved) {{
 
 function renderHummelAccountPage() {{
   const d = HUMMEL_DATA;
+  const pct = function(n, den) {{ return den > 0 ? (n / den * 100).toFixed(2) + '%' : '—'; }};
   document.getElementById('hummelTotalOrders').textContent = (d.totalOrders || 0).toLocaleString();
   document.getElementById('hummelTotalQty').textContent = (d.totalVolume || 0).toLocaleString();
   document.getElementById('hummelRemakeOrders').textContent = (d.totalRemakeOrders || 0).toLocaleString();
   document.getElementById('hummelRemakeQty').textContent = (d.totalRemakeQty || 0).toLocaleString();
+  document.getElementById('hummelOrderErrorRate').textContent = 'Remake Orders Error%: ' + pct(d.totalRemakeOrders || 0, d.totalOrders || 0);
+  document.getElementById('hummelQtyErrorRate').textContent = 'Remake QTY Error%: ' + pct(d.totalRemakeQty || 0, d.totalVolume || 0);
   const remO = d.monthlyRemakeOrders || [], remQ = d.monthlyRemakeQty || [];
-  document.getElementById('hummelMonthlyBody').innerHTML = (d.months || []).map(function(m, i) {{ return '<tr><td><strong>' + esc(m) + '</strong></td><td class="right">' + ((d.monthlyOrders || [])[i] || 0).toLocaleString() + '</td><td class="right">' + ((d.monthlyVolume || [])[i] || 0).toLocaleString() + '</td><td class="right">' + (remO[i] || 0).toLocaleString() + '</td><td class="right">' + (remQ[i] || 0).toLocaleString() + '</td></tr>'; }}).join('');
-  document.getElementById('hummelFactoryBody').innerHTML = (d.factories || []).map(function(f) {{ return '<tr><td><strong>' + esc(f.name || '') + '</strong></td><td class="right">' + (f.orders || 0).toLocaleString() + '</td><td class="right">' + (f.volume || 0).toLocaleString() + '</td><td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td><td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td></tr>'; }}).join('');
+  document.getElementById('hummelMonthlyBody').innerHTML = (d.months || []).map(function(m, i) {{ const orders = ((d.monthlyOrders || [])[i] || 0), volume = ((d.monthlyVolume || [])[i] || 0), remakeOrders = remO[i] || 0, remakeQty = remQ[i] || 0; return '<tr><td><strong>' + esc(m) + '</strong></td><td class="right">' + orders.toLocaleString() + '</td><td class="right">' + volume.toLocaleString() + '</td><td class="right">' + remakeOrders.toLocaleString() + '</td><td class="right">' + pct(remakeOrders, orders) + '</td><td class="right">' + remakeQty.toLocaleString() + '</td><td class="right">' + pct(remakeQty, volume) + '</td></tr>'; }}).join('');
+  document.getElementById('hummelFactoryBody').innerHTML = (d.factories || []).map(function(f) {{ const orders = f.orders || 0, volume = f.volume || 0, remakeOrders = f.remake_orders || 0, remakeQty = f.remake_qty || 0; return '<tr><td><strong>' + esc(f.name || '') + '</strong></td><td class="right">' + orders.toLocaleString() + '</td><td class="right">' + volume.toLocaleString() + '</td><td class="right">' + remakeOrders.toLocaleString() + '</td><td class="right">' + pct(remakeOrders, orders) + '</td><td class="right">' + remakeQty.toLocaleString() + '</td><td class="right">' + pct(remakeQty, volume) + '</td></tr>'; }}).join('');
 }}
 function showHummelAccountPage() {{
   document.querySelectorAll('.page').forEach(function(p) {{ p.classList.remove('active'); }});
