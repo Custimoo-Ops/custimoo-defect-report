@@ -1593,9 +1593,28 @@ html = f"""<!DOCTYPE html>
   th {{ font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: #fafbff; }}
   .wrap:has(#qc-rejections.active) {{ max-width: 1800px; }}
   .qc-rejections-scroll {{ overflow: auto; max-height: 70vh; }}
-  .qc-rejections-table {{ min-width: 2050px; }}
+  .qc-rejections-table {{ min-width: 0; table-layout: fixed; }}
   .qc-rejections-table thead th {{ position: sticky; top: 0; z-index: 3; background: #fafbff; box-shadow: 0 1px 0 var(--border); }}
-  .qc-comment {{ min-width: 420px; max-width: 560px; white-space: pre-wrap; vertical-align: top; }}
+  .qc-comment {{ width: 18%; min-width: 0; max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; vertical-align: top; }}
+  .qc-rejections-table td {{ overflow-wrap: anywhere; vertical-align: top; }}
+  .qc-rejections-table .qc-edit {{ width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }}
+  @media (max-width: 1400px) {{
+    .wrap:has(#qc-rejections.active) {{ max-width: 100%; }}
+    .qc-rejections-scroll {{ overflow-x: hidden; max-height: none; }}
+    .qc-rejections-table, .qc-rejections-table tbody, .qc-rejections-table tr, .qc-rejections-table td {{ display: block; width: auto; }}
+    .qc-rejections-table {{ border-collapse: separate; border-spacing: 0 14px; }}
+    .qc-rejections-table thead {{ display: none; }}
+    .qc-rejections-table tr {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--card); box-shadow: 0 1px 3px rgba(16,24,40,.06); }}
+    .qc-rejections-table td {{ min-height: 48px; padding: 9px 12px 9px 118px; position: relative; border-bottom: 1px solid var(--border); }}
+    .qc-rejections-table td::before {{ content: attr(data-label); position: absolute; left: 12px; top: 10px; width: 96px; font-size: 10px; line-height: 1.2; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }}
+    .qc-rejections-table td:nth-last-child(-n+2) {{ border-bottom: 0; }}
+    .qc-rejections-table .qc-comment {{ width: auto; min-width: 0; }}
+    .qc-rejections-table td:nth-child(5), .qc-rejections-table td:nth-child(15), .qc-rejections-table td:nth-child(16) {{ grid-column: 1 / -1; }}
+  }}
+  @media (max-width: 700px) {{
+    .qc-rejections-table tr {{ grid-template-columns: 1fr; }}
+    .qc-rejections-table td, .qc-rejections-table td:nth-child(5), .qc-rejections-table td:nth-child(15), .qc-rejections-table td:nth-child(16) {{ grid-column: auto; }}
+  }}
   tr.clickable {{ cursor: pointer; transition: background 0.12s ease; }}
   tr.clickable:hover {{ background: #f0f6ff; }}
   tr.selected {{ background: #eaf2ff !important; box-shadow: inset 4px 0 0 var(--accent); }}
@@ -2563,22 +2582,22 @@ function renderQcRejections() {{
     const selectedCustimoo = r.error_type === 'Custimoo error' ? ' selected' : '';
     const selectedFactory = r.error_type === 'Factory error' ? ' selected' : '';
     return '<tr data-order="' + escapeAttr(order) + '">'
-      + '<td class="order-num">' + qcBackendOrderHtml(r) + '</td>'
-      + '<td>' + esc(r.date || r.month || '') + '</td>'
-      + '<td>' + esc(r.factory || '') + '</td>'
-      + '<td>' + esc(r.items || '') + '</td>'
-      + '<td class="qc-comment">' + esc(r.qc_comment || '—') + '</td>'
-      + '<td class="right">' + (r.total_qty || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (r.sample_qty || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (r.defects_qty || 0).toLocaleString() + '</td>'
-      + '<td>' + esc(r.severities || 'Not specified') + '</td>'
-      + '<td>' + esc(r.inspectors || '') + '</td>'
-      + '<td>' + (r.final_approved ? 'Yes' + (r.final_approval_type ? ' · ' + esc(r.final_approval_type) : '') + (r.final_approval_date ? ' · ' + esc(r.final_approval_date) : '') : 'No') + '</td>'
-      + '<td>' + (r.shipped ? 'Yes' + (r.shipping_date ? ' · ' + esc(r.shipping_date) : '') : 'No') + '</td>'
-      + '<td>' + qcTrackingHtml(r) + '</td>'
-      + '<td><select class="qc-edit qc-error-type" aria-label="Error type for order ' + escapeAttr(order) + '"><option value="">Investigating</option><option value="Custimoo error"' + selectedCustimoo + '>Custimoo error</option><option value="Factory error"' + selectedFactory + '>Factory error</option></select></td>'
-      + '<td><input class="qc-edit qc-avoidance" aria-label="How to avoid error for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.avoidance_action || '') + '" placeholder="Preventive action"></td>'
-      + '<td><input class="qc-edit qc-work-comment" aria-label="Work notes for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.work_comment || '') + '" placeholder="Investigation / follow-up"></td>'
+      + '<td data-label="Order" class="order-num">' + qcBackendOrderHtml(r) + '</td>'
+      + '<td data-label="QC Date">' + esc(r.date || r.month || '') + '</td>'
+      + '<td data-label="Factory">' + esc(r.factory || '') + '</td>'
+      + '<td data-label="Items">' + esc(r.items || '') + '</td>'
+      + '<td data-label="QC Comment" class="qc-comment">' + esc(r.qc_comment || '—') + '</td>'
+      + '<td data-label="Order QTY" class="right">' + (r.total_qty || 0).toLocaleString() + '</td>'
+      + '<td data-label="QTY Checked" class="right">' + (r.sample_qty || 0).toLocaleString() + '</td>'
+      + '<td data-label="Defect QTY" class="right">' + (r.defects_qty || 0).toLocaleString() + '</td>'
+      + '<td data-label="Severity">' + esc(r.severities || 'Not specified') + '</td>'
+      + '<td data-label="Inspector">' + esc(r.inspectors || '') + '</td>'
+      + '<td data-label="Final QC Approved">' + (r.final_approved ? 'Yes' + (r.final_approval_type ? ' · ' + esc(r.final_approval_type) : '') + (r.final_approval_date ? ' · ' + esc(r.final_approval_date) : '') : 'No') + '</td>'
+      + '<td data-label="Shipped">' + (r.shipped ? 'Yes' + (r.shipping_date ? ' · ' + esc(r.shipping_date) : '') : 'No') + '</td>'
+      + '<td data-label="Tracking">' + qcTrackingHtml(r) + '</td>'
+      + '<td data-label="Error Type"><select class="qc-edit qc-error-type" aria-label="Error type for order ' + escapeAttr(order) + '"><option value="">Investigating</option><option value="Custimoo error"' + selectedCustimoo + '>Custimoo error</option><option value="Factory error"' + selectedFactory + '>Factory error</option></select></td>'
+      + '<td data-label="How to Avoid"><input class="qc-edit qc-avoidance" aria-label="How to avoid error for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.avoidance_action || '') + '" placeholder="Preventive action"></td>'
+      + '<td data-label="Work Notes"><input class="qc-edit qc-work-comment" aria-label="Work notes for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.work_comment || '') + '" placeholder="Investigation / follow-up"></td>'
       + '</tr>';
   }}).join('') || '<tr><td colspan="16">No eligible QC rejections in the report period.</td></tr>';
   document.getElementById('qcRejectionCount').textContent = rows.length + ' rejected orders';
