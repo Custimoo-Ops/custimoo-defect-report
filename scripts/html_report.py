@@ -1902,11 +1902,17 @@ document.querySelectorAll('.tab[data-target]').forEach(function(btn) {{
     document.querySelectorAll('.page').forEach(function(p) {{ p.classList.remove('active'); }});
     btn.classList.add('active');
     document.getElementById(btn.dataset.target).classList.add('active');
+    if (window.location.pathname.toLowerCase() !== '/hummel-pro-na') history.replaceState(null, '', '#' + btn.dataset.target);
     if (btn.dataset.target === 'ytd') setTimeout(renderYtdChart, 0);
     if (btn.dataset.target === 'dqc-usage') setTimeout(loadDqcUsage, 0);
     if (trendChart) setTimeout(function() {{ trendChart.resize(); }}, 0);
   }});
 }});
+const savedTab = window.location.hash.replace(/^#/, '').toLowerCase();
+if (savedTab && savedTab !== 'hummel-pro-na') {{
+  const savedButton = document.querySelector('.tab[data-target="' + savedTab + '"]');
+  if (savedButton) savedButton.click();
+}}
 
 // ── Drill-down ──
 function dqcQs() {{
