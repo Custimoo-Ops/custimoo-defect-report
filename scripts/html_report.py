@@ -1304,18 +1304,19 @@ else:
     remake_cur = conn.cursor()
     remake_cur.execute("""
 SELECT o.order_no,
-       COALESCE(NULLIF(o.price_info->>'total_quantity', '')::numeric, 0)::int as qty,
+       COALESCE(SUM(COALESCE(NULLIF(product->'prices'->>'total_quantity', '')::numeric, 0)), 0)::int as qty,
        COALESCE(u.name, u.email::text, '(unknown)') AS admin_name,
        to_char(o.created_at, 'YYYY-MM') as month,
        COALESCE(string_agg(DISTINCT oi.factory_name, ', ' ORDER BY oi.factory_name), '(unknown)') as factories
 FROM orders o
 LEFT JOIN users u ON u.id = o.order_administrator_id
 LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
+LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(oi.factory_products) = 'array' THEN oi.factory_products ELSE '[]'::jsonb END) AS product ON TRUE
 WHERE o.order_type_symbol = 'R'
   AND o.created_at >= %s
   AND o.created_at < %s
   AND o.deleted_at IS NULL
-GROUP BY o.order_no, o.price_info, u.name, u.email, o.created_at
+GROUP BY o.order_no, u.name, u.email, o.created_at
 ORDER BY qty DESC
 """, (factory_data.REPORT_START, factory_data.REPORT_END))
     REMAKE_MGMT = [{"order": str(r[0]), "qty": int(r[1]) if r[1] else 0, "admin": r[2], "month": str(r[3])[:7] if r[3] else "?", "factory": r[4], "category": "", "comment": "", "flag": ""} for r in remake_cur.fetchall()]
@@ -1326,18 +1327,19 @@ ORDER BY qty DESC
 remake_cur = conn.cursor()
 remake_cur.execute("""
 SELECT o.order_no,
-       COALESCE(NULLIF(o.price_info->>'total_quantity', '')::numeric, 0)::int,
+       COALESCE(SUM(COALESCE(NULLIF(product->'prices'->>'total_quantity', '')::numeric, 0)), 0)::int,
        COALESCE(u.name, u.email::text, '(unknown)'),
        to_char(o.created_at, 'YYYY-MM'),
        COALESCE(string_agg(DISTINCT oi.factory_name, ', ' ORDER BY oi.factory_name), '(unknown)')
 FROM orders o
 LEFT JOIN users u ON u.id = o.order_administrator_id
 LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
+LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(oi.factory_products) = 'array' THEN oi.factory_products ELSE '[]'::jsonb END) AS product ON TRUE
 WHERE o.order_type_symbol = 'R'
   AND o.created_at >= %s
   AND o.created_at < %s
   AND o.deleted_at IS NULL
-GROUP BY o.order_no, o.price_info, u.name, u.email, o.created_at
+GROUP BY o.order_no, u.name, u.email, o.created_at
 """, (factory_data.REPORT_START, factory_data.REPORT_END))
 existing_remake_orders = {str(r.get('order') or '').replace('#', '').strip() for r in REMAKE_MGMT}
 for _row in remake_cur.fetchall():
