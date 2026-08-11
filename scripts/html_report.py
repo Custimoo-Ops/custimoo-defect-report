@@ -1412,6 +1412,7 @@ for _row in load_qarma_rows():
         'inspectors': set(),
         'comments': [],
         'inspections': set(),
+        'inspection_quantities': {},
         'severities': set(),
         'total_qty': 0,
         'sample_qty': 0,
@@ -1438,9 +1439,15 @@ for _row in load_qarma_rows():
     if _row.get('Inspector name'): _g['inspectors'].add(str(_row['Inspector name']).strip())
     if _row.get('Report inspection id') or _row.get('Inspection id'):
         _g['inspections'].add(str(_row.get('Report inspection id') or _row.get('Inspection id')))
-    _g['total_qty'] = max(_g['total_qty'], safe_int(_row.get('Original total quantity')))
-    _g['sample_qty'] += safe_int(_row.get('Actual sample quantity'))
-    _g['defects_qty'] += sum(safe_int(_row.get(k)) for k in ('Minor defects pieces affected', 'Major defects pieces affected', 'Critical defects pieces affected'))
+    _inspection_id = str(_row.get('Report inspection id') or _row.get('Inspection id') or _row.get('Link to report') or (_order + '|' + str(_date))).strip()
+    _row_defects_qty = sum(safe_int(_row.get(k)) for k in ('Minor defects pieces affected', 'Major defects pieces affected', 'Critical defects pieces affected'))
+    _inspection_qty = _g['inspection_quantities'].setdefault(_inspection_id, {'total_qty': 0, 'sample_qty': 0, 'defects_qty': 0})
+    _inspection_qty['total_qty'] = max(_inspection_qty['total_qty'], safe_int(_row.get('Original total quantity')))
+    _inspection_qty['sample_qty'] = max(_inspection_qty['sample_qty'], safe_int(_row.get('Actual sample quantity')))
+    _inspection_qty['defects_qty'] = max(_inspection_qty['defects_qty'], _row_defects_qty)
+    _g['total_qty'] = max(_g['total_qty'], _inspection_qty['total_qty'])
+    _g['sample_qty'] = sum(x['sample_qty'] for x in _g['inspection_quantities'].values())
+    _g['defects_qty'] = min(sum(x['defects_qty'] for x in _g['inspection_quantities'].values()), _g['total_qty']) if _g['total_qty'] > 0 else sum(x['defects_qty'] for x in _g['inspection_quantities'].values())
     if _row.get('Inspector comment'):
         _g['comments'].append(str(_row['Inspector comment']).strip())
 
@@ -1478,6 +1485,7 @@ for _g in _qc_rejection_groups.values():
     _g['backend_id'], _g['shipped'], _g['shipping_date'], _g['tracking_no'], _g['tracking_link'] = _qc_shipment_state.get(_g['order'], ('', False, '', '', ''))
     _g['qc_comment'] = ' · '.join(dict.fromkeys(x for x in _g['comments'] if x))[:1200]
     del _g['comments']
+    _g.pop('inspection_quantities', None)
     QC_REJECTIONS.append(_g)
 QC_REJECTIONS.sort(key=lambda r: (r.get('month') or '', int(r.get('order') or 0)), reverse=True)
 QC_REJECTIONS_JSON = json.dumps(QC_REJECTIONS, cls=factory_data.DecimalEncoder).replace('<', '\\\\u003C').replace('>', '\\\\u003E')
