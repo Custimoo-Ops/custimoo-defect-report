@@ -1,0 +1,30 @@
+name: Configure Azure Annotation CORS
+on:
+  workflow_dispatch:
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Azure SDK
+        run: pip install azure-storage-blob
+      - name: Configure CORS
+        env:
+          KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from azure.storage.blob import BlobServiceClient, CorsRule
+          account='custimoolivedata'
+          service=BlobServiceClient(account_url=f'https://{account}.blob.core.windows.net', credential=os.environ['KEY'].strip())
+          props=service.get_service_properties()
+          origins=['https://custimoo-defect-report-lars.fly.dev']
+          existing=[]
+          for rule in (props.get('cors', []) or []):
+              if getattr(rule, 'allowed_origins', None) and any(o in rule.allowed_origins for o in origins):
+                  continue
+              existing.append(rule)
+          existing.append(CorsRule(allowed_origins=origins, allowed_methods=['GET','PUT','OPTIONS','HEAD'], allowed_headers=['*'], exposed_headers=['*'], max_age_in_seconds=3600))
+          service.set_service_properties(cors=existing)
+          print('cors_configured_for_report_origin: True')
+          print('cors_rule_count:', len(existing))
+          PY
