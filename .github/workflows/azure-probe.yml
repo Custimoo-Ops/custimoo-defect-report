@@ -1,0 +1,38 @@
+name: Azure Key Diagnostic
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install azure SDK
+        run: pip install azure-storage-blob
+      - name: Probe storage key
+        env:
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os, base64
+          from azure.storage.blob import BlobServiceClient
+          key = os.environ.get('AZURE_STORAGE_KEY', '')
+          print('key_len', len(key))
+          print('looks_b64', all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=' for c in key.strip()))
+          try:
+              decoded = base64.b64decode(key.strip(), validate=True)
+              print('decoded_bytes', len(decoded))
+          except Exception as e:
+              print('b64_decode_failed', type(e).__name__)
+          try:
+              svc = BlobServiceClient(account_url='https://custimoolivedata.blob.core.windows.net', credential=key.strip())
+              svc.get_service_properties()
+              print('service_properties_ok True')
+          except Exception as e:
+              print('service_properties_ok False ->', type(e).__name__, str(e)[:200])
+          try:
+              client = svc.get_blob_client(container='$web', blob='remake-mgmt-data.json')
+              print('blob_exists', client.exists())
+          except Exception as e:
+              print('blob_exists_error ->', type(e).__name__, str(e)[:200])
+          PY
