@@ -1,0 +1,24 @@
+name: Azure Annotation Write Check
+on:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Azure SDK
+        run: pip install azure-storage-blob requests
+      - name: Test shared blob write path
+        env:
+          KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import datetime, json, os, requests
+          from azure.storage.blob import generate_blob_sas, BlobSasPermissions
+          account='custimoolivedata'; blob='remake-mgmt-data.json'
+          sas=generate_blob_sas(account_name=account, container_name='$web', blob_name=blob, account_key=os.environ['KEY'].strip(), permission=BlobSasPermissions(read=True,write=True,create=True), expiry=datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(minutes=10), api_version='2021-12-02')
+          url=f'https://{account}.blob.core.windows.net/$web/{blob}?{sas}'
+          payload=json.dumps({'__diagnostic__':'temporary'}).encode()
+          for method, headers in [('OPTIONS', {'Origin':'https://custimoo-defect-report-lars.fly.dev','Access-Control-Request-Method':'PUT','Access-Control-Request-Headers':'content-type,x-ms-blob-type'}), ('PUT', {'Origin':'https://custimoo-defect-report-lars.fly.dev','x-ms-blob-type':'BlockBlob','Content-Type':'application/json'})]:
+              r=requests.request(method,url,headers=headers,data=payload if method=='PUT' else None,timeout=30)
+              print(method, r.status_code, 'allow_origin=',r.headers.get('Access-Control-Allow-Origin'), 'allow_methods=',r.headers.get('Access-Control-Allow-Methods'), 'body=',r.text[:120].replace('\n',' '))
+          PY
