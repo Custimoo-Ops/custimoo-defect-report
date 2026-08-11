@@ -1,0 +1,24 @@
+name: Azure Key Format Check
+on:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate key format without exposing it
+        env:
+          KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          key=os.environ.get('KEY','').strip()
+          print('configured:', bool(key))
+          print('length:', len(key))
+          try:
+              decoded=base64.b64decode(key, validate=True)
+              print('valid_base64:', True)
+              print('decoded_length:', len(decoded))
+          except Exception as exc:
+              print('valid_base64:', False)
+              print('error_type:', type(exc).__name__)
+          PY
