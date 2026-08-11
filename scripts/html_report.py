@@ -1485,7 +1485,7 @@ REMAKE_MGMT_JSON = REMAKE_MGMT_JSON.replace('<', '\\u003C').replace('>', '\\u003
 conn.close()
 
 # ── Remake Mgmt SAS token for universal save ──
-from azure.storage.blob import BlobServiceClient, generate_blob_sas, BlobSasPermissions
+from azure.storage.blob import BlobServiceClient, ContentSettings, generate_blob_sas, BlobSasPermissions
 from datetime import datetime, timedelta, timezone
 AZURE_ACCOUNT = os.environ.get("AZURE_STORAGE_ACCOUNT", "custimoolivedata")
 AZURE_KEY = os.environ.get("AZURE_STORAGE_KEY", "")
@@ -1502,13 +1502,27 @@ def make_blob_sas_url(blob_name):
         api_version='2021-12-02'
     )
     return f'https://{AZURE_ACCOUNT}.blob.core.windows.net/$web/{blob_name}?{sas_token}'
+
+def ensure_shared_blob(blob_name, initial_payload):
+    """Create a shared annotation blob once; never overwrite user edits during report generation."""
+    if not AZURE_KEY:
+        return False
+    service = BlobServiceClient(account_url=f'https://{AZURE_ACCOUNT}.blob.core.windows.net', credential=AZURE_KEY)
+    blob = service.get_blob_client(container='$web', blob=blob_name)
+    if not blob.exists():
+        blob.upload_blob(json.dumps(initial_payload), overwrite=False, content_settings=ContentSettings(content_type='application/json'))
+        return True
+    return False
+
 REMAKE_SAS_URL = ''
 QC_REJECTIONS_SAS_URL = ''
 try:
+    ensure_shared_blob('remake-mgmt-data.json', [])
+    ensure_shared_blob('qc-rejections-data.json', [])
     REMAKE_SAS_URL = make_blob_sas_url('remake-mgmt-data.json')
     QC_REJECTIONS_SAS_URL = make_blob_sas_url('qc-rejections-data.json')
 except Exception as e:
-    print("Warning: could not generate SAS token:", e)
+    print("Warning: could not initialize shared annotation blobs or generate SAS token:", e)
 
 
 
@@ -2460,13 +2474,15 @@ function scheduleRemakeSave() {{
   remakeSaveTimer = setTimeout(saveRemakes, 700);
 }}
 function mergeSavedRemakes(saved) {{
-  if (!Array.isArray(saved)) return;
-  const byOrder = new Map(saved.map(function(r) {{ return [remakeOrderKey(r), r]; }}));
+  if (!saved) return;
+  const entries = Array.isArray(saved) ? saved : Object.keys(saved).map(function(k) {{ const v = saved[k] || {{}}; return Object.assign({{}}, typeof v === 'object' ? v : {{}}, {{ order: String(k).replace(/^#/, '').trim() }}); }});
+  if (!entries.length) return;
+  const byOrder = new Map(entries.map(function(r) {{ return [remakeOrderKey(r), r]; }}));
   remakeRows.forEach(function(r) {{
     const savedRow = byOrder.get(remakeOrderKey(r));
-    if (savedRow) {{ r.category = savedRow.category || ''; r.culprit = savedRow.culprit || ''; r.comment = savedRow.comment || ''; }}
+    if (savedRow) {{ r.category = savedRow.category || r.category || ''; r.culprit = savedRow.culprit || r.culprit || ''; r.comment = savedRow.comment || r.comment || ''; }}
   }});
-  remakeRows = remakeRows.concat(saved.filter(function(r) {{ return !remakeRows.some(function(x) {{ return remakeOrderKey(x) === remakeOrderKey(r); }}); }}));
+  remakeRows = remakeRows.concat(entries.filter(function(r) {{ return !remakeRows.some(function(x) {{ return remakeOrderKey(x) === remakeOrderKey(r); }}); }}));
 }}
 
 // Init Remake Mgmt
@@ -2570,11 +2586,13 @@ function scheduleQcRejectionSave() {{
   qcRejectionSaveTimer = setTimeout(saveQcRejections, 700);
 }}
 function mergeSavedQcRejections(saved) {{
-  if (!Array.isArray(saved)) return;
-  const byOrder = new Map(saved.map(function(r) {{ return [qcRejectionKey(r), r]; }}));
+  if (!saved) return;
+  const entries = Array.isArray(saved) ? saved : Object.keys(saved).map(function(k) {{ const v = saved[k] || {{}}; return Object.assign({{}}, typeof v === 'object' ? v : {{}}, {{ order: String(k).replace(/^#/, '').trim() }}); }});
+  if (!entries.length) return;
+  const byOrder = new Map(entries.map(function(r) {{ return [qcRejectionKey(r), r]; }}));
   qcRejectionRows.forEach(function(r) {{
     const savedRow = byOrder.get(qcRejectionKey(r));
-    if (savedRow) {{ r.error_type = savedRow.error_type || ''; r.avoidance_action = savedRow.avoidance_action || ''; r.work_comment = savedRow.work_comment || ''; }}
+    if (savedRow) {{ r.error_type = savedRow.error_type || r.error_type || ''; r.avoidance_action = savedRow.avoidance_action || r.avoidance_action || ''; r.work_comment = savedRow.work_comment || r.work_comment || ''; }}
   }});
 }}
 (function() {{
