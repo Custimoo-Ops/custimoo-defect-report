@@ -1358,6 +1358,20 @@ for _row in remake_cur.fetchall():
     })
 remake_cur.close()
 
+# Add Bronze customer/company names to every remake row.
+_remake_customer_cur = conn.cursor()
+_remake_customer_cur.execute("""
+SELECT o.order_no, COALESCE(NULLIF(co.company_name, ''), NULLIF(BTRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), '(unknown)')
+FROM orders o
+LEFT JOIN customers c ON c.id = o.customer_id
+LEFT JOIN companies co ON co.id = c.company_id
+WHERE o.order_type_symbol = 'R' AND o.deleted_at IS NULL
+""")
+_remake_customer_by_order = {str(r[0]).replace('#', '').strip(): str(r[1] or '(unknown)') for r in _remake_customer_cur.fetchall()}
+_remake_customer_cur.close()
+for _r in REMAKE_MGMT:
+    _r['customer'] = _remake_customer_by_order.get(str(_r.get('order') or '').replace('#', '').strip(), _r.get('customer') or '(unknown)')
+
 # Apply permanent factory exclusions to this management tab as well.
 def _remake_factory_is_excluded(factory_text):
     return any(factory_data.is_excluded_factory(part.strip()) for part in str(factory_text or '').split(','))
@@ -1802,7 +1816,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       </div>
       <div style="overflow-x:auto;max-height:65vh;overflow-y:auto">
         <table class="remake-table"><thead>
-          <tr><th>Order</th><th class="right">QTY</th><th>Admin</th><th>Factory</th><th>Month</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
+          <tr><th>Order</th><th class="right">QTY</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
         </thead><tbody id="remakeMgmtBody"></tbody></table>
       </div>
     </div>
@@ -2476,6 +2490,7 @@ function renderRemakeMgmt(filterAdmin, filterMonth) {{
     return '<tr data-order="' + escapeAttr(order) + '">'
       + '<td class="order-num">#' + esc(order) + '</td>'
       + '<td class="right">' + (r.qty || 0).toLocaleString() + '</td>'
+      + '<td>' + esc(r.customer || '(unknown)') + '</td>'
       + '<td>' + esc(r.admin || '') + '</td>'
       + '<td>' + esc(r.factory || '') + '</td>'
       + '<td>' + esc(r.month || '') + '</td>'
