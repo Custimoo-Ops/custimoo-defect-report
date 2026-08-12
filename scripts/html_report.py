@@ -1592,24 +1592,21 @@ html = f"""<!DOCTYPE html>
   th, td {{ padding: 11px 10px; border-bottom: 1px solid var(--border); text-align: left; }}
   th {{ font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: #fafbff; }}
   .wrap:has(#qc-rejections.active) {{ max-width: 1800px; }}
-  .qc-rejections-scroll {{ overflow: auto; max-height: 70vh; }}
-  .qc-rejections-table {{ min-width: 0; table-layout: fixed; }}
-  .qc-rejections-table thead th {{ position: sticky; top: 0; z-index: 3; background: #fafbff; box-shadow: 0 1px 0 var(--border); }}
-  .qc-comment {{ width: 18%; min-width: 0; max-width: none; white-space: pre-wrap; overflow-wrap: anywhere; vertical-align: top; }}
-  .qc-rejections-table td {{ overflow-wrap: anywhere; vertical-align: top; }}
+  .qc-rejections-scroll {{ overflow-x: hidden; max-height: none; }}
+  .qc-rejections-table, .qc-rejections-table tbody, .qc-rejections-table tr, .qc-rejections-table td {{ display: block; width: auto; }}
+  .qc-rejections-table {{ min-width: 0; border-collapse: separate; border-spacing: 0 14px; table-layout: fixed; }}
+  .qc-rejections-table thead {{ display: none; }}
+  .qc-rejections-table tr {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--card); box-shadow: 0 1px 3px rgba(16,24,40,.06); }}
+  .qc-rejections-table td {{ min-height: 48px; padding: 9px 12px 9px 118px; position: relative; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; vertical-align: top; }}
+  .qc-rejections-table td::before {{ content: attr(data-label); position: absolute; left: 12px; top: 10px; width: 96px; font-size: 10px; line-height: 1.2; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }}
+  .qc-rejections-table td:nth-last-child(-n+4) {{ border-bottom: 0; }}
+  .qc-rejections-table .qc-comment {{ width: auto; min-width: 0; max-width: none; white-space: pre-wrap; }}
+  .qc-rejections-table td:nth-child(5), .qc-rejections-table td:nth-child(15), .qc-rejections-table td:nth-child(16) {{ grid-column: 1 / -1; }}
   .qc-rejections-table .qc-edit {{ width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }}
   @media (max-width: 1400px) {{
     .wrap:has(#qc-rejections.active) {{ max-width: 100%; }}
-    .qc-rejections-scroll {{ overflow-x: hidden; max-height: none; }}
-    .qc-rejections-table, .qc-rejections-table tbody, .qc-rejections-table tr, .qc-rejections-table td {{ display: block; width: auto; }}
-    .qc-rejections-table {{ border-collapse: separate; border-spacing: 0 14px; }}
-    .qc-rejections-table thead {{ display: none; }}
-    .qc-rejections-table tr {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--card); box-shadow: 0 1px 3px rgba(16,24,40,.06); }}
-    .qc-rejections-table td {{ min-height: 48px; padding: 9px 12px 9px 118px; position: relative; border-bottom: 1px solid var(--border); }}
-    .qc-rejections-table td::before {{ content: attr(data-label); position: absolute; left: 12px; top: 10px; width: 96px; font-size: 10px; line-height: 1.2; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }}
+    .qc-rejections-table tr {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
     .qc-rejections-table td:nth-last-child(-n+2) {{ border-bottom: 0; }}
-    .qc-rejections-table .qc-comment {{ width: auto; min-width: 0; }}
-    .qc-rejections-table td:nth-child(5), .qc-rejections-table td:nth-child(15), .qc-rejections-table td:nth-child(16) {{ grid-column: 1 / -1; }}
   }}
   @media (max-width: 700px) {{
     .qc-rejections-table tr {{ grid-template-columns: 1fr; }}
