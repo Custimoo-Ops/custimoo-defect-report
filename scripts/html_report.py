@@ -2455,6 +2455,7 @@ renderYtdFactoryTable();
 // ── Remake Management ──
 var remakeData = {{}};
 var remakeSaveTimer = null;
+var remakeDirtyFields = new Map();
 var remakeRows = REMAKES.slice();
 const REMAKE_CATEGORIES = ['Color Mismatch','Customer Change','Damaged / Soiled','Fabric / Material','Logo / Design','No Record Found','Other','Print / Sublimation','Quantity Short / Missing','Sizing / Fit','Stitching / Construction','Uncategorized','Wrong Product / SKU'];
 function remakeCategoryOptions(selected) {{
@@ -2511,9 +2512,15 @@ function setRemakeSaveStatus(text) {{
 function saveRemakes() {{
   if (!REMAKE_SAVE_URL) {{ setRemakeSaveStatus('Local only — save endpoint unavailable'); return; }}
   setRemakeSaveStatus('Saving…');
-  fetch(REMAKE_SAVE_URL, {{method:'PUT', headers:{{'x-ms-blob-type':'BlockBlob','Content-Type':'application/json'}}, body:JSON.stringify(remakeRows)}})
-    .then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); setRemakeSaveStatus('Saved'); }})
-    .catch(function(err) {{ console.warn('Remake save failed', err); setRemakeSaveStatus('Save failed — retrying on next edit'); }});
+  const dirty = new Map(remakeDirtyFields);
+  fetch(REMAKE_DATA_URL + '?merge=' + Date.now()).then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }}).then(function(saved) {{
+    const latest = Array.isArray(saved) ? saved : Object.keys(saved || {{}}).map(function(k) {{ return Object.assign({{}}, saved[k] || {{}}, {{order:String(k).replace(/^#/,'').trim()}}); }});
+    const byOrder = new Map(latest.map(function(r) {{ return [remakeOrderKey(r), r]; }}));
+    remakeRows.forEach(function(r) {{ const s=byOrder.get(remakeOrderKey(r)); if (s) {{ r.category=s.category||r.category||''; r.culprit=s.culprit||r.culprit||''; r.comment=s.comment||r.comment||''; }} }});
+    dirty.forEach(function(fields, key) {{ const row=remakeRows.find(function(r) {{ return remakeOrderKey(r)===key; }}); if (!row) return; const target=byOrder.get(key) || row; fields.forEach(function(field) {{ target[field]=row[field] || ''; }}); }});
+    const merged = latest.concat(remakeRows.filter(function(r) {{ return !byOrder.has(remakeOrderKey(r)); }}));
+    return fetch(REMAKE_SAVE_URL, {{method:'PUT', headers:{{'x-ms-blob-type':'BlockBlob','Content-Type':'application/json'}}, body:JSON.stringify(merged)}});
+  }}).then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); remakeDirtyFields.clear(); setRemakeSaveStatus('Saved globally'); }}).catch(function(err) {{ console.warn('Remake save failed', err); setRemakeSaveStatus('Save failed — retrying on next edit'); }});
 }}
 function scheduleRemakeSave() {{
   clearTimeout(remakeSaveTimer);
@@ -2549,9 +2556,9 @@ function mergeSavedRemakes(saved) {{
     if (!input.classList.contains('remake-edit')) return;
     const row = remakeRows.find(function(r) {{ return remakeOrderKey(r) === input.closest('tr').dataset.order; }});
     if (!row) return;
-    if (input.classList.contains('remake-category')) row.category = input.value;
-    if (input.classList.contains('remake-culprit')) row.culprit = input.value;
-    if (input.classList.contains('remake-comment')) row.comment = input.value;
+    if (input.classList.contains('remake-category')) {{ row.category = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'category'])); }}
+    if (input.classList.contains('remake-culprit')) {{ row.culprit = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'culprit'])); }}
+    if (input.classList.contains('remake-comment')) {{ row.comment = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'comment'])); }}
     scheduleRemakeSave();
   }});
   document.querySelectorAll('.tab[data-target="remake-mgmt"]').forEach(function(btn){{
@@ -2567,6 +2574,7 @@ function mergeSavedRemakes(saved) {{
 // ── QC Rejections work queue ──
 var qcRejectionRows = QC_REJECTIONS.slice();
 var qcRejectionSaveTimer = null;
+var qcDirtyFields = new Map();
 function qcRejectionKey(r) {{ return String(r.order || '').replace(/^#/, '').trim(); }}
 function qcRejectionHandled(r) {{ return Boolean(String(r.error_type || '').trim()); }}
 function setQcRejectionSaveStatus(text) {{
@@ -2623,9 +2631,15 @@ function renderQcRejections() {{
 function saveQcRejections() {{
   if (!QC_REJECTIONS_SAVE_URL) {{ setQcRejectionSaveStatus('Local only — save endpoint unavailable'); return; }}
   setQcRejectionSaveStatus('Saving…');
-  fetch(QC_REJECTIONS_SAVE_URL, {{method:'PUT', headers:{{'x-ms-blob-type':'BlockBlob','Content-Type':'application/json'}}, body:JSON.stringify(qcRejectionRows)}})
-    .then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); setQcRejectionSaveStatus('Saved'); }})
-    .catch(function(err) {{ console.warn('QC rejection save failed', err); setQcRejectionSaveStatus('Save failed — retrying on next edit'); }});
+  const dirty = new Map(qcDirtyFields);
+  fetch(QC_REJECTIONS_DATA_URL + '?merge=' + Date.now()).then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }}).then(function(saved) {{
+    const latest = Array.isArray(saved) ? saved : Object.keys(saved || {{}}).map(function(k) {{ return Object.assign({{}}, saved[k] || {{}}, {{order:String(k).replace(/^#/,'').trim()}}); }});
+    const byOrder = new Map(latest.map(function(r) {{ return [qcRejectionKey(r), r]; }}));
+    qcRejectionRows.forEach(function(r) {{ const s=byOrder.get(qcRejectionKey(r)); if (s) {{ r.error_type=s.error_type||r.error_type||''; r.avoidance_action=s.avoidance_action||r.avoidance_action||''; r.work_comment=s.work_comment||r.work_comment||''; }} }});
+    dirty.forEach(function(fields, key) {{ const row=qcRejectionRows.find(function(r) {{ return qcRejectionKey(r)===key; }}); if (!row) return; const target=byOrder.get(key) || row; fields.forEach(function(field) {{ target[field]=row[field] || ''; }}); }});
+    const merged = latest.concat(qcRejectionRows.filter(function(r) {{ return !byOrder.has(qcRejectionKey(r)); }}));
+    return fetch(QC_REJECTIONS_SAVE_URL, {{method:'PUT', headers:{{'x-ms-blob-type':'BlockBlob','Content-Type':'application/json'}}, body:JSON.stringify(merged)}});
+  }}).then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); qcDirtyFields.clear(); setQcRejectionSaveStatus('Saved globally'); }}).catch(function(err) {{ console.warn('QC rejection save failed', err); setQcRejectionSaveStatus('Save failed — retrying on next edit'); }});
 }}
 function scheduleQcRejectionSave() {{
   clearTimeout(qcRejectionSaveTimer);
@@ -2651,9 +2665,9 @@ function mergeSavedQcRejections(saved) {{
     const rowEl = input.closest('tr');
     const row = qcRejectionRows.find(function(r) {{ return qcRejectionKey(r) === rowEl.dataset.order; }});
     if (!row) return;
-    if (input.classList.contains('qc-error-type')) row.error_type = input.value;
-    if (input.classList.contains('qc-avoidance')) row.avoidance_action = input.value;
-    if (input.classList.contains('qc-work-comment')) row.work_comment = input.value;
+    if (input.classList.contains('qc-error-type')) {{ row.error_type = input.value; qcDirtyFields.set(qcRejectionKey(row), new Set([...(qcDirtyFields.get(qcRejectionKey(row)) || []), 'error_type'])); }}
+    if (input.classList.contains('qc-avoidance')) {{ row.avoidance_action = input.value; qcDirtyFields.set(qcRejectionKey(row), new Set([...(qcDirtyFields.get(qcRejectionKey(row)) || []), 'avoidance_action'])); }}
+    if (input.classList.contains('qc-work-comment')) {{ row.work_comment = input.value; qcDirtyFields.set(qcRejectionKey(row), new Set([...(qcDirtyFields.get(qcRejectionKey(row)) || []), 'work_comment'])); }}
     scheduleQcRejectionSave();
   }});
   document.querySelectorAll('.tab[data-target="qc-rejections"]').forEach(function(btn){{ btn.addEventListener('click', function(){{setTimeout(renderQcRejections,0);}}); }});
