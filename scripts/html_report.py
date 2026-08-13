@@ -1689,7 +1689,9 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <button class="tab" data-target="details">Details</button>
     <button class="tab" data-target="methodology">Methodology</button>
     <button class="tab" data-target="remake-mgmt">Remake Mgmt</button>
+    <button class="tab" data-target="remake-analysis">Remake Analysis</button>
     <button class="tab" data-target="qc-rejections">QC Rejections</button>
+    <button class="tab" data-target="qc-analysis">QC Analysis</button>
     <button class="tab" data-target="dqc-usage">DQC Usage</button>
   </div>
   <section id="summary" class="page active">
@@ -1820,6 +1822,18 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         </thead><tbody id="remakeMgmtBody"></tbody></table>
       </div>
     </div>
+  </section>
+  <section id="remake-analysis" class="page">
+    <div class="card"><h3 class="section-title">Remake Forensics — Categories and Culprits</h3><div class="hint">Orders are grouped from the shared Remake Mgmt annotations. <strong>Not yet forensically reviewed</strong> means Category, Culprit, and Comment are all empty.</div><div id="remakeAnalysisKpis" class="exec-grid"></div></div>
+    <div class="card"><h3 class="section-title">Unreviewed Remake Orders</h3><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Customer</th><th>QTY</th><th>Factory</th><th>Admin</th><th>Month</th></tr></thead><tbody id="remakeUnreviewedBody"></tbody></table></div></div>
+    <div class="card"><h3 class="section-title">By Category</h3><table><thead><tr><th>Category</th><th class="right">Orders</th><th class="right">QTY</th></tr></thead><tbody id="remakeCategoryBody"></tbody></table></div>
+    <div class="card"><h3 class="section-title">By Culprit</h3><table><thead><tr><th>Culprit</th><th class="right">Orders</th><th class="right">QTY</th></tr></thead><tbody id="remakeCulpritBody"></tbody></table></div>
+  </section>
+  <section id="qc-analysis" class="page">
+    <div class="card"><h3 class="section-title">QC Rejection Forensics — Error Types and Prevention</h3><div class="hint">Orders are grouped from the shared QC Rejections annotations. <strong>Not yet forensically reviewed</strong> means Error Type, How to Avoid, and Work Notes are all empty.</div><div id="qcAnalysisKpis" class="exec-grid"></div></div>
+    <div class="card"><h3 class="section-title">Unreviewed QC Rejections</h3><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Factory</th><th>Order QTY</th><th>Defect QTY</th><th>QC Date</th></tr></thead><tbody id="qcUnreviewedBody"></tbody></table></div></div>
+    <div class="card"><h3 class="section-title">By Error Type</h3><table><thead><tr><th>Error Type</th><th class="right">Orders</th><th class="right">Defect QTY</th></tr></thead><tbody id="qcErrorTypeBody"></tbody></table></div>
+    <div class="card"><h3 class="section-title">Prevention Actions</h3><table><thead><tr><th>How to Avoid</th><th class="right">Orders</th></tr></thead><tbody id="qcPreventionBody"></tbody></table></div>
   </section>
   <section id="qc-rejections" class="page">
     <div class="card">
@@ -2539,6 +2553,21 @@ function mergeSavedRemakes(saved) {{
   remakeRows = remakeRows.concat(entries.filter(function(r) {{ return !remakeRows.some(function(x) {{ return remakeOrderKey(x) === remakeOrderKey(r); }}); }}));
 }}
 
+function forensicsRows(rows, fields) {{ return rows.filter(function(r) {{ return fields.every(function(f) {{ return !String(r[f] || '').trim(); }}); }}); }}
+function renderForensics() {{
+  const remUn = forensicsRows(remakeRows, ['category','culprit','comment']);
+  const remCat = {{}}, remCul = {{}};
+  remakeRows.forEach(function(r) {{ const c=String(r.category||'Uncategorized').trim()||'Uncategorized', u=String(r.culprit||'Unassigned').trim()||'Unassigned'; [ [remCat,c], [remCul,u] ].forEach(function(pair) {{ const g=pair[0][pair[1]]||(pair[0][pair[1]]={{orders:0,qty:0}}); g.orders++; g.qty += Number(r.qty)||0; }}); }});
+  document.getElementById('remakeAnalysisKpis').innerHTML = [['Total remake orders',remakeRows.length],['Reviewed',remakeRows.length-remUn.length],['Not forensically reviewed',remUn.length]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1].toLocaleString()+'</div></div>'; }}).join('');
+  document.getElementById('remakeUnreviewedBody').innerHTML = remUn.map(function(r) {{ return '<tr><td>#'+esc(remakeOrderKey(r))+'</td><td>'+esc(r.customer||'(unknown)')+'</td><td class="right">'+(Number(r.qty)||0).toLocaleString()+'</td><td>'+esc(r.factory||'')+'</td><td>'+esc(r.admin||'')+'</td><td>'+esc(r.month||'')+'</td></tr>'; }}).join('') || '<tr><td colspan="6">All remake orders have forensic notes.</td></tr>';
+  function groupHtml(g) {{ return Object.keys(g).sort().map(function(k) {{ return '<tr><td>'+esc(k)+'</td><td class="right">'+g[k].orders.toLocaleString()+'</td><td class="right">'+g[k].qty.toLocaleString()+'</td></tr>'; }}).join(''); }}
+  document.getElementById('remakeCategoryBody').innerHTML = groupHtml(remCat); document.getElementById('remakeCulpritBody').innerHTML = groupHtml(remCul);
+  const qcUn = forensicsRows(qcRejectionRows, ['error_type','avoidance_action','work_comment']); const et={{}}, pa={{}};
+  qcRejectionRows.forEach(function(r) {{ const e=String(r.error_type||'Investigating').trim()||'Investigating', a=String(r.avoidance_action||'No prevention action recorded').trim()||'No prevention action recorded'; const ge=et[e]||(et[e]={{orders:0,qty:0}}); ge.orders++; ge.qty+=Number(r.defects_qty)||0; pa[a]=(pa[a]||0)+1; }});
+  document.getElementById('qcAnalysisKpis').innerHTML = [['Total rejected orders',qcRejectionRows.length],['Reviewed',qcRejectionRows.length-qcUn.length],['Not forensically reviewed',qcUn.length]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1].toLocaleString()+'</div></div>'; }}).join('');
+  document.getElementById('qcUnreviewedBody').innerHTML = qcUn.map(function(r) {{ return '<tr><td>#'+esc(qcRejectionKey(r))+'</td><td>'+esc(r.factory||'')+'</td><td class="right">'+(Number(r.total_qty)||0).toLocaleString()+'</td><td class="right">'+(Number(r.defects_qty)||0).toLocaleString()+'</td><td>'+esc(r.date||'')+'</td></tr>'; }}).join('') || '<tr><td colspan="5">All QC rejections have forensic notes.</td></tr>';
+  document.getElementById('qcErrorTypeBody').innerHTML = groupHtml(et); document.getElementById('qcPreventionBody').innerHTML = Object.keys(pa).sort().map(function(k) {{ return '<tr><td>'+esc(k)+'</td><td class="right">'+pa[k].toLocaleString()+'</td></tr>'; }}).join('');
+}}
 // Init Remake Mgmt
 (function() {{
   if (!document.getElementById('remakeMgmtBody')) return;
@@ -2567,7 +2596,7 @@ function mergeSavedRemakes(saved) {{
   rerender();
   fetch(REMAKE_DATA_URL + '?v=' + Date.now())
     .then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }})
-    .then(function(saved) {{ mergeSavedRemakes(saved); rerender(); setRemakeSaveStatus('Loaded saved annotations'); }})
+    .then(function(saved) {{ mergeSavedRemakes(saved); rerender(); renderForensics(); setRemakeSaveStatus('Loaded saved annotations'); }})
     .catch(function() {{ setRemakeSaveStatus(REMAKE_SAVE_URL ? 'Using embedded annotations' : 'Local only — save endpoint unavailable'); }});
 }})();
 
@@ -2673,9 +2702,10 @@ function mergeSavedQcRejections(saved) {{
   document.querySelectorAll('.tab[data-target="qc-rejections"]').forEach(function(btn){{ btn.addEventListener('click', function(){{setTimeout(renderQcRejections,0);}}); }});
   fetch(QC_REJECTIONS_DATA_URL + '?v=' + Date.now())
     .then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }})
-    .then(function(saved) {{ mergeSavedQcRejections(saved); renderQcRejections(); setQcRejectionSaveStatus('Loaded saved annotations'); }})
+    .then(function(saved) {{ mergeSavedQcRejections(saved); renderQcRejections(); renderForensics(); setQcRejectionSaveStatus('Loaded saved annotations'); }})
     .catch(function() {{ setQcRejectionSaveStatus(QC_REJECTIONS_SAVE_URL ? 'Using embedded QC rejection data' : 'Local only — save endpoint unavailable'); }});
 }})();
+renderForensics();
 
 function renderHummelAccountPage() {{
   const d = HUMMEL_DATA;
