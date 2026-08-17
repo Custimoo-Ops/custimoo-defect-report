@@ -1,0 +1,35 @@
+name: Backup Shared Work Queues
+on:
+  schedule:
+    - cron: '15 * * * *'
+  workflow_dispatch:
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Azure SDK
+        run: pip install azure-storage-blob
+      - name: Back up shared annotations
+        env:
+          AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import datetime, json, os
+          from azure.storage.blob import BlobServiceClient, ContentSettings
+          account='custimoolivedata'
+          service=BlobServiceClient(account_url=f'https://{account}.blob.core.windows.net', credential=os.environ['AZURE_STORAGE_KEY'].strip())
+          container='report-queue-backups'
+          cc=service.get_container_client(container)
+          try: cc.create_container()
+          except Exception as e:
+              if 'ContainerAlreadyExists' not in str(e): raise
+          stamp=datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+          for source in ('remake-mgmt-data.json','qc-rejections-data.json'):
+              src=service.get_blob_client('$web',source)
+              payload=src.download_blob().readall()
+              dst=cc.get_blob_client(f'{stamp}/{source}')
+              dst.upload_blob(payload,overwrite=False,content_settings=ContentSettings(content_type='application/json'))
+              print('backed_up:',source,'bytes:',len(payload))
+          print('backup_container:',container)
+          print('backup_stamp:',stamp)
+          PY
