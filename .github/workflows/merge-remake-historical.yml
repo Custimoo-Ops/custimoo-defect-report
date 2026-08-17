@@ -1,0 +1,43 @@
+name: Merge Remake Historical Annotations
+on:
+  workflow_dispatch:
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install azure-storage-blob requests
+      - name: Merge without overwriting current values
+        env:
+          KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import datetime, json, os, urllib.request
+          from azure.storage.blob import BlobServiceClient, ContentSettings, generate_blob_sas, BlobSasPermissions
+          current=json.load(urllib.request.urlopen('https://custimoolivedata.z13.web.core.windows.net/remake-mgmt-data.json',timeout=30))
+          if isinstance(current,dict): current=[dict(v,order=k) for k,v in current.items()]
+          historical=json.load(open('data/remake_report_by_admin.json'))
+          def key(r): return str(r.get('order') or '').replace('#','').strip()
+          fields=('category','culprit','comment')
+          by={key(r):r for r in current}
+          filled=0; added=0
+          for old in historical:
+              k=key(old)
+              if not k: continue
+              if k not in by:
+                  by[k]=dict(old); added+=1; continue
+              row=by[k]
+              for f in fields:
+                  if not str(row.get(f) or '').strip() and str(old.get(f) or '').strip():
+                      row[f]=old[f]; filled+=1
+          merged=list(by.values())
+          account='custimoolivedata'; keyv=os.environ['KEY'].strip()
+          svc=BlobServiceClient(account_url=f'https://{account}.blob.core.windows.net',credential=keyv)
+          blob=svc.get_blob_client(container='$web',blob='remake-mgmt-data.json')
+          backup=svc.get_blob_client(container='$web',blob='remake-mgmt-data-before-historical-merge.json')
+          backup.upload_blob(json.dumps(current),overwrite=True,content_settings=ContentSettings(content_type='application/json'))
+          blob.upload_blob(json.dumps(merged),overwrite=True,content_settings=ContentSettings(content_type='application/json'))
+          annotated=sum(any(str(r.get(f) or '').strip() for f in fields) for r in merged)
+          print('backup_created: True')
+          print('rows_before:',len(current),'rows_after:',len(merged),'fields_filled:',filled,'rows_added:',added,'annotated_after:',annotated)
+          PY
