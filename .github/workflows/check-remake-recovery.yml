@@ -1,0 +1,28 @@
+name: Check Remake Recovery Metadata
+on:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pip install azure-storage-blob
+      - env:
+          KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from azure.storage.blob import BlobServiceClient
+          s=BlobServiceClient(account_url='https://custimoolivedata.blob.core.windows.net',credential=os.environ['KEY'].strip())
+          c=s.get_container_client('$web')
+          found=[]
+          try:
+              for b in c.list_blobs(name_starts_with='remake-mgmt-data.json', include=['deleted','versions','snapshots']):
+                  found.append((b.name,getattr(b,'version_id',None),getattr(b,'snapshot',None),getattr(b,'is_deleted',None),b.size,b.last_modified))
+          except Exception as e:
+              print('metadata_error:',type(e).__name__)
+          print('matching_blob_records:',len(found))
+          for x in found: print('record:',x)
+          props=s.get_blob_client('$web','remake-mgmt-data.json').get_blob_properties()
+          print('current_blob_size:',props.size)
+          print('current_blob_last_modified:',props.last_modified)
+          PY
