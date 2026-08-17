@@ -1818,7 +1818,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       </div>
       <div style="overflow-x:auto;max-height:65vh;overflow-y:auto">
         <table class="remake-table"><thead>
-          <tr><th>Order</th><th class="right">QTY</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
+          <tr><th>Order</th><th>Original Order</th><th class="right">QTY</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
         </thead><tbody id="remakeMgmtBody"></tbody></table>
       </div>
     </div>
@@ -2504,6 +2504,7 @@ function renderRemakeMgmt(filterAdmin, filterMonth) {{
     const order = remakeOrderKey(r);
     return '<tr data-order="' + escapeAttr(order) + '">'
       + '<td class="order-num">#' + esc(order) + '</td>'
+      + '<td><input class="remake-edit remake-original-order" aria-label="Original order number for remake ' + escapeAttr(order) + '" value="' + escapeAttr(r.original_order || '') + '" placeholder="Original order"></td>'
       + '<td class="right">' + (r.qty || 0).toLocaleString() + '</td>'
       + '<td>' + esc(r.customer || '(unknown)') + '</td>'
       + '<td>' + esc(r.admin || '') + '</td>'
@@ -2513,7 +2514,7 @@ function renderRemakeMgmt(filterAdmin, filterMonth) {{
       + '<td><input class="remake-edit remake-culprit" aria-label="Culprit for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.culprit || '') + '" placeholder="Culprit"></td>'
       + '<td><input class="remake-edit remake-comment" aria-label="Comment for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.comment || '') + '" placeholder="Comment"></td>'
       + '</tr>';
-  }}).join('') || '<tr><td colspan="8">No remakes match the filters.</td></tr>';
+  }}).join('') || '<tr><td colspan="10">No remakes match the filters.</td></tr>';
   const grossQty = rows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);
   const netRows = rows.filter(function(r) {{ return !remakeIsExcluded(r); }});
   const netQty = netRows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);
@@ -2548,7 +2549,7 @@ function mergeSavedRemakes(saved) {{
   const byOrder = new Map(entries.map(function(r) {{ return [remakeOrderKey(r), r]; }}));
   remakeRows.forEach(function(r) {{
     const savedRow = byOrder.get(remakeOrderKey(r));
-    if (savedRow) {{ r.category = savedRow.category || r.category || ''; r.culprit = savedRow.culprit || r.culprit || ''; r.comment = savedRow.comment || r.comment || ''; }}
+    if (savedRow) {{ r.original_order = savedRow.original_order || r.original_order || ''; r.category = savedRow.category || r.category || ''; r.culprit = savedRow.culprit || r.culprit || ''; r.comment = savedRow.comment || r.comment || ''; }}
   }});
   remakeRows = remakeRows.concat(entries.filter(function(r) {{ return !remakeRows.some(function(x) {{ return remakeOrderKey(x) === remakeOrderKey(r); }}); }}));
 }}
@@ -2585,6 +2586,7 @@ function renderForensics() {{
     if (!input.classList.contains('remake-edit')) return;
     const row = remakeRows.find(function(r) {{ return remakeOrderKey(r) === input.closest('tr').dataset.order; }});
     if (!row) return;
+    if (input.classList.contains('remake-original-order')) {{ row.original_order = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'original_order'])); }}
     if (input.classList.contains('remake-category')) {{ row.category = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'category'])); }}
     if (input.classList.contains('remake-culprit')) {{ row.culprit = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'culprit'])); }}
     if (input.classList.contains('remake-comment')) {{ row.comment = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'comment'])); }}
