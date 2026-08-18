@@ -2538,6 +2538,14 @@ var remakeSaveTimer = null;
 var remakeDirtyFields = new Map();
 var remakeRows = REMAKES.slice();
 const REMAKE_CATEGORIES = ['Color Mismatch','Customer Change','Damaged / Soiled','Fabric / Material','Logo / Design','No Record Found','Other','Print / Sublimation','Quantity Short / Missing','Sizing / Fit','Stitching / Construction','Uncategorized','Wrong Product / SKU'];
+const REMAKE_CULPRITS = ['Factory','Customer','Merchant','Shipping courier','Custimoo'];
+const CUSTIMOO_SUBCATEGORIES = ['Design','Administrative','Shipping','External'];
+function remakeCulpritOptions(selected) {{
+  const known = REMAKE_CULPRITS.indexOf(selected) >= 0;
+  return '<option value="">Select culprit</option>' + (selected && !known ? '<option value="' + escapeAttr(selected) + '" selected>Legacy: ' + esc(selected) + '</option>' : '') + REMAKE_CULPRITS.map(function(v) {{ return '<option value="' + escapeAttr(v) + '"' + (v === selected ? ' selected' : '') + '>' + esc(v) + '</option>'; }}).join('');
+}}
+function custimooSubcategoryOptions(selected) {{ return '<option value="">Select subcategory</option>' + CUSTIMOO_SUBCATEGORIES.map(function(v) {{ return '<option value="' + escapeAttr(v) + '"' + (v === selected ? ' selected' : '') + '>' + esc(v) + '</option>'; }}).join(''); }}
+function renderCustimooSubcategory(row, order) {{ return row.culprit === 'Custimoo' ? '<select class="remake-edit remake-culprit-subcategory" aria-label="Custimoo subcategory for order ' + escapeAttr(order) + '">' + custimooSubcategoryOptions(row.culprit_subcategory || '') + '</select>' : '<span class="muted">—</span>'; }}
 function remakeCategoryOptions(selected) {{
   return '<option value="">Select category</option>' + REMAKE_CATEGORIES.map(function(category) {{
     return '<option value="' + escapeAttr(category) + '"' + (category === selected ? ' selected' : '') + '>' + esc(category) + '</option>';
@@ -2579,7 +2587,7 @@ function renderRemakeMgmt(filterAdmin, filterMonth) {{
       + '<td>' + esc(r.source || 'Backend remake') + '</td>'
       + '<td>' + esc(r.verification_status || 'Confirmed backend remake') + '</td>'
       + '<td><select class="remake-edit remake-category" aria-label="Category for order ' + escapeAttr(order) + '">' + remakeCategoryOptions(r.category || '') + '</select></td>'
-      + '<td><input class="remake-edit remake-culprit" aria-label="Culprit for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.culprit || '') + '" placeholder="Culprit"></td>'
+      + '<td><select class="remake-edit remake-culprit" aria-label="Culprit for order ' + escapeAttr(order) + '">' + remakeCulpritOptions(r.culprit || '') + '</select>' + renderCustimooSubcategory(r, order) + '</td>'
       + '<td><input class="remake-edit remake-comment" aria-label="Comment for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.comment || '') + '" placeholder="Comment"></td>'
       + '</tr>';
   }}).join('') || '<tr><td colspan="12">No remakes match the filters.</td></tr>';
@@ -2618,7 +2626,7 @@ function mergeSavedRemakes(saved) {{
   const byOrder = new Map(entries.map(function(r) {{ return [remakeOrderKey(r), r]; }}));
   remakeRows.forEach(function(r) {{
     const savedRow = byOrder.get(remakeOrderKey(r));
-    if (savedRow) {{ r.original_order = savedRow.original_order || r.original_order || inferOriginalOrder(savedRow.comment || r.comment, remakeOrderKey(r)); r.category = savedRow.category || r.category || ''; r.culprit = savedRow.culprit || r.culprit || ''; r.comment = savedRow.comment || r.comment || ''; }}
+    if (savedRow) {{ r.original_order = savedRow.original_order || r.original_order || inferOriginalOrder(savedRow.comment || r.comment, remakeOrderKey(r)); r.culprit_subcategory = savedRow.culprit_subcategory || r.culprit_subcategory || ''; r.category = savedRow.category || r.category || ''; r.culprit = savedRow.culprit || r.culprit || ''; r.comment = savedRow.comment || r.comment || ''; }}
   }});
   remakeRows = remakeRows.concat(entries.filter(function(r) {{ return !remakeRows.some(function(x) {{ return remakeOrderKey(x) === remakeOrderKey(r); }}); }}));
 }}
@@ -2657,7 +2665,8 @@ function renderForensics() {{
     if (!row) return;
     if (input.classList.contains('remake-original-order')) {{ row.original_order = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'original_order'])); }}
     if (input.classList.contains('remake-category')) {{ row.category = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'category'])); }}
-    if (input.classList.contains('remake-culprit')) {{ row.culprit = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'culprit'])); }}
+    if (input.classList.contains('remake-culprit')) {{ row.culprit = input.value; if (row.culprit !== 'Custimoo') row.culprit_subcategory = ''; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'culprit', 'culprit_subcategory'])); }}
+    if (input.classList.contains('remake-culprit-subcategory')) {{ row.culprit_subcategory = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'culprit_subcategory'])); }}
     if (input.classList.contains('remake-comment')) {{ row.comment = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'comment'])); }}
     scheduleRemakeSave();
   }});
