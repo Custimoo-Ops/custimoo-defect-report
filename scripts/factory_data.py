@@ -451,12 +451,14 @@ WHERE oi.status_updated_at >= %s
 
     factory_monthly_data = []
     for f in ['Mavic Sports', 'Selberian Sports Wear', 'Silver-Star Group', 'Karrizo', 'Rajco']:
-        fdata = {'name': f, 'defects': [], 'volumes': [], 'orders': [], 'defect_orders': [], 'remake_orders': [], 'remake_qty': []}
+        fdata = {'name': f, 'defects': [], 'volumes': [], 'orders': [], 'defect_orders': [], 'remake_orders': [], 'remake_orders_checked_by_qarma': [], 'remake_orders_not_checked_by_qarma': [], 'remake_qty': []}
         for m in all_months:
             d = monthly_factory_defects[f].get(m, 0)
             pv = factory_month_pipe[f].get(m, {}).get('qty', 0)
             po = factory_month_pipe[f].get(m, {}).get('orders', 0)
             ro = factory_month_pipe[f].get(m, {}).get('remake_orders', 0)
+            rc = len(factory_month_pipe[f].get(m, {}).get('remake_checked_orders', set()))
+            ru = len(factory_month_pipe[f].get(m, {}).get('remake_unchecked_orders', set()))
             rq = factory_month_pipe[f].get(m, {}).get('remake_qty', 0)
             do = len(monthly_factory_defect_orders[f].get(m, set()))
             fdata['defects'].append(d)
@@ -464,6 +466,8 @@ WHERE oi.status_updated_at >= %s
             fdata['orders'].append(po)
             fdata['defect_orders'].append(do)
             fdata['remake_orders'].append(ro)
+            fdata['remake_orders_checked_by_qarma'].append(rc)
+            fdata['remake_orders_not_checked_by_qarma'].append(ru)
             fdata['remake_qty'].append(rq)
         factory_monthly_data.append(fdata)
 

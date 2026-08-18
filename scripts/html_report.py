@@ -1049,6 +1049,8 @@ def factory_rows_for_months(month_keys):
         defs = [fd.get('defects', [])[i] for i, m in enumerate(all_months_sorted) if m in month_set and i < len(fd.get('defects', []))]
         def_orders = [fd.get('defect_orders', [])[i] for i, m in enumerate(all_months_sorted) if m in month_set and i < len(fd.get('defect_orders', []))]
         remake_orders = [fd.get('remake_orders', [])[i] for i, m in enumerate(all_months_sorted) if m in month_set and i < len(fd.get('remake_orders', []))]
+        remake_checked = [fd.get('remake_orders_checked_by_qarma', [])[i] for i, m in enumerate(all_months_sorted) if m in month_set and i < len(fd.get('remake_orders_checked_by_qarma', []))]
+        remake_unchecked = [fd.get('remake_orders_not_checked_by_qarma', [])[i] for i, m in enumerate(all_months_sorted) if m in month_set and i < len(fd.get('remake_orders_not_checked_by_qarma', []))]
         remake_qty = [fd.get('remake_qty', [])[i] for i, m in enumerate(all_months_sorted) if m in month_set and i < len(fd.get('remake_qty', []))]
         vol = sum(vols); ords = sum(orders); defect = sum(defs); defect_orders = sum(def_orders)
         remake_orders_total = sum(remake_orders); remake_qty_total = sum(remake_qty)
@@ -1058,6 +1060,8 @@ def factory_rows_for_months(month_keys):
             'name': fd['name'], 'volume': vol, 'orders': ords, 'defects': defect,
             'defect_orders': defect_orders,
             'remake_orders': remake_orders_total,
+            'remake_orders_checked_by_qarma': sum(remake_checked),
+            'remake_orders_not_checked_by_qarma': sum(remake_unchecked),
             'remake_qty': remake_qty_total,
             'rate': round(defect / vol * 100, 2) if vol > 0 else 0,
             'order_rate': round(defect_orders / ords * 100, 2) if ords > 0 else 0,
