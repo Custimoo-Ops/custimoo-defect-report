@@ -863,7 +863,7 @@ def finalize_groups(groups):
 
 # Build remake orders lookup
 remake_cur = conn.cursor()
-remake_cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol = 'R' AND o.created_at >= %s AND o.created_at < %s AND o.deleted_at IS NULL", (factory_data.REPORT_START, factory_data.REPORT_END))
+remake_cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol IN ('R', 'Ri') AND o.created_at >= %s AND o.created_at < %s AND o.deleted_at IS NULL", (factory_data.REPORT_START, factory_data.REPORT_END))
 REMAKE_ORDERS = set(str(r[0]) for r in remake_cur.fetchall()) - remake_backend_actions.EXCLUDED_REMAKE_ORDERS
 remake_cur.close()
 # Don't close main conn — used later
@@ -1312,7 +1312,7 @@ FROM orders o
 LEFT JOIN users u ON u.id = o.order_administrator_id
 LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
 LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(oi.factory_products) = 'array' THEN oi.factory_products ELSE '[]'::jsonb END) AS product ON TRUE
-WHERE o.order_type_symbol = 'R'
+WHERE o.order_type_symbol IN ('R', 'Ri')
   AND o.created_at >= %s
   AND o.created_at < %s
   AND o.deleted_at IS NULL
@@ -1335,7 +1335,7 @@ FROM orders o
 LEFT JOIN users u ON u.id = o.order_administrator_id
 LEFT JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
 LEFT JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(oi.factory_products) = 'array' THEN oi.factory_products ELSE '[]'::jsonb END) AS product ON TRUE
-WHERE o.order_type_symbol = 'R'
+WHERE o.order_type_symbol IN ('R', 'Ri')
   AND o.created_at >= %s
   AND o.created_at < %s
   AND o.deleted_at IS NULL
@@ -1365,7 +1365,7 @@ SELECT o.order_no, COALESCE(NULLIF(co.company_name, ''), NULLIF(BTRIM(CONCAT_WS(
 FROM orders o
 LEFT JOIN customers c ON c.id = o.customer_id
 LEFT JOIN companies co ON co.id = c.company_id
-WHERE o.order_type_symbol = 'R' AND o.deleted_at IS NULL
+WHERE o.order_type_symbol IN ('R', 'Ri') AND o.deleted_at IS NULL
 """)
 _remake_customer_by_order = {str(r[0]).replace('#', '').strip(): str(r[1] or '(unknown)') for r in _remake_customer_cur.fetchall()}
 _remake_customer_cur.close()

@@ -317,7 +317,7 @@ def generate(defects_only=False, customer_company=None):
     seen_order_factories = set()
     seen_remake_order_factories = set()
 
-    cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol = 'R' AND o.created_at >= %s AND o.created_at < %s AND o.deleted_at IS NULL", (REPORT_START, REPORT_END))
+    cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol IN ('R', 'Ri') AND o.created_at >= %s AND o.created_at < %s AND o.deleted_at IS NULL", (REPORT_START, REPORT_END))
     backend_remake_orders = set(str(r[0]) for r in cur.fetchall()) - remake_backend_actions.EXCLUDED_REMAKE_ORDERS
     if customer_order_nums is not None:
         backend_remake_orders &= customer_order_nums
