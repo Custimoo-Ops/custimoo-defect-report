@@ -1372,6 +1372,15 @@ _remake_customer_cur.close()
 for _r in REMAKE_MGMT:
     _r['customer'] = _remake_customer_by_order.get(str(_r.get('order') or '').replace('#', '').strip(), _r.get('customer') or '(unknown)')
 
+# Infer original order references from existing comments, without replacing manual values.
+_original_order_re = re.compile(r'\b(?:reorder|remake|replacement)\b[^#\n]{0,80}#(\d{4,})', re.IGNORECASE)
+for _r in REMAKE_MGMT:
+    if str(_r.get('original_order') or '').strip():
+        continue
+    _match = _original_order_re.search(str(_r.get('comment') or ''))
+    if _match:
+        _r['original_order'] = _match.group(1)
+
 # Apply permanent factory exclusions to this management tab as well.
 def _remake_factory_is_excluded(factory_text):
     return any(factory_data.is_excluded_factory(part.strip()) for part in str(factory_text or '').split(','))
@@ -2542,6 +2551,7 @@ function scheduleRemakeSave() {{
   setRemakeSaveStatus('Unsaved changes…');
   remakeSaveTimer = setTimeout(saveRemakes, 700);
 }}
+function inferOriginalOrder(comment) {{ const m=String(comment||'').match(/\b(?:reorder|remake|replacement)\b[^#\\n]{{0,80}}#(\d{{4,}})/i); return m ? m[1] : ''; }}
 function mergeSavedRemakes(saved) {{
   if (!saved) return;
   const entries = Array.isArray(saved) ? saved : Object.keys(saved).map(function(k) {{ const v = saved[k] || {{}}; return Object.assign({{}}, typeof v === 'object' ? v : {{}}, {{ order: String(k).replace(/^#/, '').trim() }}); }});
@@ -2549,7 +2559,7 @@ function mergeSavedRemakes(saved) {{
   const byOrder = new Map(entries.map(function(r) {{ return [remakeOrderKey(r), r]; }}));
   remakeRows.forEach(function(r) {{
     const savedRow = byOrder.get(remakeOrderKey(r));
-    if (savedRow) {{ r.original_order = savedRow.original_order || r.original_order || ''; r.category = savedRow.category || r.category || ''; r.culprit = savedRow.culprit || r.culprit || ''; r.comment = savedRow.comment || r.comment || ''; }}
+    if (savedRow) {{ r.original_order = savedRow.original_order || r.original_order || inferOriginalOrder(savedRow.comment || r.comment); r.category = savedRow.category || r.category || ''; r.culprit = savedRow.culprit || r.culprit || ''; r.comment = savedRow.comment || r.comment || ''; }}
   }});
   remakeRows = remakeRows.concat(entries.filter(function(r) {{ return !remakeRows.some(function(x) {{ return remakeOrderKey(x) === remakeOrderKey(r); }}); }}));
 }}
