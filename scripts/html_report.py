@@ -1531,6 +1531,13 @@ for _g in _qc_rejection_groups.values():
     _g.pop('inspection_quantities', None)
     QC_REJECTIONS.append(_g)
 QC_REJECTIONS.sort(key=lambda r: (r.get('month') or '', int(r.get('order') or 0)), reverse=True)
+REINSPECTION_SUMMARY = {
+    'orders': len(_qc_reinspection_details),
+    'events': sum(len(v['ids']) or len(v['results']) for v in _qc_reinspection_details.values()),
+    'approved_events': sum(1 for v in _qc_reinspection_details.values() for result in v['results'] if result == 'Approved'),
+    'rejected_events': sum(1 for v in _qc_reinspection_details.values() for result in v['results'] if result == 'Rejected'),
+}
+REINSPECTION_SUMMARY_JSON = json.dumps(REINSPECTION_SUMMARY)
 QC_REJECTIONS_JSON = json.dumps(QC_REJECTIONS, cls=factory_data.DecimalEncoder).replace('<', '\\\\u003C').replace('>', '\\\\u003E')
 
 REMAKE_MGMT_JSON = json.dumps(REMAKE_MGMT, cls=factory_data.DecimalEncoder)
@@ -1934,6 +1941,7 @@ const REMAKES = {REMAKE_MGMT_JSON};
 const REMAKE_SAVE_URL = '{REMAKE_SAS_URL}';
 const REMAKE_DATA_URL = 'https://custimoolivedata.z13.web.core.windows.net/remake-mgmt-data.json';
 const QC_REJECTIONS = {QC_REJECTIONS_JSON};
+  const REINSPECTION_SUMMARY = {REINSPECTION_SUMMARY_JSON};
 const QC_REJECTIONS_SAVE_URL = '{QC_REJECTIONS_SAS_URL}';
 const QC_REJECTIONS_DATA_URL = 'https://custimoolivedata.z13.web.core.windows.net/qc-rejections-data.json';
 const QC_BACKEND_URL = 'https://admin.custimoo.com';
@@ -2605,7 +2613,7 @@ function renderForensics() {{
   document.getElementById('remakeCategoryBody').innerHTML = groupHtml(remCat); document.getElementById('remakeCulpritBody').innerHTML = groupHtml(remCul);
   const qcUn = forensicsRows(qcRejectionRows, ['error_type','avoidance_action','work_comment']); const et={{}}, pa={{}};
   qcRejectionRows.forEach(function(r) {{ const e=String(r.error_type||'Investigating').trim()||'Investigating', a=String(r.avoidance_action||'No prevention action recorded').trim()||'No prevention action recorded'; const ge=et[e]||(et[e]={{orders:0,qty:0}}); ge.orders++; ge.qty+=Number(r.defects_qty)||0; pa[a]=(pa[a]||0)+1; }});
-  document.getElementById('qcAnalysisKpis').innerHTML = [['Total rejected orders',qcRejectionRows.length],['Reviewed',qcRejectionRows.length-qcUn.length],['Not forensically reviewed',qcUn.length]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1].toLocaleString()+'</div></div>'; }}).join('');
+  document.getElementById('qcAnalysisKpis').innerHTML = [['Total rejected orders',qcRejectionRows.length],['Reviewed',qcRejectionRows.length-qcUn.length],['Not forensically reviewed',qcUn.length],['Orders with reinspection',REINSPECTION_SUMMARY.orders],['Reinspection events',REINSPECTION_SUMMARY.events],['Approved reinspections',REINSPECTION_SUMMARY.approved_events],['Rejected reinspections',REINSPECTION_SUMMARY.rejected_events]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1].toLocaleString()+'</div></div>'; }}).join('');
   document.getElementById('qcUnreviewedBody').innerHTML = qcUn.map(function(r) {{ return '<tr><td>#'+esc(qcRejectionKey(r))+'</td><td>'+esc(r.factory||'')+'</td><td class="right">'+(Number(r.total_qty)||0).toLocaleString()+'</td><td class="right">'+(Number(r.defects_qty)||0).toLocaleString()+'</td><td>'+esc(r.date||'')+'</td></tr>'; }}).join('') || '<tr><td colspan="5">All QC rejections have forensic notes.</td></tr>';
   document.getElementById('qcErrorTypeBody').innerHTML = groupHtml(et); document.getElementById('qcPreventionBody').innerHTML = Object.keys(pa).sort().map(function(k) {{ return '<tr><td>'+esc(k)+'</td><td class="right">'+pa[k].toLocaleString()+'</td></tr>'; }}).join('');
 }}
