@@ -1,0 +1,30 @@
+name: Check Mavic Qarma Coverage Definitions
+on:
+  workflow_dispatch:
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          QARMA_INSPECTIONS_URL: ${{ secrets.QARMA_INSPECTIONS_URL }}
+        run: |
+          python3 - <<'PY'
+          import csv,gzip,io,json,os,urllib.request
+          req=urllib.request.Request(os.environ['QARMA_INSPECTIONS_URL'],headers={'Accept':'text/csv,application/gzip,*/*'})
+          raw=urllib.request.urlopen(req,timeout=90).read()
+          with gzip.GzipFile(fileobj=io.BytesIO(raw)) as gz:
+              rows=csv.DictReader(io.TextIOWrapper(gz,encoding='utf-8-sig',newline=''))
+              allrows=[]
+              for r in rows:
+                  date=str(r.get('Scheduled inspection date') or r.get('Inspection end time') or '')
+                  supplier=str(r.get('Supplier name') or '').lower()
+                  if date.startswith('2026-') and 'mavic' in supplier and str(r.get('Status') or '').strip()=='Report' and str(r.get('Inspector email') or '').lower().endswith('@custimoo.com') and str(r.get('Conclusion') or '').strip() in ('Approved','Rejected'):
+                      allrows.append(r)
+          def order(r): return str(r.get('Order number') or '').strip()
+          all_orders={order(r) for r in allrows if order(r)}
+          re_orders={order(r) for r in allrows if order(r) and str(r.get('Reinspection of') or '').strip()}
+          orig_orders={order(r) for r in allrows if order(r) and not str(r.get('Reinspection of') or '').strip()}
+          reports={str(r.get('Report inspection id') or r.get('Inspection id') or '').strip() for r in allrows}
+          print(json.dumps({'rows':len(allrows),'unique_orders_any':len(all_orders),'unique_orders_reinspection':len(re_orders),'unique_orders_original':len(orig_orders),'reports':len(reports),'coverage_any_over_1897':round(len(all_orders)/1897*100,2),'coverage_original_over_1897':round(len(orig_orders)/1897*100,2),'coverage_any_minus_reinspections_over_1897':round((len(all_orders)-len(re_orders))/1897*100,2)},sort_keys=True))
+          PY
