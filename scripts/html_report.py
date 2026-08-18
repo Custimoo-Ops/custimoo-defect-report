@@ -1660,6 +1660,22 @@ html = f"""<!DOCTYPE html>
   table {{ width: 100%; border-collapse: collapse; font-size: 14px; }}
   th, td {{ padding: 11px 10px; border-bottom: 1px solid var(--border); text-align: left; }}
   th {{ font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: #fafbff; }}
+  .wrap:has(#remake-mgmt.active) {{ max-width: 2400px; }}
+  .remake-mgmt-scroll {{ overflow-x: auto; max-height: none; }}
+  .remake-mgmt-scroll .remake-table {{ min-width: 1900px; table-layout: fixed; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(1) {{ width: 90px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(2) {{ width: 150px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(3) {{ width: 70px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(4) {{ width: 190px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(5) {{ width: 170px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(6) {{ width: 180px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(7) {{ width: 95px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(8) {{ width: 150px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(9) {{ width: 180px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(10) {{ width: 190px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(11) {{ width: 220px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(12) {{ width: 420px; }}
+  .remake-mgmt-scroll .remake-edit {{ width: 100%; min-width: 0; box-sizing: border-box; }}
   .wrap:has(#qc-rejections.active) {{ max-width: 1800px; }}
   .qc-rejections-scroll {{ overflow-x: hidden; max-height: none; }}
   .qc-rejections-table, .qc-rejections-table tbody, .qc-rejections-table tr, .qc-rejections-table td {{ display: block; width: auto; }}
@@ -1871,7 +1887,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         <span style="margin-left:auto;font-size:13px;color:var(--muted)" id="remakeCount">272 remakes</span>
         <span id="remakeSaveStatus" class="muted" style="font-size:13px">Changes save automatically</span>
       </div>
-      <div style="overflow-x:auto;max-height:65vh;overflow-y:auto">
+      <div class="remake-mgmt-scroll">
         <table class="remake-table"><thead>
           <tr><th>Order</th><th>Original Order</th><th class="right">QTY</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th>Source</th><th>Verification</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
         </thead><tbody id="remakeMgmtBody"></tbody></table>
