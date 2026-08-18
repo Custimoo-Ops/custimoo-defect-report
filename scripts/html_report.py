@@ -2623,7 +2623,7 @@ function saveRemakes() {{
   fetch(REMAKE_DATA_URL + '?merge=' + Date.now()).then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }}).then(function(saved) {{
     const latest = Array.isArray(saved) ? saved : Object.keys(saved || {{}}).map(function(k) {{ return Object.assign({{}}, saved[k] || {{}}, {{order:String(k).replace(/^#/,'').trim()}}); }});
     const byOrder = new Map(latest.map(function(r) {{ return [remakeOrderKey(r), r]; }}));
-    remakeRows.forEach(function(r) {{ const s=byOrder.get(remakeOrderKey(r)); if (s) {{ r.category=s.category||r.category||''; r.culprit=s.culprit||r.culprit||''; r.comment=s.comment||r.comment||''; }} }});
+    remakeRows.forEach(function(r) {{ const s=byOrder.get(remakeOrderKey(r)); const dirtyFields=dirty.get(remakeOrderKey(r)) || new Set(); if (s) {{ if (!dirtyFields.has('original_order')) r.original_order=s.original_order||r.original_order||''; if (!dirtyFields.has('culprit')) {{ r.culprit=s.culprit||r.culprit||''; r.culprit_subcategory=s.culprit_subcategory||r.culprit_subcategory||''; }} if (!dirtyFields.has('category')) r.category=s.category||r.category||''; if (!dirtyFields.has('comment')) r.comment=s.comment||r.comment||''; }} }});
     dirty.forEach(function(fields, key) {{ const row=remakeRows.find(function(r) {{ return remakeOrderKey(r)===key; }}); if (!row) return; const target=byOrder.get(key) || row; fields.forEach(function(field) {{ target[field]=row[field] || ''; }}); }});
     const merged = latest.concat(remakeRows.filter(function(r) {{ return !byOrder.has(remakeOrderKey(r)); }}));
     return fetch(REMAKE_SAVE_URL, {{method:'PUT', headers:{{'x-ms-blob-type':'BlockBlob','Content-Type':'application/json'}}, body:JSON.stringify(merged)}});
