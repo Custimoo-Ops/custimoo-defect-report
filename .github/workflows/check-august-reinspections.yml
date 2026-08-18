@@ -1,0 +1,30 @@
+name: Check August Qarma Reinspections
+on:
+  workflow_dispatch:
+jobs:
+  count:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Count August reinspections
+        env:
+          QARMA_INSPECTIONS_URL: ${{ secrets.QARMA_INSPECTIONS_URL }}
+        run: |
+          python3 - <<'PY'
+          import csv,gzip,io,json,os,urllib.request
+          req=urllib.request.Request(os.environ['QARMA_INSPECTIONS_URL'],headers={'Accept':'text/csv,application/gzip,*/*'})
+          raw=urllib.request.urlopen(req,timeout=90).read()
+          with gzip.GzipFile(fileobj=io.BytesIO(raw)) as gz:
+              rows=csv.DictReader(io.TextIOWrapper(gz,encoding='utf-8-sig',newline=''))
+              all_aug=[]
+              for r in rows:
+                  date=str(r.get('Scheduled inspection date') or r.get('Inspection end time') or '')
+                  if not date.startswith('2026-08'): continue
+                  if str(r.get('Reinspection of') or '').strip(): all_aug.append(r)
+          orders=sorted({str(r.get('Order number') or '').strip() for r in all_aug if str(r.get('Order number') or '').strip()})
+          eligible=[r for r in all_aug if str(r.get('Status') or '').strip()=='Report' and str(r.get('Inspection type') or '').strip()=='Final']
+          eligible_orders=sorted({str(r.get('Order number') or '').strip() for r in eligible if str(r.get('Order number') or '').strip()})
+          conclusions={}
+          for r in all_aug: conclusions[str(r.get('Conclusion') or '').strip()]=conclusions.get(str(r.get('Conclusion') or '').strip(),0)+1
+          print(json.dumps({'aug_reinspection_rows':len(all_aug),'aug_reinspection_orders':len(orders),'eligible_final_reinspection_rows':len(eligible),'eligible_final_reinspection_orders':len(eligible_orders),'conclusions':conclusions},sort_keys=True))
+          PY
