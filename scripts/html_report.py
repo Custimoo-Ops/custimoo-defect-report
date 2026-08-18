@@ -2681,7 +2681,7 @@ function renderForensics() {{
     if (!row) return;
     if (input.classList.contains('remake-original-order')) {{ row.original_order = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'original_order'])); }}
     if (input.classList.contains('remake-category')) {{ row.category = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'category'])); }}
-    if (input.classList.contains('remake-culprit')) {{ row.culprit = input.value; if (row.culprit !== 'Custimoo') row.culprit_subcategory = ''; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'culprit', 'culprit_subcategory'])); }}
+    if (input.classList.contains('remake-culprit')) {{ row.culprit = input.value; if (row.culprit !== 'Custimoo') row.culprit_subcategory = ''; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'culprit', 'culprit_subcategory'])); rerender(); }}
     if (input.classList.contains('remake-culprit-subcategory')) {{ row.culprit_subcategory = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'culprit_subcategory'])); }}
     if (input.classList.contains('remake-comment')) {{ row.comment = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'comment'])); }}
     scheduleRemakeSave();
