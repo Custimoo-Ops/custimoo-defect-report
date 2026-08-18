@@ -1373,7 +1373,7 @@ for _r in REMAKE_MGMT:
     _r['customer'] = _remake_customer_by_order.get(str(_r.get('order') or '').replace('#', '').strip(), _r.get('customer') or '(unknown)')
 
 # Infer original order references from existing comments, without replacing manual values.
-_original_order_re = re.compile(r'\b(?:reorder|remake|replacement)\b[^#\n]{0,80}#(\d{4,})', re.IGNORECASE)
+_original_order_re = re.compile(r'(?:\b(?:reorder|remake|replacement)\b[^#\n]{0,80}?|\b(?:repeat order|same issue as|from order|for order|of order)\b[^#\n]{0,40}?|\border\b\s+)(?:#\s*)?(\d{4,})', re.IGNORECASE)
 for _r in REMAKE_MGMT:
     if str(_r.get('original_order') or '').strip():
         continue
@@ -2551,7 +2551,7 @@ function scheduleRemakeSave() {{
   setRemakeSaveStatus('Unsaved changes…');
   remakeSaveTimer = setTimeout(saveRemakes, 700);
 }}
-function inferOriginalOrder(comment) {{ const m=String(comment||'').match(/\b(?:reorder|remake|replacement)\b[^#\\n]{{0,80}}#(\d{{4,}})/i); return m ? m[1] : ''; }}
+function inferOriginalOrder(comment, remakeOrder) {{ const re=/(?:\b(?:reorder|remake|replacement)\b[^#\\n]{{0,80}}?|\b(?:repeat order|same issue as|from order|for order|of order)\b[^#\\n]{{0,40}}?|\border\s+)(?:#\s*)?(\d{{4,}})/i; const m=String(comment||'').match(re); return m && m[1] !== String(remakeOrder||'') ? m[1] : ''; }}
 function mergeSavedRemakes(saved) {{
   if (!saved) return;
   const entries = Array.isArray(saved) ? saved : Object.keys(saved).map(function(k) {{ const v = saved[k] || {{}}; return Object.assign({{}}, typeof v === 'object' ? v : {{}}, {{ order: String(k).replace(/^#/, '').trim() }}); }});
@@ -2559,7 +2559,7 @@ function mergeSavedRemakes(saved) {{
   const byOrder = new Map(entries.map(function(r) {{ return [remakeOrderKey(r), r]; }}));
   remakeRows.forEach(function(r) {{
     const savedRow = byOrder.get(remakeOrderKey(r));
-    if (savedRow) {{ r.original_order = savedRow.original_order || r.original_order || inferOriginalOrder(savedRow.comment || r.comment); r.category = savedRow.category || r.category || ''; r.culprit = savedRow.culprit || r.culprit || ''; r.comment = savedRow.comment || r.comment || ''; }}
+    if (savedRow) {{ r.original_order = savedRow.original_order || r.original_order || inferOriginalOrder(savedRow.comment || r.comment, remakeOrderKey(r)); r.category = savedRow.category || r.category || ''; r.culprit = savedRow.culprit || r.culprit || ''; r.comment = savedRow.comment || r.comment || ''; }}
   }});
   remakeRows = remakeRows.concat(entries.filter(function(r) {{ return !remakeRows.some(function(x) {{ return remakeOrderKey(x) === remakeOrderKey(r); }}); }}));
 }}
