@@ -2562,6 +2562,15 @@ function remakeCulpritOptions(selected) {{
 }}
 function custimooSubcategoryOptions(selected) {{ return '<option value="">Select subcategory</option>' + CUSTIMOO_SUBCATEGORIES.map(function(v) {{ return '<option value="' + escapeAttr(v) + '"' + (v === selected ? ' selected' : '') + '>' + esc(v) + '</option>'; }}).join(''); }}
 function renderCustimooSubcategory(row, order) {{ return row.culprit === 'Custimoo' ? '<select class="remake-edit remake-culprit-subcategory" aria-label="Custimoo subcategory for order ' + escapeAttr(order) + '">' + custimooSubcategoryOptions(row.culprit_subcategory || '') + '</select>' : '<span class="muted">—</span>'; }}
+function updateCustimooSubcategoryCell(row, order, input) {{
+  const cell = input.closest('td');
+  if (!cell) return;
+  const old = cell.querySelector('.remake-culprit-subcategory');
+  if (old) old.remove();
+  const placeholder = cell.querySelector('.muted');
+  if (placeholder) placeholder.remove();
+  if (row.culprit === 'Custimoo') cell.insertAdjacentHTML('beforeend', renderCustimooSubcategory(row, order));
+}}
 function remakeCategoryOptions(selected) {{
   return '<option value="">Select category</option>' + REMAKE_CATEGORIES.map(function(category) {{
     return '<option value="' + escapeAttr(category) + '"' + (category === selected ? ' selected' : '') + '>' + esc(category) + '</option>';
@@ -2681,7 +2690,7 @@ function renderForensics() {{
     if (!row) return;
     if (input.classList.contains('remake-original-order')) {{ row.original_order = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'original_order'])); }}
     if (input.classList.contains('remake-category')) {{ row.category = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'category'])); }}
-    if (input.classList.contains('remake-culprit')) {{ row.culprit = input.value; if (row.culprit !== 'Custimoo') row.culprit_subcategory = ''; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'culprit', 'culprit_subcategory'])); rerender(); }}
+    if (input.classList.contains('remake-culprit')) {{ row.culprit = input.value; if (row.culprit !== 'Custimoo') row.culprit_subcategory = ''; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'culprit', 'culprit_subcategory'])); updateCustimooSubcategoryCell(row, remakeOrderKey(row), input); }}
     if (input.classList.contains('remake-culprit-subcategory')) {{ row.culprit_subcategory = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'culprit_subcategory'])); }}
     if (input.classList.contains('remake-comment')) {{ row.comment = input.value; remakeDirtyFields.set(remakeOrderKey(row), new Set([...(remakeDirtyFields.get(remakeOrderKey(row)) || []), 'comment'])); }}
     scheduleRemakeSave();
