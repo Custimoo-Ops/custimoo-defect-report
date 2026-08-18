@@ -313,7 +313,7 @@ def generate(defects_only=False, customer_company=None):
         monthly_factory_defects[f][fu_month] += affected
         monthly_factory_defect_orders[f][fu_month].add(ono)
 
-    factory_month_pipe = defaultdict(lambda: defaultdict(lambda: {'qty':0, 'orders':0, 'remake_qty':0, 'remake_orders':0}))
+    factory_month_pipe = defaultdict(lambda: defaultdict(lambda: {'qty':0, 'orders':0, 'remake_qty':0, 'remake_orders':0, 'remake_checked_orders': set(), 'remake_unchecked_orders': set()}))
     seen_order_factories = set()
     seen_remake_order_factories = set()
 
@@ -341,9 +341,11 @@ def generate(defects_only=False, customer_company=None):
             factory_month_pipe[f][month]['orders'] += 1
         if ono in backend_remake_orders:
             factory_month_pipe[f][month]['remake_qty'] += qty
+            key = (f, month, ono)
             if key not in seen_remake_order_factories:
                 seen_remake_order_factories.add(key)
                 factory_month_pipe[f][month]['remake_orders'] += 1
+                factory_month_pipe[f][month]['remake_checked_orders'].add(ono)
 
     cur.execute("""
 SELECT oi.status_updated_at AS shipping_date,
@@ -378,11 +380,12 @@ WHERE oi.status_updated_at >= %s
         if key not in seen_order_factories:
             seen_order_factories.add(key)
             factory_month_pipe[f][month]['orders'] += 1
-        if order_type_symbol == 'R' and not remake_backend_actions.is_excluded_remake(ono):
+        if order_type_symbol in ('R', 'Ri') and not remake_backend_actions.is_excluded_remake(ono):
             factory_month_pipe[f][month]['remake_qty'] += qty
             if key not in seen_remake_order_factories:
                 seen_remake_order_factories.add(key)
                 factory_month_pipe[f][month]['remake_orders'] += 1
+                factory_month_pipe[f][month]['remake_unchecked_orders'].add(ono)
 
     # Totals are derived from non-excluded factory rows so excluded factories (e.g. Augusta) are removed everywhere.
     total_monthly_pipe = defaultdict(int)
@@ -425,6 +428,8 @@ WHERE oi.status_updated_at >= %s
         total_ords = sum(factory_month_pipe[f][m]['orders'] for m in factory_month_pipe[f])
         total_remake_ords = sum(factory_month_pipe[f][m].get('remake_orders', 0) for m in factory_month_pipe[f])
         total_remake_qty = sum(factory_month_pipe[f][m].get('remake_qty', 0) for m in factory_month_pipe[f])
+        remake_checked_orders = len(set().union(*(factory_month_pipe[f][m].get('remake_checked_orders', set()) for m in factory_month_pipe[f])))
+        remake_unchecked_orders = len(set().union(*(factory_month_pipe[f][m].get('remake_unchecked_orders', set()) for m in factory_month_pipe[f])))
         rate = (factory_defects[f] / total_vol * 100) if total_vol > 0 else 0
         order_rate = (len(factory_orders_set[f]) / total_ords * 100) if total_ords > 0 else 0
         factory_stats.append({
@@ -434,6 +439,8 @@ WHERE oi.status_updated_at >= %s
             'defects': factory_defects[f],
             'defect_orders': len(factory_orders_set[f]),
             'remake_orders': total_remake_ords,
+            'remake_orders_checked_by_qarma': remake_checked_orders,
+            'remake_orders_not_checked_by_qarma': remake_unchecked_orders,
             'remake_qty': total_remake_qty,
             'rate': round(rate, 2),
             'order_rate': round(order_rate, 2),

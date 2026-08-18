@@ -2057,6 +2057,8 @@ function aggregateFactories(list) {{
     acc.volume += f.volume || 0;
     acc.orders += f.orders || 0;
     acc.remake_orders += f.remake_orders || 0;
+    acc.remake_orders_checked_by_qarma += f.remake_orders_checked_by_qarma || 0;
+    acc.remake_orders_not_checked_by_qarma += f.remake_orders_not_checked_by_qarma || 0;
     acc.remake_qty += f.remake_qty || 0;
     acc.qarma.sample_qty += q.sample_qty || 0;
     acc.qarma.defects += q.defects || 0;
@@ -2064,7 +2066,7 @@ function aggregateFactories(list) {{
     acc.qarma.orders_checked += q.orders_checked || 0;
     acc.qarma.rejected_orders += q.rejected_orders || 0;
     return acc;
-  }}, {{volume:0, orders:0, remake_orders:0, remake_qty:0, qarma:{{sample_qty:0, defects:0, inspections:0, orders_checked:0, rejected_orders:0}}}});
+  }}, {{volume:0, orders:0, remake_orders:0, remake_orders_checked_by_qarma:0, remake_orders_not_checked_by_qarma:0, remake_qty:0, qarma:{{sample_qty:0, defects:0, inspections:0, orders_checked:0, rejected_orders:0}}}});
 }}
 function valWithDelta(html) {{ return html; }}
 function qarmaRate(q, totalOrderQty) {{ return (totalOrderQty || 0) > 0 ? (q.defects || 0) / totalOrderQty * 100 : 0; }}
@@ -2154,6 +2156,8 @@ function measureCells(f, q) {{
       + '<td class="right">' + (q.rejected_orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
       + '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (f.remake_orders_checked_by_qarma || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (f.remake_orders_not_checked_by_qarma || 0).toLocaleString() + '</td>'
       + '<td class="right">' + pctPill((f.orders || 0) > 0 ? (f.remake_orders || 0) / f.orders * 100 : 0) + '</td>';
   }}
   // qty mode
@@ -2163,6 +2167,8 @@ function measureCells(f, q) {{
     + '<td class="right">' + (q.defects || 0).toLocaleString() + '</td>'
     + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
     + '<td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td>'
+    + '<td class="right">' + (f.remake_orders_checked_by_qarma || 0).toLocaleString() + '</td>'
+    + '<td class="right">' + (f.remake_orders_not_checked_by_qarma || 0).toLocaleString() + '</td>'
     + '<td class="right">' + pctPill((f.volume || 0) > 0 ? (f.remake_qty || 0) / f.volume * 100 : 0) + '</td>';
 }}
 function measureHeaders() {{
@@ -2172,6 +2178,8 @@ function measureHeaders() {{
       + '<th class="right">No of orders with error in Qarma</th>'
       + '<th class="right">Qarma Err%</th>'
       + '<th class="right">Remake Orders</th>'
+      + '<th class="right">Remakes — Qarma Checked</th>'
+      + '<th class="right">Remakes — Qarma Not Checked</th>'
       + '<th class="right">Remake Orders Err%</th>';
   }}
   return '<th class="right">Total Order QTY</th>'
@@ -2180,6 +2188,8 @@ function measureHeaders() {{
     + '<th class="right">Qarma Defects QTY</th>'
     + '<th class="right">Qarma Err%</th>'
     + '<th class="right">Remake QTY</th>'
+    + '<th class="right">Remakes — Qarma Checked</th>'
+    + '<th class="right">Remakes — Qarma Not Checked</th>'
     + '<th class="right">Remake QTY Err%</th>';
 }}
 function factoryRow(f, opts) {{
