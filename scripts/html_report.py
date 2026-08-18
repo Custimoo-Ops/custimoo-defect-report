@@ -1662,7 +1662,7 @@ html = f"""<!DOCTYPE html>
   th {{ font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: #fafbff; }}
   .wrap:has(#remake-mgmt.active) {{ max-width: 2400px; }}
   .remake-mgmt-scroll {{ overflow-x: auto; max-height: none; }}
-  .remake-mgmt-scroll .remake-table {{ min-width: 1900px; table-layout: fixed; }}
+  .remake-mgmt-scroll .remake-table {{ min-width: 2200px; table-layout: fixed; }}
   .remake-mgmt-scroll .remake-table th:nth-child(1) {{ width: 90px; }}
   .remake-mgmt-scroll .remake-table th:nth-child(2) {{ width: 150px; }}
   .remake-mgmt-scroll .remake-table th:nth-child(3) {{ width: 70px; }}
@@ -1674,7 +1674,7 @@ html = f"""<!DOCTYPE html>
   .remake-mgmt-scroll .remake-table th:nth-child(9) {{ width: 180px; }}
   .remake-mgmt-scroll .remake-table th:nth-child(10) {{ width: 190px; }}
   .remake-mgmt-scroll .remake-table th:nth-child(11) {{ width: 220px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(12) {{ width: 420px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(12) {{ width: 700px; }}
   .remake-mgmt-scroll .remake-edit {{ width: 100%; min-width: 0; box-sizing: border-box; }}
   .wrap:has(#qc-rejections.active) {{ max-width: 1800px; }}
   .qc-rejections-scroll {{ overflow-x: hidden; max-height: none; }}
