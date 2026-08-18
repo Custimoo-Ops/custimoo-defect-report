@@ -1362,6 +1362,25 @@ for _row in remake_cur.fetchall():
     })
 remake_cur.close()
 
+# Add externally identified missing remake/issues to the management work queue.
+_missing_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'remakes_missing_from_lars.json')
+if os.path.exists(_missing_path):
+    with open(_missing_path, 'r', encoding='utf-8') as _f:
+        _missing_rows = json.load(_f)
+    _existing = {str(r.get('order') or '').replace('#', '').strip() for r in REMAKE_MGMT}
+    for _m in _missing_rows:
+        _mo = str(_m.get('order') or '').replace('#', '').strip()
+        if not _mo or _mo in _existing:
+            continue
+        REMAKE_MGMT.append({
+            'order': _mo, 'qty': int(_m.get('qty') or 0), 'customer': '(unknown)',
+            'admin': _m.get('admin') or '(unknown)', 'factory': '(unknown)', 'month': '?',
+            'category': '', 'culprit': '', 'comment': '', 'original_order': '', 'flag': '',
+            'source': _m.get('source') or 'External list',
+            'verification_status': 'Needs verification' if _m.get('needs_verification') else 'Confirmed portal remake',
+        })
+        _existing.add(_mo)
+
 # Add Bronze customer/company names to every remake row.
 _remake_customer_cur = conn.cursor()
 _remake_customer_cur.execute("""
@@ -1854,7 +1873,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       </div>
       <div style="overflow-x:auto;max-height:65vh;overflow-y:auto">
         <table class="remake-table"><thead>
-          <tr><th>Order</th><th>Original Order</th><th class="right">QTY</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
+          <tr><th>Order</th><th>Original Order</th><th class="right">QTY</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th>Source</th><th>Verification</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
         </thead><tbody id="remakeMgmtBody"></tbody></table>
       </div>
     </div>
@@ -2557,11 +2576,13 @@ function renderRemakeMgmt(filterAdmin, filterMonth) {{
       + '<td>' + esc(r.admin || '') + '</td>'
       + '<td>' + esc(r.factory || '') + '</td>'
       + '<td>' + esc(r.month || '') + '</td>'
+      + '<td>' + esc(r.source || 'Backend remake') + '</td>'
+      + '<td>' + esc(r.verification_status || 'Confirmed backend remake') + '</td>'
       + '<td><select class="remake-edit remake-category" aria-label="Category for order ' + escapeAttr(order) + '">' + remakeCategoryOptions(r.category || '') + '</select></td>'
       + '<td><input class="remake-edit remake-culprit" aria-label="Culprit for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.culprit || '') + '" placeholder="Culprit"></td>'
       + '<td><input class="remake-edit remake-comment" aria-label="Comment for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.comment || '') + '" placeholder="Comment"></td>'
       + '</tr>';
-  }}).join('') || '<tr><td colspan="10">No remakes match the filters.</td></tr>';
+  }}).join('') || '<tr><td colspan="12">No remakes match the filters.</td></tr>';
   const grossQty = rows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);
   const netRows = rows.filter(function(r) {{ return !remakeIsExcluded(r); }});
   const netQty = netRows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);
