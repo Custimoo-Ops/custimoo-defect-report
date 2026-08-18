@@ -1404,9 +1404,17 @@ for _r in REMAKE_MGMT:
 _qc_rejection_groups = {}
 _qc_final_approved_orders = set()
 _qc_final_approval_details = {}
+_qc_reinspection_details = {}
 for _row in load_qarma_rows():
     _row_order = str(_row.get('Order number') or '').strip()
     if is_qarma_final_candidate(_row):
+        if _row_order and str(_row.get('Reinspection of') or '').strip():
+            _reinspect_id = str(_row.get('Report inspection id') or _row.get('Inspection id') or _row.get('Link to report') or '').strip()
+            _reinspect_date = str(_row.get('Scheduled inspection date') or _row.get('Inspection end time') or '')[:19]
+            _rd = _qc_reinspection_details.setdefault(_row_order, {'ids': set(), 'results': set(), 'latest_date': ''})
+            if _reinspect_id: _rd['ids'].add(_reinspect_id)
+            _rd['results'].add(str(_row.get('Conclusion') or '').strip() or 'Unknown')
+            if _reinspect_date > _rd['latest_date']: _rd['latest_date'] = _reinspect_date
         if str(_row.get('Conclusion') or '').strip() == 'Approved' and _row_order:
             _approval_date = str(_row.get('Scheduled inspection date') or _row.get('Inspection end time') or '')[:19]
             _is_reinspection = bool(str(_row.get('Reinspection of') or '').strip())
@@ -1443,6 +1451,9 @@ for _row in load_qarma_rows():
         'final_approved': False,
         'final_approval_type': '',
         'final_approval_date': '',
+        'reinspection_status': 'No',
+        'reinspection_count': 0,
+        'latest_reinspection_date': '',
         'shipped': False,
         'shipping_date': '',
         'tracking_no': '',
@@ -1505,6 +1516,11 @@ for _g in _qc_rejection_groups.values():
     if _g['final_approved']:
         _g['final_approval_type'] = _qc_final_approval_details[_g['order']]['type']
         _g['final_approval_date'] = _qc_final_approval_details[_g['order']]['date']
+    _reinspect = _qc_reinspection_details.get(_g['order'])
+    if _reinspect:
+        _g['reinspection_count'] = len(_reinspect['ids']) or len(_reinspect['results'])
+        _g['latest_reinspection_date'] = _reinspect['latest_date']
+        _g['reinspection_status'] = ' · '.join(sorted(_reinspect['results']))
     _g['backend_id'], _g['shipped'], _g['shipping_date'], _g['tracking_no'], _g['tracking_link'] = _qc_shipment_state.get(_g['order'], ('', False, '', '', ''))
     _g['qc_comment'] = ' · '.join(dict.fromkeys(x for x in _g['comments'] if x))[:1200]
     del _g['comments']
@@ -1624,7 +1640,7 @@ html = f"""<!DOCTYPE html>
   .qc-rejections-table td::before {{ content: attr(data-label); position: absolute; left: 12px; top: 10px; width: 96px; font-size: 10px; line-height: 1.2; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }}
   .qc-rejections-table td:nth-last-child(-n+4) {{ border-bottom: 0; }}
   .qc-rejections-table .qc-comment {{ width: auto; min-width: 0; max-width: none; white-space: pre-wrap; }}
-  .qc-rejections-table td:nth-child(5), .qc-rejections-table td:nth-child(15), .qc-rejections-table td:nth-child(16) {{ grid-column: 1 / -1; }}
+  .qc-rejections-table td:nth-child(5), .qc-rejections-table td:nth-child(18), .qc-rejections-table td:nth-child(19) {{ grid-column: 1 / -1; }}
   .qc-rejections-table .qc-edit {{ width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }}
   @media (max-width: 1400px) {{
     .wrap:has(#qc-rejections.active) {{ max-width: 100%; }}
@@ -1855,7 +1871,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       </div>
       <div class="qc-rejections-scroll">
         <table class="remake-table qc-rejections-table"><thead><tr>
-          <th>Order</th><th>QC Date</th><th>Factory</th><th>Items</th><th class="qc-comment">QC Comment</th><th class="right">Order QTY</th><th class="right">QTY Checked</th><th class="right">Defect QTY</th><th>Severity</th><th>Inspector</th><th>Final QC Approved</th><th>Shipped</th><th>Tracking</th><th style="min-width:170px">Error Type</th><th style="min-width:260px">How to Avoid</th><th style="min-width:320px">Work Notes</th>
+          <th>Order</th><th>QC Date</th><th>Factory</th><th>Items</th><th class="qc-comment">QC Comment</th><th class="right">Order QTY</th><th class="right">QTY Checked</th><th class="right">Defect QTY</th><th>Severity</th><th>Inspector</th><th>Final QC Approved</th><th>Reinspection</th><th>Reinspection Count</th><th>Latest Reinspection Date</th><th>Shipped</th><th>Tracking</th><th style="min-width:170px">Error Type</th><th style="min-width:260px">How to Avoid</th><th style="min-width:320px">Work Notes</th>
         </tr></thead><tbody id="qcRejectionBody"></tbody></table>
       </div>
     </div>
@@ -2660,13 +2676,16 @@ function renderQcRejections() {{
       + '<td data-label="Severity">' + esc(r.severities || 'Not specified') + '</td>'
       + '<td data-label="Inspector">' + esc(r.inspectors || '') + '</td>'
       + '<td data-label="Final QC Approved">' + (r.final_approved ? 'Yes' + (r.final_approval_type ? ' · ' + esc(r.final_approval_type) : '') + (r.final_approval_date ? ' · ' + esc(r.final_approval_date) : '') : 'No') + '</td>'
+      + '<td data-label="Reinspection">' + esc(r.reinspection_status || 'No') + '</td>'
+      + '<td data-label="Reinspection Count" class="right">' + (r.reinspection_count || 0).toLocaleString() + '</td>'
+      + '<td data-label="Latest Reinspection Date">' + esc(r.latest_reinspection_date || '—') + '</td>'
       + '<td data-label="Shipped">' + (r.shipped ? 'Yes' + (r.shipping_date ? ' · ' + esc(r.shipping_date) : '') : 'No') + '</td>'
       + '<td data-label="Tracking">' + qcTrackingHtml(r) + '</td>'
       + '<td data-label="Error Type"><select class="qc-edit qc-error-type" aria-label="Error type for order ' + escapeAttr(order) + '"><option value="">Investigating</option><option value="Custimoo error"' + selectedCustimoo + '>Custimoo error</option><option value="Factory error"' + selectedFactory + '>Factory error</option></select></td>'
       + '<td data-label="How to Avoid"><input class="qc-edit qc-avoidance" aria-label="How to avoid error for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.avoidance_action || '') + '" placeholder="Preventive action"></td>'
       + '<td data-label="Work Notes"><input class="qc-edit qc-work-comment" aria-label="Work notes for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.work_comment || '') + '" placeholder="Investigation / follow-up"></td>'
       + '</tr>';
-  }}).join('') || '<tr><td colspan="16">No eligible QC rejections in the report period.</td></tr>';
+  }}).join('') || '<tr><td colspan="19">No eligible QC rejections in the report period.</td></tr>';
   document.getElementById('qcRejectionCount').textContent = rows.length + ' rejected orders';
 }}
 function saveQcRejections() {{
