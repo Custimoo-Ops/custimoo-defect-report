@@ -122,6 +122,14 @@ def load_qarma_stats(month_filter=None):
     if cache_key in QARMA_STATS_CACHE:
         return QARMA_STATS_CACHE[cache_key]
     stats = defaultdict(lambda: {'sample_qty': 0, 'defects': 0, 'reports': set(), 'orders': set(), 'reinspection_orders': set(), 'rejected_orders': set()})
+    months_allowed = set(month_filter) if month_filter else set(months)
+    for raw_row in load_qarma_rows():
+        if not is_qarma_final_candidate(raw_row) or not str(raw_row.get('Reinspection of') or '').strip():
+            continue
+        raw_month = dt_to_month(raw_row.get('Scheduled inspection date') or raw_row.get('Inspection end time'))
+        raw_order = str(raw_row.get('Order number') or '').strip()
+        if raw_month in months_allowed and raw_order:
+            stats[norm_qarma_supplier(raw_row.get('Supplier name'))]['reinspection_orders'].add(raw_order)
     seen_report_sample = set()
     for row, month in iter_qarma_rows(month_filter):
         f = norm_qarma_supplier(row.get('Supplier name'))
