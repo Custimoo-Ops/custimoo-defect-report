@@ -14,10 +14,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install deps
+        timeout-minutes: 8
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq openssh-client
-          pip install psycopg2-binary azure-storage-blob requests openpyxl
+          set -euo pipefail
+          timeout 240s sudo apt-get update -qq
+          timeout 120s sudo apt-get install -y -qq openssh-client
+          timeout 300s python3 -m pip install --disable-pip-version-check --no-input --timeout 60 --retries 2 psycopg2-binary azure-storage-blob requests openpyxl
 
       - name: Set up SSH tunnel to bronze PostgreSQL
         env:
