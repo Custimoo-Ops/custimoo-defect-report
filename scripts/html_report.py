@@ -1920,7 +1920,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <div class="card">
       <h3 class="section-title">QC Rejections — Mistake Prevention Work Queue</h3>
       <p class="muted">Eligible final Qarma inspections rejected by Custimoo QC. Repeated inspection/item rows are grouped by order. Use the fields to assign responsibility and record how to avoid the mistake.</p>
-      <div class="hint">Attribution options are intentionally limited to <strong>Investigating</strong>, <strong>Custimoo error</strong>, and <strong>Factory error</strong>. Severity comes from Qarma affected-piece fields. <strong>Final QC Approved</strong> is Yes when the order has an approved eligible final inspection or approved final reinspection; the approval type and date are shown. <strong>Tracking</strong> shows the backend tracking number and/or clickable tracking link; shipped orders without either show <strong>No tracking</strong>.</div>
+      <div class="hint">Attribution options are intentionally limited to <strong>Investigating</strong>, <strong>Custimoo error</strong>, <strong>Factory error</strong>, and <strong>BOTH</strong>. Severity comes from Qarma affected-piece fields. <strong>Final QC Approved</strong> is Yes when the order has an approved eligible final inspection or approved final reinspection; the approval type and date are shown. <strong>Tracking</strong> shows the backend tracking number and/or clickable tracking link; shipped orders without either show <strong>No tracking</strong>.</div>
       <div class="remake-filter-row" style="display:flex;gap:12px;align-items:center;margin:12px 0;flex-wrap:wrap">
         <span style="font-size:13px;color:var(--muted)" id="qcRejectionCount">0 rejected orders</span>
         <span id="qcRejectionSaveStatus" class="muted" style="font-size:13px;margin-left:auto">Changes save automatically</span>
@@ -2756,6 +2756,7 @@ function renderQcRejections() {{
     const order = qcRejectionKey(r);
     const selectedCustimoo = r.error_type === 'Custimoo error' ? ' selected' : '';
     const selectedFactory = r.error_type === 'Factory error' ? ' selected' : '';
+    const selectedBoth = r.error_type === 'BOTH' ? ' selected' : '';
     return '<tr data-order="' + escapeAttr(order) + '">'
       + '<td data-label="Order" class="order-num">' + qcBackendOrderHtml(r) + '</td>'
       + '<td data-label="QC Date">' + esc(r.date || r.month || '') + '</td>'
@@ -2773,7 +2774,7 @@ function renderQcRejections() {{
       + '<td data-label="Latest Reinspection Date">' + esc(r.latest_reinspection_date || '—') + '</td>'
       + '<td data-label="Shipped">' + (r.shipped ? 'Yes' + (r.shipping_date ? ' · ' + esc(r.shipping_date) : '') : 'No') + '</td>'
       + '<td data-label="Tracking">' + qcTrackingHtml(r) + '</td>'
-      + '<td data-label="Error Type"><select class="qc-edit qc-error-type" aria-label="Error type for order ' + escapeAttr(order) + '"><option value="">Investigating</option><option value="Custimoo error"' + selectedCustimoo + '>Custimoo error</option><option value="Factory error"' + selectedFactory + '>Factory error</option></select></td>'
+      + '<td data-label="Error Type"><select class="qc-edit qc-error-type" aria-label="Error type for order ' + escapeAttr(order) + '"><option value="">Investigating</option><option value="Custimoo error"' + selectedCustimoo + '>Custimoo error</option><option value="Factory error"' + selectedFactory + '>Factory error</option><option value="BOTH"' + selectedBoth + '>BOTH</option></select></td>'
       + '<td data-label="How to Avoid"><input class="qc-edit qc-avoidance" aria-label="How to avoid error for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.avoidance_action || '') + '" placeholder="Preventive action"></td>'
       + '<td data-label="Work Notes"><input class="qc-edit qc-work-comment" aria-label="Work notes for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.work_comment || '') + '" placeholder="Investigation / follow-up"></td>'
       + '</tr>';
