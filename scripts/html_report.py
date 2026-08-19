@@ -1698,6 +1698,7 @@ html = f"""<!DOCTYPE html>
   .qc-rejections-table .qc-comment {{ width: auto; min-width: 0; max-width: none; white-space: pre-wrap; }}
   .qc-rejections-table td:nth-child(5), .qc-rejections-table td:nth-child(18), .qc-rejections-table td:nth-child(19) {{ grid-column: 1 / -1; }}
   .qc-rejections-table .qc-edit {{ width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }}
+  .qc-rejections-table textarea.qc-avoidance {{ min-height: 72px; resize: vertical; font: inherit; padding: 8px; }}
   @media (max-width: 1400px) {{
     .wrap:has(#qc-rejections.active) {{ max-width: 100%; }}
     .qc-rejections-table tr {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
@@ -2723,6 +2724,8 @@ function renderForensics() {{
 // ── QC Rejections work queue ──
 var qcRejectionRows = QC_REJECTIONS.slice();
 var qcRejectionSaveTimer = null;
+var qcSaveInFlight = false;
+var qcSavePending = false;
 var qcDirtyFields = new Map();
 function qcRejectionKey(r) {{ return String(r.order || '').replace(/^#/, '').trim(); }}
 function qcRejectionHandled(r) {{ return Boolean(String(r.error_type || '').trim()); }}
@@ -2775,7 +2778,7 @@ function renderQcRejections() {{
       + '<td data-label="Shipped">' + (r.shipped ? 'Yes' + (r.shipping_date ? ' · ' + esc(r.shipping_date) : '') : 'No') + '</td>'
       + '<td data-label="Tracking">' + qcTrackingHtml(r) + '</td>'
       + '<td data-label="Error Type"><select class="qc-edit qc-error-type" aria-label="Error type for order ' + escapeAttr(order) + '"><option value="">Investigating</option><option value="Custimoo error"' + selectedCustimoo + '>Custimoo error</option><option value="Factory error"' + selectedFactory + '>Factory error</option><option value="BOTH"' + selectedBoth + '>BOTH</option></select></td>'
-      + '<td data-label="How to Avoid"><input class="qc-edit qc-avoidance" aria-label="How to avoid error for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.avoidance_action || '') + '" placeholder="Preventive action"></td>'
+      + '<td data-label="How to Avoid"><textarea class="qc-edit qc-avoidance" aria-label="How to avoid error for order ' + escapeAttr(order) + '" placeholder="Preventive action">' + esc(r.avoidance_action || '') + '</textarea></td>'
       + '<td data-label="Work Notes"><input class="qc-edit qc-work-comment" aria-label="Work notes for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.work_comment || '') + '" placeholder="Investigation / follow-up"></td>'
       + '</tr>';
   }}).join('') || '<tr><td colspan="19">No eligible QC rejections in the report period.</td></tr>';
@@ -2783,6 +2786,9 @@ function renderQcRejections() {{
 }}
 function saveQcRejections() {{
   if (!QC_REJECTIONS_SAVE_URL) {{ setQcRejectionSaveStatus('Local only — save endpoint unavailable'); return; }}
+  if (qcSaveInFlight) {{ qcSavePending = true; return; }}
+  qcSaveInFlight = true;
+  qcSavePending = false;
   setQcRejectionSaveStatus('Saving…');
   const dirty = new Map(qcDirtyFields);
   fetch(QC_REJECTIONS_DATA_URL + '?merge=' + Date.now()).then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }}).then(function(saved) {{
@@ -2792,7 +2798,7 @@ function saveQcRejections() {{
     dirty.forEach(function(fields, key) {{ const row=qcRejectionRows.find(function(r) {{ return qcRejectionKey(r)===key; }}); if (!row) return; const target=byOrder.get(key) || row; fields.forEach(function(field) {{ target[field]=row[field] || ''; }}); }});
     const merged = latest.concat(qcRejectionRows.filter(function(r) {{ return !byOrder.has(qcRejectionKey(r)); }}));
     return fetch(QC_REJECTIONS_SAVE_URL, {{method:'PUT', headers:{{'x-ms-blob-type':'BlockBlob','Content-Type':'application/json'}}, body:JSON.stringify(merged)}});
-  }}).then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); qcDirtyFields.clear(); setQcRejectionSaveStatus('Saved globally'); }}).catch(function(err) {{ console.warn('QC rejection save failed', err); setQcRejectionSaveStatus('Save failed — retrying on next edit'); }});
+  }}).then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); qcDirtyFields.clear(); qcSaveInFlight = false; setQcRejectionSaveStatus('Saved globally'); if (qcSavePending) setTimeout(saveQcRejections, 0); }}).catch(function(err) {{ qcSaveInFlight = false; console.warn('QC rejection save failed', err); setQcRejectionSaveStatus('Save failed — retrying on next edit'); if (qcSavePending) setTimeout(saveQcRejections, 0); }});
 }}
 function scheduleQcRejectionSave() {{
   clearTimeout(qcRejectionSaveTimer);
