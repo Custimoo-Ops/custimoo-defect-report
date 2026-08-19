@@ -121,7 +121,7 @@ def load_qarma_stats(month_filter=None):
     cache_key = tuple(month_filter) if month_filter else tuple(months)
     if cache_key in QARMA_STATS_CACHE:
         return QARMA_STATS_CACHE[cache_key]
-    stats = defaultdict(lambda: {'sample_qty': 0, 'defects': 0, 'reports': set(), 'orders': set(), 'rejected_orders': set()})
+    stats = defaultdict(lambda: {'sample_qty': 0, 'defects': 0, 'reports': set(), 'orders': set(), 'reinspection_orders': set(), 'rejected_orders': set()})
     seen_report_sample = set()
     for row, month in iter_qarma_rows(month_filter):
         f = norm_qarma_supplier(row.get('Supplier name'))
@@ -135,6 +135,7 @@ def load_qarma_stats(month_filter=None):
             stats[f]['rejected_orders'].add(order_no)
         if order_no:
             stats[f]['orders'].add(order_no)
+            if str(row.get('Reinspection of') or '').strip(): stats[f]['reinspection_orders'].add(order_no)
         if report_id:
             stats[f]['reports'].add(report_id)
             key = (f, report_id)
@@ -151,6 +152,7 @@ def load_qarma_stats(month_filter=None):
             'rate': round(defects / sample * 100, 2) if sample > 0 else 0,
             'inspections': len(v['reports']),
             'orders_checked': len(v['orders']),
+            'orders_with_reinspection': len(v.get('reinspection_orders', set())),
             'rejected_orders': len(v.get('rejected_orders', set())),
             'order_rate': round(len(v.get('rejected_orders', set())) / len(v['orders']) * 100, 2) if len(v['orders']) > 0 else 0,
         }
@@ -1037,7 +1039,7 @@ def period_label(month_keys):
     return month_labels.get(month_keys[0], month_keys[0]) + ' – ' + month_labels.get(month_keys[-1], month_keys[-1])
 
 def qarma_empty():
-    return {'sample_qty': 0, 'defects': 0, 'rate': 0, 'inspections': 0, 'orders_checked': 0, 'rejected_orders': 0, 'order_rate': 0}
+    return {'sample_qty': 0, 'defects': 0, 'rate': 0, 'inspections': 0, 'orders_checked': 0, 'orders_with_reinspection': 0, 'rejected_orders': 0, 'order_rate': 0}
 
 def factory_rows_for_months(month_keys):
     qstats = load_qarma_stats(month_keys)
@@ -2111,9 +2113,10 @@ function aggregateFactories(list) {{
     acc.qarma.defects += q.defects || 0;
     acc.qarma.inspections += q.inspections || 0;
     acc.qarma.orders_checked += q.orders_checked || 0;
+    acc.qarma.orders_with_reinspection += q.orders_with_reinspection || 0;
     acc.qarma.rejected_orders += q.rejected_orders || 0;
     return acc;
-  }}, {{volume:0, orders:0, remake_orders:0, remake_orders_checked_by_qarma:0, remake_orders_not_checked_by_qarma:0, remake_qty:0, qarma:{{sample_qty:0, defects:0, inspections:0, orders_checked:0, rejected_orders:0}}}});
+  }}, {{volume:0, orders:0, remake_orders:0, remake_orders_checked_by_qarma:0, remake_orders_not_checked_by_qarma:0, remake_qty:0, qarma:{{sample_qty:0, defects:0, inspections:0, orders_checked:0, orders_with_reinspection:0, rejected_orders:0}}}});
 }}
 function valWithDelta(html) {{ return html; }}
 function qarmaRate(q, totalOrderQty) {{ return (totalOrderQty || 0) > 0 ? (q.defects || 0) / totalOrderQty * 100 : 0; }}
@@ -2200,6 +2203,7 @@ function measureCells(f, q) {{
   if (ACTIVE_MEASURE === 'orders') {{
     return '<td class="right">' + (f.orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + (q.orders_checked || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (q.orders_with_reinspection || 0).toLocaleString() + '</td>'
       + '<td class="right">' + (q.rejected_orders || 0).toLocaleString() + '</td>'
       + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
       + '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
@@ -2210,6 +2214,7 @@ function measureCells(f, q) {{
   // qty mode
   return '<td class="right">' + (f.volume || 0).toLocaleString() + '</td>'
     + '<td class="right">' + (q.sample_qty || 0).toLocaleString() + '</td>'
+    + '<td class="right">' + (q.orders_with_reinspection || 0).toLocaleString() + '</td>'
     + '<td class="right">' + ((f.volume || 0) > 0 ? (((q.sample_qty || 0) / f.volume * 100).toFixed(1) + '%') : '—') + '</td>'
     + '<td class="right">' + (q.defects || 0).toLocaleString() + '</td>'
     + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
@@ -2222,6 +2227,7 @@ function measureHeaders() {{
   if (ACTIVE_MEASURE === 'orders') {{
     return '<th class="right">Total Number of Orders</th>'
       + '<th class="right">Qarma Number of Orders</th>'
+      + '<th class="right">Orders with Reinspection</th>'
       + '<th class="right">No of orders with error in Qarma</th>'
       + '<th class="right">Qarma Err%</th>'
       + '<th class="right">Remake Orders</th>'
@@ -2231,6 +2237,7 @@ function measureHeaders() {{
   }}
   return '<th class="right">Total Order QTY</th>'
     + '<th class="right">Qarma QTY Checked</th>'
+    + '<th class="right">Orders with Reinspection</th>'
     + '<th class="right">Qarma QC Coverage%</th>'
     + '<th class="right">Qarma Defects QTY</th>'
     + '<th class="right">Qarma Err%</th>'
