@@ -326,13 +326,19 @@ def generate(defects_only=False, customer_company=None):
     # Backend shipment data is used only for orders absent from the Qarma export.
     # Completed-order population: every active item must be completed; use the latest completed status date.
     cur.execute("""
-SELECT o.order_no, max(oi.status_updated_at)
-FROM orders o JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
+SELECT o.order_no,
+       max(oi.status_updated_at) AS completed_date,
+       max(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS actual_shipping_date
+FROM orders o
+JOIN order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL
+LEFT JOIN order_item_activities a ON a.order_item_id=oi.id AND a.status::text='shipped'
 WHERE o.deleted_at IS NULL
 GROUP BY o.order_no
 HAVING bool_and(oi.status::text = 'completed')
 """)
-    completed_order_dates = {str(r[0]): r[1] for r in cur.fetchall()}
+    completed_order_dates = {}
+    for _ono, _completed, _shipped in cur.fetchall():
+        completed_order_dates[str(_ono)] = {'completed': _completed, 'shipping': _shipped}
 
     qarma_shipment_rows = load_qarma_shipment_rows()
     qarma_order_numbers = set()
@@ -345,7 +351,9 @@ HAVING bool_and(oi.status::text = 'completed')
             continue
         if customer_order_nums is not None and ono not in customer_order_nums:
             continue
-        month = str(completed_order_dates[ono])[:7] if completed_order_dates[ono] else qr['month']
+        _date_info = completed_order_dates[ono]
+        _report_date = _date_info.get('shipping') or _date_info.get('completed')
+        month = str(_report_date)[:7] if _report_date else qr['month']
         qarma_order_numbers.add(ono)
         key = (f, month, ono)
         if key not in seen_order_factories:
@@ -360,32 +368,35 @@ HAVING bool_and(oi.status::text = 'completed')
                 factory_month_pipe[f][month]['remake_checked_orders'].add(ono)
 
     cur.execute("""
-SELECT oi.status_updated_at AS shipping_date,
-       COALESCE(oi.factory_name, '(unknown)') as raw_factory,
+SELECT o.order_no, MAX(oi.status_updated_at) AS completed_date,
+       MAX(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS actual_shipping_date,
+       COALESCE(string_agg(DISTINCT oi.factory_name, ', ' ORDER BY oi.factory_name),'(unknown)') as raw_factory,
        COALESCE(NULLIF(o.price_info->>'total_quantity', '')::numeric, 0)::int as qty,
-       o.order_no,
-       o.order_type_symbol
+       MAX(o.order_type_symbol) AS order_type_symbol
 FROM orders o
-JOIN order_items oi ON oi.order_id = o.id
-WHERE oi.status_updated_at >= %s
-  AND oi.status_updated_at < %s
-  AND o.deleted_at IS NULL
-  AND oi.deleted_at IS NULL
-  AND oi.status::text = 'completed'
-""", (REPORT_START, REPORT_END))
+JOIN order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL
+LEFT JOIN order_item_activities a ON a.order_item_id=oi.id AND a.status::text='shipped'
+WHERE o.deleted_at IS NULL
+GROUP BY o.order_no,o.price_info
+HAVING bool_and(oi.status::text='completed')
+""")
 
     for r in cur.fetchall():
-        month = str(r[0])[:7] if r[0] else "?"
-        f = norm_factory(r[1])
+        ono = str(r[0])
+        completed_date, actual_shipping_date = r[1], r[2]
+        report_date = actual_shipping_date or completed_date
+        month = str(report_date)[:7] if report_date else "?"
+        if month < REPORT_START[:7] or month >= REPORT_END[:7]:
+            continue
+        f = norm_factory(r[3])
         if f in EXCLUDED_FACTORIES:
             continue
-        qty = r[2] or 0
-        ono = str(r[3])
+        qty = r[4] or 0
         if customer_order_nums is not None and ono not in customer_order_nums:
             continue
         if ono in qarma_order_numbers:
             continue
-        order_type_symbol = r[4]
+        order_type_symbol = r[5]
         factory_month_pipe[f][month]['qty'] += qty
         # Count each order once per factory per month
         key = (f, month, ono)
