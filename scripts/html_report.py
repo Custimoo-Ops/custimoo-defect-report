@@ -809,7 +809,7 @@ WHERE oi.status_updated_at >= %s
   AND oi.status_updated_at < %s
   AND o.deleted_at IS NULL
   AND oi.deleted_at IS NULL
-  AND (oi.status::text IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
+  AND oi.status::text = 'completed'
 """, (factory_data.REPORT_START, factory_data.REPORT_END))
 all_order_meta = defaultdict(lambda: {'qty': 0, 'admin': '(unknown)', 'designers': set(), 'texts': [], 'month': '?'})
 for ono, qty, shipping_date, admin_name, admin_email, raw_factory, factory_products, order_line in cur.fetchall():

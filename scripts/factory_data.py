@@ -324,6 +324,16 @@ def generate(defects_only=False, customer_company=None):
 
     # Qarma is authoritative for shipment/order qty + month whenever physical-QC data exists.
     # Backend shipment data is used only for orders absent from the Qarma export.
+    # Completed-order population: every active item must be completed; use the latest completed status date.
+    cur.execute("""
+SELECT o.order_no, max(oi.status_updated_at)
+FROM orders o JOIN order_items oi ON oi.order_id = o.id AND oi.deleted_at IS NULL
+WHERE o.deleted_at IS NULL
+GROUP BY o.order_no
+HAVING bool_and(oi.status::text = 'completed')
+""")
+    completed_order_dates = {str(r[0]): r[1] for r in cur.fetchall()}
+
     qarma_shipment_rows = load_qarma_shipment_rows()
     qarma_order_numbers = set()
     for qr in qarma_shipment_rows:
@@ -331,10 +341,12 @@ def generate(defects_only=False, customer_company=None):
         f = qr['factory']
         qty = qr['qty']
         ono = str(qr['order_no'])
+        if ono not in completed_order_dates:
+            continue
         if customer_order_nums is not None and ono not in customer_order_nums:
             continue
+        month = str(completed_order_dates[ono])[:7] if completed_order_dates[ono] else qr['month']
         qarma_order_numbers.add(ono)
-        factory_month_pipe[f][month]['qty'] += qty
         key = (f, month, ono)
         if key not in seen_order_factories:
             seen_order_factories.add(key)
@@ -359,7 +371,7 @@ WHERE oi.status_updated_at >= %s
   AND oi.status_updated_at < %s
   AND o.deleted_at IS NULL
   AND oi.deleted_at IS NULL
-  AND (oi.status::text IN ('shipped','completed') OR oi.shipping_status IS NOT NULL)
+  AND oi.status::text = 'completed'
 """, (REPORT_START, REPORT_END))
 
     for r in cur.fetchall():
