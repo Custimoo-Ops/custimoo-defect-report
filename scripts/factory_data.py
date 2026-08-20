@@ -327,7 +327,7 @@ def generate(defects_only=False, customer_company=None):
     # Completed-order population: every active item must be completed; use the latest completed status date.
     cur.execute("""
 SELECT o.order_no,
-       max(oi.status_updated_at) AS completed_date,
+       max(CASE WHEN a.status::text='completed' THEN COALESCE(a.created_at,a.updated_at) END) AS completed_date,
        max(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS actual_shipping_date
 FROM orders o
 JOIN order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL

@@ -976,7 +976,8 @@ GROUPING_JSON_SAFE = GROUPING_JSON.replace('<', '\\u003C').replace('>', '\\u003E
 # Completed order detail used by token-protected factory share pages.
 _factory_share_cur = conn.cursor()
 _factory_share_cur.execute("""
-SELECT o.order_no, max(oi.status_updated_at) AS completed_date,
+SELECT o.order_no,
+       max(CASE WHEN a.status::text='completed' THEN COALESCE(a.created_at,a.updated_at) END) AS completed_date,
        max(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS actual_shipping_date,
        max(CASE WHEN oi.status::text IN ('shipped','completed') OR oi.shipping_status IS NOT NULL THEN oi.status_updated_at END) AS backend_shipping_date,
        COALESCE(NULLIF(o.price_info->>'total_quantity','')::numeric,0)::int AS qty,
