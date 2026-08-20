@@ -16,7 +16,8 @@ try:
     FACTORY_SHARE_TOKENS = json.loads(os.environ.get('FACTORY_SHARE_TOKENS', '{}'))
 except Exception:
     FACTORY_SHARE_TOKENS = {}
-FACTORY_SHARE_LINKS_JSON = json.dumps({slug: '/factory/' + slug + '?token=' + str(token) for slug, token in FACTORY_SHARE_TOKENS.items()})
+FACTORY_SHARE_BUILD = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+FACTORY_SHARE_LINKS_JSON = json.dumps({slug: '/factory/' + slug + '?token=' + str(token) + '&v=' + FACTORY_SHARE_BUILD for slug, token in FACTORY_SHARE_TOKENS.items()})
 data = factory_data.generate()
 hummel_account_data = factory_data.generate(customer_company='Hummel Pro NA')
 
