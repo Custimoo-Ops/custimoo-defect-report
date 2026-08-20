@@ -987,7 +987,7 @@ SELECT o.order_no,
        o.order_type_symbol
 FROM orders o
 JOIN order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL
-LEFT JOIN order_item_activities a ON a.order_item_id=oi.id AND a.status::text='shipped'
+LEFT JOIN order_item_activities a ON a.order_item_id=oi.id
 LEFT JOIN customers c ON c.id=o.customer_id
 LEFT JOIN companies co ON co.id=c.company_id
 WHERE o.deleted_at IS NULL AND oi.status::text='completed'
