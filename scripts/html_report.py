@@ -1723,7 +1723,14 @@ html = f"""<!DOCTYPE html>
   th, td {{ padding: 11px 10px; border-bottom: 1px solid var(--border); text-align: left; }}
   th {{ font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: #fafbff; }}
   .wrap:has(#remake-mgmt.active) {{ max-width: 2400px; }}
-  .remake-mgmt-scroll {{ overflow-x: auto; max-height: none; }}
+  .factory-share-orders-scroll {{ overflow:auto; max-height:65vh; }}
+  .factory-share-orders-scroll table {{ min-width: 2700px; table-layout: fixed; }}
+  .factory-share-orders-scroll th:nth-child(1) {{ width: 110px; }}
+  .factory-share-orders-scroll th:nth-child(2), .factory-share-orders-scroll th:nth-child(3), .factory-share-orders-scroll th:nth-child(4) {{ width: 190px; }}
+  .factory-share-orders-scroll th:nth-child(5) {{ width: 260px; }}
+  .factory-share-orders-scroll th:nth-child(10) {{ width: 650px; }}
+  .factory-share-orders-scroll td {{ vertical-align: top; }}
+  .factory-share-orders-scroll td:nth-child(10) {{ white-space: pre-wrap; overflow-wrap: anywhere; }}
   .remake-mgmt-scroll .remake-table {{ min-width: 2200px; table-layout: fixed; }}
   .remake-mgmt-scroll .remake-table th:nth-child(1) {{ width: 90px; }}
   .remake-mgmt-scroll .remake-table th:nth-child(2) {{ width: 150px; }}
@@ -2008,7 +2015,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
   <section id="factory-share-page" class="page">
     <div class="card"><h3 class="section-title" id="factoryShareTitle">Factory Performance</h3><div class="hint">Factory-specific shared view. Period: <select id="factorySharePeriod"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select></div></div>
     <div class="exec-grid" id="factoryShareKpis"></div>
-    <div class="card"><h3 class="section-title">Completed Orders</h3><div style="overflow:auto;max-height:65vh"><table><thead><tr><th>Order</th><th>Actual Shipping Date</th><th>Completed Date</th><th>Backend Shipping Status Date</th><th>Customer</th><th class="right">Order QTY</th><th>Qarma Checked</th><th>Qarma Rejected</th><th>Reinspected</th><th>Qarma Comment</th><th>Qarma Report</th><th>Remake</th></tr></thead><tbody id="factoryShareOrders"></tbody></table></div></div>
+    <div class="card"><h3 class="section-title">Completed Orders</h3><div class="factory-share-orders-scroll"><table><thead><tr><th>Order</th><th>Actual Shipping Date</th><th>Completed Date</th><th>Backend Shipping Status Date</th><th>Customer</th><th class="right">Order QTY</th><th>Qarma Checked</th><th>Qarma Rejected</th><th>Reinspected</th><th>Qarma Comment</th><th>Qarma Report</th><th>Remake</th></tr></thead><tbody id="factoryShareOrders"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Monthly Detail</h3><table><thead><tr><th>Month</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remakes</th><th class="right">Remake QTY</th><th class="right">Qarma Checked</th><th class="right">Qarma Errors</th></tr></thead><tbody id="factoryShareMonthly"></tbody></table></div>
   </section>
   <section id="hummel-pro-na" class="page">
