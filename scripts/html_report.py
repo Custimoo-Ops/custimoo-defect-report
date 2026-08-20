@@ -971,6 +971,33 @@ GROUPING_JSON = json.dumps({
 }, default=str)
 GROUPING_JSON_SAFE = GROUPING_JSON.replace('<', '\\u003C').replace('>', '\\u003E')
 
+# Completed order detail used by token-protected factory share pages.
+_factory_share_cur = conn.cursor()
+_factory_share_cur.execute("""
+SELECT o.order_no, max(oi.status_updated_at) AS completed_date,
+       COALESCE(NULLIF(o.price_info->>'total_quantity','')::numeric,0)::int AS qty,
+       COALESCE(string_agg(DISTINCT oi.factory_name, ', ' ORDER BY oi.factory_name),'(unknown)') AS factories,
+       COALESCE(NULLIF(co.company_name,''), NULLIF(BTRIM(CONCAT_WS(' ',c.first_name,c.last_name)),''),'(unknown)') AS customer,
+       o.order_type_symbol
+FROM orders o
+JOIN order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL
+LEFT JOIN customers c ON c.id=o.customer_id
+LEFT JOIN companies co ON co.id=c.company_id
+WHERE o.deleted_at IS NULL AND oi.status::text='completed'
+GROUP BY o.order_no,o.price_info,co.company_name,c.first_name,c.last_name,o.order_type_symbol
+""")
+FACTORY_SHARE_ORDERS = {}
+for _order,_date,_qty,_factories,_customer,_otype in _factory_share_cur.fetchall():
+    _q = qarma_order_stats.get(str(_order), {})
+    _row = {'order': str(_order), 'completed_date': str(_date)[:19] if _date else '', 'qty': int(_qty or 0), 'customer': _customer or '(unknown)', 'qarma_checked': bool(_q), 'qarma_error': bool(_q.get('defects', 0)), 'remake': str(_order) in REMAKE_ORDERS}
+    for _factory in str(_factories or '(unknown)').split(','):
+        FACTORY_SHARE_ORDERS.setdefault(factory_data.norm_factory(_factory.strip()), []).append(_row)
+_factory_share_cur.close()
+for _factory in FACTORY_SHARE_ORDERS:
+    FACTORY_SHARE_ORDERS[_factory].sort(key=lambda r: r.get('completed_date',''), reverse=True)
+FACTORY_SHARE_ORDERS_JSON = json.dumps(FACTORY_SHARE_ORDERS, cls=factory_data.DecimalEncoder)
+
+
 def build_error_tracking():
     from collections import defaultdict
     et = {
@@ -1961,6 +1988,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
   <section id="factory-share-page" class="page">
     <div class="card"><h3 class="section-title" id="factoryShareTitle">Factory Performance</h3><div class="hint">Factory-specific shared view.</div></div>
     <div class="exec-grid" id="factoryShareKpis"></div>
+    <div class="card"><h3 class="section-title">Completed Orders</h3><div style="overflow:auto;max-height:65vh"><table><thead><tr><th>Order</th><th>Completed Date</th><th>Customer</th><th class="right">Order QTY</th><th>Qarma Checked</th><th>Qarma Error</th><th>Remake</th></tr></thead><tbody id="factoryShareOrders"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Monthly Detail</h3><table><thead><tr><th>Month</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remakes</th><th class="right">Remake QTY</th><th class="right">Qarma Checked</th><th class="right">Qarma Errors</th></tr></thead><tbody id="factoryShareMonthly"></tbody></table></div>
   </section>
   <section id="hummel-pro-na" class="page">
@@ -1988,6 +2016,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
 <script>
 const DATA = {DATA_JSON};
   const FACTORY_SHARE_LINKS = {FACTORY_SHARE_LINKS_JSON};
+  const FACTORY_SHARE_ORDERS = {FACTORY_SHARE_ORDERS_JSON};
 const HUMMEL_DATA = {HUMMEL_DATA_JSON};
 const YTD = {YTD_DATA_JSON};
 const FACTORY_COLORS = {FACTORY_COLORS};
@@ -2273,7 +2302,8 @@ function factoryRow(f, opts) {{
   const dataFactory = opts.clickable ? ' data-factory="' + f.name + '"' : '';
   const q = f.qarma || {{}};
   const share = FACTORY_SHARE_LINKS[factorySlug(f.name)];
-  const label = share ? '<a href="' + escapeAttr(share) + '" style="color:#2563eb;text-decoration:underline"><strong>' + esc(f.name) + '</strong></a>' : '<strong>' + esc(f.name) + '</strong>';
+  const shareHref = share ? share + '&period=' + encodeURIComponent(ACTIVE_PERIOD) : '';
+  const label = share ? '<a href="' + escapeAttr(shareHref) + '" style="color:#2563eb;text-decoration:underline"><strong>' + esc(f.name) + '</strong></a>' : '<strong>' + esc(f.name) + '</strong>';
   let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td>' + label + '</td>'
     + measureCells(f, q)
     + '<td class="right" title="' + escapeAttr(actionPlanTooltip(f)) + '"><strong>' + actionPlanText(f) + '</strong></td>';
@@ -2860,8 +2890,17 @@ function showFactorySharePage(slug) {{
   document.getElementById('factoryShareTitle').textContent = f.name + ' — Factory Performance';
   const q=f.qarma||{{}};
   document.getElementById('factoryShareKpis').innerHTML = [['Total Orders',f.orders||0],['Total Order QTY',f.volume||0],['Remake Orders',f.remake_orders||0],['Remake QTY',f.remake_qty||0],['Qarma Orders Checked',q.orders_checked||0],['Qarma Error Orders',q.rejected_orders||0],['Orders with Reinspection',q.orders_with_reinspection||0]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+Number(x[1]||0).toLocaleString()+'</div></div>'; }}).join('');
-  const m=f.monthly||{{}}, keys=ACTIVE_MONTH_KEYS||[];
-  document.getElementById('factoryShareMonthly').innerHTML = keys.map(function(k,i) {{ return '<tr><td>'+esc(MONTH_LABELS[k]||k)+'</td><td class="right">'+Number((m.orders||[])[i]||0).toLocaleString()+'</td><td class="right">'+Number((m.volumes||[])[i]||0).toLocaleString()+'</td><td class="right">'+Number((m.remake_orders||[])[i]||0).toLocaleString()+'</td><td class="right">'+Number((m.remake_qty||[])[i]||0).toLocaleString()+'</td><td class="right">—</td><td class="right">—</td></tr>'; }}).join('');
+  const params = new URLSearchParams(window.location.search);
+  const periodKey = params.get('period') || 'all';
+  const period = PERIODS[periodKey] || DATA;
+  const periodFactory = (period.factories || []).find(function(x) {{ return x.name === f.name; }}) || f;
+  const periodQ = periodFactory.qarma || {{}};
+  document.getElementById('factoryShareKpis').innerHTML = [['Total Orders',periodFactory.orders||0],['Total Order QTY',periodFactory.volume||0],['Remake Orders',periodFactory.remake_orders||0],['Remake QTY',periodFactory.remake_qty||0],['Qarma Orders Checked',periodQ.orders_checked||0],['Qarma Error Orders',periodQ.rejected_orders||0],['Orders with Reinspection',periodQ.orders_with_reinspection||0]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+Number(x[1]||0).toLocaleString()+'</div></div>'; }}).join('');
+  const periodMonths = new Set(period.monthKeys || MONTH_KEYS);
+  const orders = (FACTORY_SHARE_ORDERS[f.name] || []).filter(function(r) {{ return periodMonths.has(String(r.completed_date||'').slice(0,7)); }});
+  document.getElementById('factoryShareOrders').innerHTML = orders.map(function(r) {{ return '<tr><td>#'+esc(r.order)+'</td><td>'+esc(r.completed_date||'')+'</td><td>'+esc(r.customer||'')+'</td><td class="right">'+Number(r.qty||0).toLocaleString()+'</td><td>'+ (r.qarma_checked?'Yes':'No') +'</td><td>'+ (r.qarma_error?'Yes':'No') +'</td><td>'+ (r.remake?'Yes':'No') +'</td></tr>'; }}).join('') || '<tr><td colspan="7">No completed orders in the selected period.</td></tr>';
+  const m=f.monthly||{{}}, keys=period.monthKeys||ACTIVE_MONTH_KEYS;
+  document.getElementById('factoryShareMonthly').innerHTML = keys.map(function(k) {{ const mi=MONTH_KEYS.indexOf(k); return '<tr><td>'+esc(MONTH_LABELS[k]||k)+'</td><td class="right">'+Number((m.orders||[])[mi]||0).toLocaleString()+'</td><td class="right">'+Number((m.volumes||[])[mi]||0).toLocaleString()+'</td><td class="right">'+Number((m.remake_orders||[])[mi]||0).toLocaleString()+'</td><td class="right">'+Number((m.remake_qty||[])[mi]||0).toLocaleString()+'</td><td class="right">—</td><td class="right">—</td></tr>'; }}).join('');
   return true;
 }}
 const factoryShareMatch = window.location.pathname.toLowerCase().match(/^\/factory\/([a-z0-9-]+)$/);
