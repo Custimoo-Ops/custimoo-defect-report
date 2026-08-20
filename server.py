@@ -14,6 +14,10 @@ DQC_API_KEY = os.environ.get("DQC_API_KEY", "")
 DQC_USER = os.environ.get("DQC_DASH_USER", "")
 DQC_PASS = os.environ.get("DQC_DASH_PASSWORD", "")
 DQC_SKILL_VERSION = os.environ.get("DQC_SKILL_VERSION", "0.5.5")
+try:
+    FACTORY_SHARE_TOKENS = json.loads(os.environ.get("FACTORY_SHARE_TOKENS", "{}"))
+except Exception:
+    FACTORY_SHARE_TOKENS = {}
 
 SSO_ENABLED = os.environ.get("CUSTIMOO_SSO_ENABLED", "1").lower() not in ("0", "false", "no", "off")
 SSO_TENANT_ID = os.environ.get("CUSTIMOO_SSO_TENANT_ID") or os.environ.get("CUSTIMOO_GRAPH_TENANT_ID", "")
@@ -291,7 +295,16 @@ class H(http.server.SimpleHTTPRequestHandler):
         })
 
     def do_GET(self):
-        path = urllib.parse.urlparse(self.path).path
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        if path.startswith('/factory/'):
+            slug = path.split('/', 2)[2].strip().lower()
+            token = urllib.parse.parse_qs(parsed.query).get('token', [''])[0]
+            expected = str(FACTORY_SHARE_TOKENS.get(slug, ''))
+            if not expected or not hmac.compare_digest(token, expected):
+                return self._html('<h1>Factory share link invalid or expired</h1>', code=403)
+            self.path = '/index.html'
+            return super().do_GET()
         if path == "/auth/login": return self._auth_login()
         if path == "/auth/callback": return self._auth_callback()
         if path == "/auth/logout": return self._auth_logout()

@@ -52,6 +52,7 @@ jobs:
           CUSTIMOO_GRAPH_CLIENT_ID: ${{ secrets.CUSTIMOO_GRAPH_CLIENT_ID }}
           CUSTIMOO_GRAPH_CLIENT_SECRET: ${{ secrets.CUSTIMOO_GRAPH_CLIENT_SECRET }}
           AZURE_STORAGE_KEY: ${{ secrets.AZURE_STORAGE_KEY }}
+          FACTORY_SHARE_TOKENS: ${{ secrets.FACTORY_SHARE_TOKENS }}
           QARMA_INSPECTIONS_URL: ${{ secrets.QARMA_INSPECTIONS_URL }}
         run: |
           python3 scripts/html_report.py

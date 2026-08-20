@@ -12,6 +12,11 @@ import remake_backend_actions
 import db
 
 # Generate summary data
+try:
+    FACTORY_SHARE_TOKENS = json.loads(os.environ.get('FACTORY_SHARE_TOKENS', '{}'))
+except Exception:
+    FACTORY_SHARE_TOKENS = {}
+FACTORY_SHARE_LINKS_JSON = json.dumps({slug: '/factory/' + slug + '?token=' + str(token) for slug, token in FACTORY_SHARE_TOKENS.items()})
 data = factory_data.generate()
 hummel_account_data = factory_data.generate(customer_company='Hummel Pro NA')
 
@@ -1953,6 +1958,11 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <table><thead><tr><th>Date</th><th>User</th><th>Order</th><th>Verdict</th><th>Rejection Reason</th><th>DQC Skill Version</th><th>Timestamp UTC</th></tr></thead><tbody id="dqcRunBody"><tr><td colspan="7">Loading…</td></tr></tbody></table>
     </div>
   </section>
+  <section id="factory-share-page" class="page">
+    <div class="card"><h3 class="section-title" id="factoryShareTitle">Factory Performance</h3><div class="hint">Factory-specific shared view.</div></div>
+    <div class="exec-grid" id="factoryShareKpis"></div>
+    <div class="card"><h3 class="section-title">Monthly Detail</h3><table><thead><tr><th>Month</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remakes</th><th class="right">Remake QTY</th><th class="right">Qarma Checked</th><th class="right">Qarma Errors</th></tr></thead><tbody id="factoryShareMonthly"></tbody></table></div>
+  </section>
   <section id="hummel-pro-na" class="page">
     <div class="card"><h3 class="section-title">Hummel PRO NA — Customer Account View</h3><div class="hint">Hidden account-specific view. Data is restricted to Bronze orders linked to company Hummel Pro NA, with Qarma and remake values filtered to those orders.</div></div>
     <div class="exec-grid">
@@ -1977,6 +1987,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
 
 <script>
 const DATA = {DATA_JSON};
+  const FACTORY_SHARE_LINKS = {FACTORY_SHARE_LINKS_JSON};
 const HUMMEL_DATA = {HUMMEL_DATA_JSON};
 const YTD = {YTD_DATA_JSON};
 const FACTORY_COLORS = {FACTORY_COLORS};
@@ -2261,7 +2272,9 @@ function factoryRow(f, opts) {{
   const clickable = opts.clickable ? ' clickable' : '';
   const dataFactory = opts.clickable ? ' data-factory="' + f.name + '"' : '';
   const q = f.qarma || {{}};
-  let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td><strong>' + f.name + '</strong></td>'
+  const share = FACTORY_SHARE_LINKS[factorySlug(f.name)];
+  const label = share ? '<a href="' + escapeAttr(share) + '" style="color:#2563eb;text-decoration:underline"><strong>' + esc(f.name) + '</strong></a>' : '<strong>' + esc(f.name) + '</strong>';
+  let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td>' + label + '</td>'
     + measureCells(f, q)
     + '<td class="right" title="' + escapeAttr(actionPlanTooltip(f)) + '"><strong>' + actionPlanText(f) + '</strong></td>';
   return row + '</tr>';
@@ -2836,6 +2849,23 @@ function mergeSavedQcRejections(saved) {{
     .catch(function() {{ setQcRejectionSaveStatus(QC_REJECTIONS_SAVE_URL ? 'Using embedded QC rejection data' : 'Local only — save endpoint unavailable'); }});
 }})();
 renderForensics();
+
+function factorySlug(name) {{ return String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }}
+function showFactorySharePage(slug) {{
+  const f = (DATA.factories || []).find(function(x) {{ return factorySlug(x.name) === slug; }});
+  if (!f) return false;
+  document.querySelectorAll('.page').forEach(function(p) {{ p.classList.remove('active'); }});
+  document.querySelectorAll('.tab').forEach(function(t) {{ t.classList.remove('active'); }});
+  document.getElementById('factory-share-page').classList.add('active');
+  document.getElementById('factoryShareTitle').textContent = f.name + ' — Factory Performance';
+  const q=f.qarma||{{}};
+  document.getElementById('factoryShareKpis').innerHTML = [['Total Orders',f.orders||0],['Total Order QTY',f.volume||0],['Remake Orders',f.remake_orders||0],['Remake QTY',f.remake_qty||0],['Qarma Orders Checked',q.orders_checked||0],['Qarma Error Orders',q.rejected_orders||0],['Orders with Reinspection',q.orders_with_reinspection||0]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+Number(x[1]||0).toLocaleString()+'</div></div>'; }}).join('');
+  const m=f.monthly||{{}}, keys=ACTIVE_MONTH_KEYS||[];
+  document.getElementById('factoryShareMonthly').innerHTML = keys.map(function(k,i) {{ return '<tr><td>'+esc(MONTH_LABELS[k]||k)+'</td><td class="right">'+Number((m.orders||[])[i]||0).toLocaleString()+'</td><td class="right">'+Number((m.volumes||[])[i]||0).toLocaleString()+'</td><td class="right">'+Number((m.remake_orders||[])[i]||0).toLocaleString()+'</td><td class="right">'+Number((m.remake_qty||[])[i]||0).toLocaleString()+'</td><td class="right">—</td><td class="right">—</td></tr>'; }}).join('');
+  return true;
+}}
+const factoryShareMatch = window.location.pathname.toLowerCase().match(/^\/factory\/([a-z0-9-]+)$/);
+if (factoryShareMatch) showFactorySharePage(factoryShareMatch[1]);
 
 function renderHummelAccountPage() {{
   const d = HUMMEL_DATA;
