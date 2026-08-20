@@ -987,9 +987,21 @@ WHERE o.deleted_at IS NULL AND oi.status::text='completed'
 GROUP BY o.order_no,o.price_info,co.company_name,c.first_name,c.last_name,o.order_type_symbol
 """)
 FACTORY_SHARE_ORDERS = {}
+_factory_qarma_details = {}
+for _qr in load_qarma_rows():
+    _qo = str(_qr.get('Order number') or '').strip()
+    if not _qo or not is_qarma_final_candidate(_qr): continue
+    _qd = _factory_qarma_details.setdefault(_qo, {'rejected': False, 'reinspected': False, 'comments': [], 'links': []})
+    if str(_qr.get('Conclusion') or '').strip() == 'Rejected': _qd['rejected'] = True
+    if str(_qr.get('Reinspection of') or '').strip(): _qd['reinspected'] = True
+    _comment = str(_qr.get('Inspector comment') or '').strip()
+    if _comment and _comment not in _qd['comments']: _qd['comments'].append(_comment)
+    _link = str(_qr.get('Link to report') or '').strip()
+    if _link and _link not in _qd['links']: _qd['links'].append(_link)
 for _order,_date,_qty,_factories,_customer,_otype in _factory_share_cur.fetchall():
     _q = qarma_order_stats.get(str(_order), {})
-    _row = {'order': str(_order), 'completed_date': str(_date)[:19] if _date else '', 'qty': int(_qty or 0), 'customer': _customer or '(unknown)', 'qarma_checked': bool(_q), 'qarma_error': bool(_q.get('defects', 0)), 'remake': str(_order) in REMAKE_ORDERS}
+    _qd = _factory_qarma_details.get(str(_order), {})
+    _row = {'order': str(_order), 'completed_date': str(_date)[:19] if _date else '', 'qty': int(_qty or 0), 'customer': _customer or '(unknown)', 'qarma_checked': bool(_q), 'qarma_error': bool(_q.get('defects', 0)), 'qarma_rejected': bool(_qd.get('rejected')), 'qarma_reinspected': bool(_qd.get('reinspected')), 'qarma_comment': ' · '.join(_qd.get('comments', [])), 'qarma_report_link': (_qd.get('links') or [''])[0], 'remake': str(_order) in REMAKE_ORDERS}
     for _factory in str(_factories or '(unknown)').split(','):
         FACTORY_SHARE_ORDERS.setdefault(factory_data.norm_factory(_factory.strip()), []).append(_row)
 _factory_share_cur.close()
@@ -1986,9 +1998,9 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     </div>
   </section>
   <section id="factory-share-page" class="page">
-    <div class="card"><h3 class="section-title" id="factoryShareTitle">Factory Performance</h3><div class="hint">Factory-specific shared view.</div></div>
+    <div class="card"><h3 class="section-title" id="factoryShareTitle">Factory Performance</h3><div class="hint">Factory-specific shared view. Period: <select id="factorySharePeriod"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select></div></div>
     <div class="exec-grid" id="factoryShareKpis"></div>
-    <div class="card"><h3 class="section-title">Completed Orders</h3><div style="overflow:auto;max-height:65vh"><table><thead><tr><th>Order</th><th>Completed Date</th><th>Customer</th><th class="right">Order QTY</th><th>Qarma Checked</th><th>Qarma Error</th><th>Remake</th></tr></thead><tbody id="factoryShareOrders"></tbody></table></div></div>
+    <div class="card"><h3 class="section-title">Completed Orders</h3><div style="overflow:auto;max-height:65vh"><table><thead><tr><th>Order</th><th>Completed Date</th><th>Customer</th><th class="right">Order QTY</th><th>Qarma Checked</th><th>Qarma Rejected</th><th>Reinspected</th><th>Qarma Comment</th><th>Qarma Report</th><th>Remake</th></tr></thead><tbody id="factoryShareOrders"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Monthly Detail</h3><table><thead><tr><th>Month</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remakes</th><th class="right">Remake QTY</th><th class="right">Qarma Checked</th><th class="right">Qarma Errors</th></tr></thead><tbody id="factoryShareMonthly"></tbody></table></div>
   </section>
   <section id="hummel-pro-na" class="page">
@@ -2892,13 +2904,14 @@ function showFactorySharePage(slug) {{
   document.getElementById('factoryShareKpis').innerHTML = [['Total Orders',f.orders||0],['Total Order QTY',f.volume||0],['Remake Orders',f.remake_orders||0],['Remake QTY',f.remake_qty||0],['Qarma Orders Checked',q.orders_checked||0],['Qarma Error Orders',q.rejected_orders||0],['Orders with Reinspection',q.orders_with_reinspection||0]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+Number(x[1]||0).toLocaleString()+'</div></div>'; }}).join('');
   const params = new URLSearchParams(window.location.search);
   const periodKey = params.get('period') || 'all';
+  const periodSelect = document.getElementById('factorySharePeriod'); periodSelect.value=periodKey; periodSelect.addEventListener('change', function() {{ params.set('period', this.value); window.location.search=params.toString(); }});
   const period = PERIODS[periodKey] || DATA;
   const periodFactory = (period.factories || []).find(function(x) {{ return x.name === f.name; }}) || f;
   const periodQ = periodFactory.qarma || {{}};
   document.getElementById('factoryShareKpis').innerHTML = [['Total Orders',periodFactory.orders||0],['Total Order QTY',periodFactory.volume||0],['Remake Orders',periodFactory.remake_orders||0],['Remake QTY',periodFactory.remake_qty||0],['Qarma Orders Checked',periodQ.orders_checked||0],['Qarma Error Orders',periodQ.rejected_orders||0],['Orders with Reinspection',periodQ.orders_with_reinspection||0]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+Number(x[1]||0).toLocaleString()+'</div></div>'; }}).join('');
   const periodMonths = new Set(period.monthKeys || MONTH_KEYS);
   const orders = (FACTORY_SHARE_ORDERS[f.name] || []).filter(function(r) {{ return periodMonths.has(String(r.completed_date||'').slice(0,7)); }});
-  document.getElementById('factoryShareOrders').innerHTML = orders.map(function(r) {{ return '<tr><td>#'+esc(r.order)+'</td><td>'+esc(r.completed_date||'')+'</td><td>'+esc(r.customer||'')+'</td><td class="right">'+Number(r.qty||0).toLocaleString()+'</td><td>'+ (r.qarma_checked?'Yes':'No') +'</td><td>'+ (r.qarma_error?'Yes':'No') +'</td><td>'+ (r.remake?'Yes':'No') +'</td></tr>'; }}).join('') || '<tr><td colspan="7">No completed orders in the selected period.</td></tr>';
+  document.getElementById('factoryShareOrders').innerHTML = orders.map(function(r) {{ const qlink=/^https?:\\/\\//i.test(r.qarma_report_link||'') ? '<a href="'+escapeAttr(r.qarma_report_link)+'" target="_blank" rel="noopener">Open report</a>' : '—'; return '<tr><td>#'+esc(r.order)+'</td><td>'+esc(r.completed_date||'')+'</td><td>'+esc(r.customer||'')+'</td><td class="right">'+Number(r.qty||0).toLocaleString()+'</td><td>'+ (r.qarma_checked?'Yes':'No') +'</td><td>'+ (r.qarma_rejected?'Yes':'No') +'</td><td>'+ (r.qarma_reinspected?'Yes':'No') +'</td><td>'+esc(r.qarma_comment||'—')+'</td><td>'+qlink+'</td><td>'+ (r.remake?'Yes':'No') +'</td></tr>'; }}).join('') || '<tr><td colspan="10">No completed orders in the selected period.</td></tr>';
   const m=f.monthly||{{}}, keys=period.monthKeys||ACTIVE_MONTH_KEYS;
   document.getElementById('factoryShareMonthly').innerHTML = keys.map(function(k) {{ const mi=MONTH_KEYS.indexOf(k); return '<tr><td>'+esc(MONTH_LABELS[k]||k)+'</td><td class="right">'+Number((m.orders||[])[mi]||0).toLocaleString()+'</td><td class="right">'+Number((m.volumes||[])[mi]||0).toLocaleString()+'</td><td class="right">'+Number((m.remake_orders||[])[mi]||0).toLocaleString()+'</td><td class="right">'+Number((m.remake_qty||[])[mi]||0).toLocaleString()+'</td><td class="right">—</td><td class="right">—</td></tr>'; }}).join('');
   return true;
