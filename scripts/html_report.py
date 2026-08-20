@@ -2849,7 +2849,7 @@ function saveQcRejections() {{
   fetch(QC_REJECTIONS_DATA_URL + '?merge=' + Date.now()).then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }}).then(function(saved) {{
     const latest = Array.isArray(saved) ? saved : Object.keys(saved || {{}}).map(function(k) {{ return Object.assign({{}}, saved[k] || {{}}, {{order:String(k).replace(/^#/,'').trim()}}); }});
     const byOrder = new Map(latest.map(function(r) {{ return [qcRejectionKey(r), r]; }}));
-    qcRejectionRows.forEach(function(r) {{ const s=byOrder.get(qcRejectionKey(r)); if (s) {{ r.error_type=s.error_type||r.error_type||''; r.avoidance_action=s.avoidance_action||r.avoidance_action||''; r.work_comment=s.work_comment||r.work_comment||''; }} }});
+    qcRejectionRows.forEach(function(r) {{ const s=byOrder.get(qcRejectionKey(r)); const dirtyFields=dirty.get(qcRejectionKey(r)) || new Set(); if (s) {{ if (!dirtyFields.has('error_type')) r.error_type=s.error_type||r.error_type||''; if (!dirtyFields.has('avoidance_action')) r.avoidance_action=s.avoidance_action||r.avoidance_action||''; if (!dirtyFields.has('work_comment')) r.work_comment=s.work_comment||r.work_comment||''; }} }});
     dirty.forEach(function(fields, key) {{ const row=qcRejectionRows.find(function(r) {{ return qcRejectionKey(r)===key; }}); if (!row) return; const target=byOrder.get(key) || row; fields.forEach(function(field) {{ target[field]=row[field] || ''; }}); }});
     const merged = latest.concat(qcRejectionRows.filter(function(r) {{ return !byOrder.has(qcRejectionKey(r)); }}));
     return fetch(QC_REJECTIONS_SAVE_URL, {{method:'PUT', headers:{{'x-ms-blob-type':'BlockBlob','Content-Type':'application/json'}}, body:JSON.stringify(merged)}});
