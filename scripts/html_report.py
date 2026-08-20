@@ -982,6 +982,7 @@ SELECT o.order_no, max(oi.status_updated_at) AS completed_date,
        COALESCE(NULLIF(o.price_info->>'total_quantity','')::numeric,0)::int AS qty,
        COALESCE(string_agg(DISTINCT oi.factory_name, ', ' ORDER BY oi.factory_name),'(unknown)') AS factories,
        COALESCE(NULLIF(co.company_name,''), NULLIF(BTRIM(CONCAT_WS(' ',c.first_name,c.last_name)),''),'(unknown)') AS customer,
+       o.customer_reference_no,
        o.order_type_symbol
 FROM orders o
 JOIN order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL
@@ -989,7 +990,7 @@ LEFT JOIN order_item_activities a ON a.order_item_id=oi.id AND a.status::text='s
 LEFT JOIN customers c ON c.id=o.customer_id
 LEFT JOIN companies co ON co.id=c.company_id
 WHERE o.deleted_at IS NULL AND oi.status::text='completed'
-GROUP BY o.order_no,o.price_info,co.company_name,c.first_name,c.last_name,o.order_type_symbol
+GROUP BY o.order_no,o.price_info,co.company_name,c.first_name,c.last_name,o.customer_reference_no,o.order_type_symbol
 """)
 FACTORY_SHARE_ORDERS = {}
 _factory_qarma_details = {}
@@ -1005,10 +1006,10 @@ for _qr in load_qarma_rows():
     if _comment and _comment not in _qd['comments']: _qd['comments'].append(_comment)
     _link = str(_qr.get('Link to report') or '').strip()
     if _link and _link not in _qd['links']: _qd['links'].append(_link)
-for _order,_date,_actual_shipping_date,_shipping_date,_qty,_factories,_customer,_otype in _factory_share_cur.fetchall():
+for _order,_date,_actual_shipping_date,_shipping_date,_qty,_factories,_customer,_customer_ref,_otype in _factory_share_cur.fetchall():
     _q = qarma_order_stats.get(str(_order), {})
     _qd = _factory_qarma_details.get(str(_order), {})
-    _row = {'order': str(_order), 'completed_date': str(_date)[:19] if _date else '', 'actual_shipping_date': str(_actual_shipping_date)[:19] if _actual_shipping_date else '', 'backend_shipping_date': str(_shipping_date)[:19] if _shipping_date else '', 'qty': int(_qty or 0), 'customer': _customer or '(unknown)', 'qarma_checked': bool(_q), 'qarma_error': bool(_q.get('defects', 0)), 'qarma_rejected': bool(_qd.get('rejected')), 'qarma_reinspected': bool(_qd.get('reinspected')), 'qarma_months': sorted(_qd.get('months', set())), 'qarma_comment': ' · '.join(_qd.get('comments', [])), 'qarma_report_link': (_qd.get('links') or [''])[0], 'remake': str(_order) in REMAKE_ORDERS}
+    _row = {'order': str(_order), 'completed_date': str(_date)[:19] if _date else '', 'actual_shipping_date': str(_actual_shipping_date)[:19] if _actual_shipping_date else '', 'backend_shipping_date': str(_shipping_date)[:19] if _shipping_date else '', 'qty': int(_qty or 0), 'customer': _customer or '(unknown)', 'customer_ref': str(_customer_ref or ''), 'qarma_checked': bool(_q), 'qarma_error': bool(_q.get('defects', 0)), 'qarma_rejected': bool(_qd.get('rejected')), 'qarma_reinspected': bool(_qd.get('reinspected')), 'qarma_months': sorted(_qd.get('months', set())), 'qarma_comment': ' · '.join(_qd.get('comments', [])), 'qarma_report_link': (_qd.get('links') or [''])[0], 'remake': str(_order) in REMAKE_ORDERS}
     for _factory in str(_factories or '(unknown)').split(','):
         FACTORY_SHARE_ORDERS.setdefault(factory_data.norm_factory(_factory.strip()), []).append(_row)
 _factory_share_cur.close()
@@ -1727,16 +1728,17 @@ html = f"""<!DOCTYPE html>
   .factory-share-orders-scroll {{ overflow: visible; max-height: none; width: 100%; }}
   .factory-share-orders-scroll table {{ width: 100%; min-width: 0; table-layout: fixed; font-size: 12px; }}
   .factory-share-orders-scroll th, .factory-share-orders-scroll td {{ overflow-wrap: anywhere; word-break: normal; }}
-  .factory-share-orders-scroll th:nth-child(1) {{ width: 6%; }}
-  .factory-share-orders-scroll th:nth-child(2), .factory-share-orders-scroll th:nth-child(3), .factory-share-orders-scroll th:nth-child(4) {{ width: 10%; }}
-  .factory-share-orders-scroll th:nth-child(5) {{ width: 10%; }}
-  .factory-share-orders-scroll th:nth-child(6) {{ width: 6%; }}
-  .factory-share-orders-scroll th:nth-child(7), .factory-share-orders-scroll th:nth-child(8), .factory-share-orders-scroll th:nth-child(9) {{ width: 7%; }}
-  .factory-share-orders-scroll th:nth-child(10) {{ width: 20%; }}
-  .factory-share-orders-scroll th:nth-child(11) {{ width: 6%; }}
-  .factory-share-orders-scroll th:nth-child(12) {{ width: 5%; }}
+  .factory-share-orders-scroll th:nth-child(1) {{ width: 5%; }}
+  .factory-share-orders-scroll th:nth-child(2) {{ width: 9%; }}
+  .factory-share-orders-scroll th:nth-child(3), .factory-share-orders-scroll th:nth-child(4), .factory-share-orders-scroll th:nth-child(5) {{ width: 9%; }}
+  .factory-share-orders-scroll th:nth-child(6) {{ width: 10%; }}
+  .factory-share-orders-scroll th:nth-child(7) {{ width: 6%; }}
+  .factory-share-orders-scroll th:nth-child(8), .factory-share-orders-scroll th:nth-child(9), .factory-share-orders-scroll th:nth-child(10) {{ width: 7%; }}
+  .factory-share-orders-scroll th:nth-child(11) {{ width: 20%; }}
+  .factory-share-orders-scroll th:nth-child(12) {{ width: 6%; }}
+  .factory-share-orders-scroll th:nth-child(13) {{ width: 5%; }}
   .factory-share-orders-scroll td {{ vertical-align: top; }}
-  .factory-share-orders-scroll td:nth-child(10) {{ white-space: pre-wrap; }}
+  .factory-share-orders-scroll td:nth-child(11) {{ white-space: pre-wrap; }}
   .remake-mgmt-scroll .remake-table {{ min-width: 2200px; table-layout: fixed; }}
   .remake-mgmt-scroll .remake-table th:nth-child(1) {{ width: 90px; }}
   .remake-mgmt-scroll .remake-table th:nth-child(2) {{ width: 150px; }}
@@ -2021,7 +2023,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
   <section id="factory-share-page" class="page">
     <div class="card"><h3 class="section-title" id="factoryShareTitle">Factory Performance</h3><div class="hint">Factory-specific shared view. Period: <select id="factorySharePeriod"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select></div></div>
     <div class="exec-grid" id="factoryShareKpis"></div>
-    <div class="card"><h3 class="section-title">Completed Orders</h3><div class="factory-share-orders-scroll"><table><thead><tr><th>Order</th><th>Actual Shipping Date</th><th>Completed Date</th><th>Backend Shipping Status Date</th><th>Customer</th><th class="right">Order QTY</th><th>Qarma Checked</th><th>Qarma Rejected</th><th>Reinspected</th><th>Qarma Comment</th><th>Qarma Report</th><th>Remake</th></tr></thead><tbody id="factoryShareOrders"></tbody></table></div></div>
+    <div class="card"><h3 class="section-title">Completed Orders</h3><div class="factory-share-orders-scroll"><table><thead><tr><th>Order</th><th>Customer Ref</th><th>Actual Shipping Date</th><th>Completed Date</th><th>Backend Shipping Status Date</th><th>Customer</th><th class="right">Order QTY</th><th>Qarma Checked</th><th>Qarma Rejected</th><th>Reinspected</th><th>Qarma Comment</th><th>Qarma Report</th><th>Remake</th></tr></thead><tbody id="factoryShareOrders"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Monthly Detail</h3><table><thead><tr><th>Month</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remakes</th><th class="right">Remake QTY</th><th class="right">Qarma Checked</th><th class="right">Qarma Errors</th></tr></thead><tbody id="factoryShareMonthly"></tbody></table></div>
   </section>
   <section id="hummel-pro-na" class="page">
@@ -2935,7 +2937,8 @@ function showFactorySharePage(slug) {{
   const qarmaPeriodMonths = new Set(period.monthKeys || MONTH_KEYS);
   orders.forEach(function(r) {{ const qm=new Set(r.qarma_months || []); r.qarma_checked_period = Array.from(qm).some(function(m) {{ return qarmaPeriodMonths.has(m); }}); r.qarma_rejected_period = r.qarma_checked_period && r.qarma_rejected; }});
   const reinspectionCard=document.querySelector('.factory-filter-card[data-filter="reinspection"]'); if (reinspectionCard) reinspectionCard.querySelector('.value').textContent=orders.filter(function(r) {{ return r.qarma_reinspected; }}).length.toLocaleString();
-  function renderFactoryOrderRows(list) {{ document.getElementById('factoryShareOrders').innerHTML = list.map(function(r) {{ const qlink=/^https?:\\/\\//i.test(r.qarma_report_link||'') ? '<a href="'+escapeAttr(r.qarma_report_link)+'" target="_blank" rel="noopener">Open report</a>' : '—'; return '<tr><td>#'+esc(r.order)+'</td><td>'+esc(r.actual_shipping_date||'—')+'</td><td>'+esc(r.completed_date||'—')+'</td><td>'+esc(r.backend_shipping_date||'—')+'</td><td>'+esc(r.customer||'')+'</td><td class="right">'+Number(r.qty||0).toLocaleString()+'</td><td>'+ (r.qarma_checked_period?'Yes':'No') +'</td><td>'+ (r.qarma_rejected_period?'Yes':'No') +'</td><td>'+ (r.qarma_reinspected?'Yes':'No') +'</td><td>'+esc(r.qarma_comment||'—')+'</td><td>'+qlink+'</td><td>'+ (r.remake?'Yes':'No') +'</td></tr>'; }}).join('') || '<tr><td colspan="10">No matching completed orders in the selected period.</td></tr>'; }}
+  function dateOnly(v) {{ return String(v||'').slice(0,10) || '—'; }}
+  function renderFactoryOrderRows(list) {{ document.getElementById('factoryShareOrders').innerHTML = list.map(function(r) {{ const qlink=/^https?:\\/\\//i.test(r.qarma_report_link||'') ? '<a href="'+escapeAttr(r.qarma_report_link)+'" target="_blank" rel="noopener">Open report</a>' : '—'; return '<tr><td>#'+esc(r.order)+'</td><td>'+esc(r.customer_ref||'—')+'</td><td>'+dateOnly(r.actual_shipping_date)+'</td><td>'+dateOnly(r.completed_date)+'</td><td>'+dateOnly(r.backend_shipping_date)+'</td><td>'+esc(r.customer||'')+'</td><td class="right">'+Number(r.qty||0).toLocaleString()+'</td><td>'+ (r.qarma_checked_period?'Yes':'No') +'</td><td>'+ (r.qarma_rejected_period?'Yes':'No') +'</td><td>'+ (r.qarma_reinspected?'Yes':'No') +'</td><td>'+esc(r.qarma_comment||'—')+'</td><td>'+qlink+'</td><td>'+ (r.remake?'Yes':'No') +'</td></tr>'; }}).join('') || '<tr><td colspan="13">No matching completed orders in the selected period.</td></tr>'; }}
   renderFactoryOrderRows(orders);
   document.querySelectorAll('.factory-filter-card').forEach(function(card) {{ card.addEventListener('click', function() {{ const filter=card.dataset.filter; const subset=filter==='all' ? orders : filter==='remake' ? orders.filter(function(r) {{ return r.remake; }}) : filter==='qarma_checked' ? orders.filter(function(r) {{ return r.qarma_checked_period; }}) : filter==='qarma_rejected' ? orders.filter(function(r) {{ return r.qarma_rejected_period; }}) : orders.filter(function(r) {{ return r.qarma_reinspected; }}); renderFactoryOrderRows(subset); }}); }});
   const m=periodFactory.monthly||{{}}, keys=period.monthKeys||ACTIVE_MONTH_KEYS;
