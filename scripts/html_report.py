@@ -1930,7 +1930,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         <li>Reporting window is <strong>{report_month_labels[0]} – {report_month_labels[-1]}</strong>.</li>
         <li>Total month volume uses proper products only (excludes name plates, fight straps, logo patches, accessories).</li>
         <li>The shared report uses <strong>remake orders</strong> from the backend and <strong>Qarma physical QC</strong> from the live Qarma export.</li>
-        <li>Factory comparisons use Qarma physical-QC shipment/order quantity and scheduled inspection date when a Qarma row exists; otherwise they fall back to shipped order quantity per factory from the bronze backend database, bucketed by <strong>order_items.status_updated_at</strong> for shipped/completed/shipping-status rows.</li>
+        <li>Factory comparisons use Qarma physical-QC shipment/order quantity and scheduled inspection date when a Qarma row exists; otherwise they fall back to shipped order quantity per factory from the bronze backend database, bucketed by the activity-history <strong>shipped</strong> timestamp, with <strong>status_updated_at</strong> used only as a fallback when no shipped activity exists.</li>
         <li>Qarma physical QC uses the live Qarma <strong>inspections.csv.gz</strong> export, which refreshes roughly hourly. The report run picks up the newest Qarma export automatically.</li>
         <li>Qarma sample quantity is deduplicated by <strong>Report inspection id</strong>; Qarma defects are Minor + Major + Critical defect pieces affected.</li>
         <li>Remakes are bucketed by backend order month; Qarma is bucketed by inspection month from the Qarma export.</li>
