@@ -1723,14 +1723,20 @@ html = f"""<!DOCTYPE html>
   th, td {{ padding: 11px 10px; border-bottom: 1px solid var(--border); text-align: left; }}
   th {{ font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: #fafbff; }}
   .wrap:has(#remake-mgmt.active) {{ max-width: 2400px; }}
-  .factory-share-orders-scroll {{ overflow:auto; max-height:65vh; }}
-  .factory-share-orders-scroll table {{ min-width: 2700px; table-layout: fixed; }}
-  .factory-share-orders-scroll th:nth-child(1) {{ width: 110px; }}
-  .factory-share-orders-scroll th:nth-child(2), .factory-share-orders-scroll th:nth-child(3), .factory-share-orders-scroll th:nth-child(4) {{ width: 190px; }}
-  .factory-share-orders-scroll th:nth-child(5) {{ width: 260px; }}
-  .factory-share-orders-scroll th:nth-child(10) {{ width: 650px; }}
+  .wrap:has(#factory-share-page.active) {{ max-width: none; width: 100%; padding-left: 20px; padding-right: 20px; }}
+  .factory-share-orders-scroll {{ overflow: visible; max-height: none; width: 100%; }}
+  .factory-share-orders-scroll table {{ width: 100%; min-width: 0; table-layout: fixed; font-size: 12px; }}
+  .factory-share-orders-scroll th, .factory-share-orders-scroll td {{ overflow-wrap: anywhere; word-break: normal; }}
+  .factory-share-orders-scroll th:nth-child(1) {{ width: 6%; }}
+  .factory-share-orders-scroll th:nth-child(2), .factory-share-orders-scroll th:nth-child(3), .factory-share-orders-scroll th:nth-child(4) {{ width: 10%; }}
+  .factory-share-orders-scroll th:nth-child(5) {{ width: 10%; }}
+  .factory-share-orders-scroll th:nth-child(6) {{ width: 6%; }}
+  .factory-share-orders-scroll th:nth-child(7), .factory-share-orders-scroll th:nth-child(8), .factory-share-orders-scroll th:nth-child(9) {{ width: 7%; }}
+  .factory-share-orders-scroll th:nth-child(10) {{ width: 20%; }}
+  .factory-share-orders-scroll th:nth-child(11) {{ width: 6%; }}
+  .factory-share-orders-scroll th:nth-child(12) {{ width: 5%; }}
   .factory-share-orders-scroll td {{ vertical-align: top; }}
-  .factory-share-orders-scroll td:nth-child(10) {{ white-space: pre-wrap; overflow-wrap: anywhere; }}
+  .factory-share-orders-scroll td:nth-child(10) {{ white-space: pre-wrap; }}
   .remake-mgmt-scroll .remake-table {{ min-width: 2200px; table-layout: fixed; }}
   .remake-mgmt-scroll .remake-table th:nth-child(1) {{ width: 90px; }}
   .remake-mgmt-scroll .remake-table th:nth-child(2) {{ width: 150px; }}
