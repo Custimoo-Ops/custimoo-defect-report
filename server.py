@@ -168,7 +168,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         return self._unsign(self._cookies().get(SSO_COOKIE, ""))
 
     def _is_public_path(self, path):
-        return path.startswith("/auth/") or path in ("/favicon.ico",)
+        return path.startswith("/auth/") or path in ("/favicon.ico", "/api/remakes", "/api/qc-rejections")
 
     def _require_auth(self, path):
         if not SSO_ENABLED or self._is_public_path(path):
@@ -294,6 +294,21 @@ class H(http.server.SimpleHTTPRequestHandler):
             "recent": events[:200],
         })
 
+    def _report_embedded_array(self, name):
+        try:
+            with open('/app/index.html', 'r', encoding='utf-8') as f:
+                text = f.read()
+            marker = 'const ' + name + ' = '
+            start = text.index(marker) + len(marker)
+            value, _ = json.JSONDecoder().raw_decode(text[start:])
+            return value if isinstance(value, list) else []
+        except Exception as exc:
+            print(json.dumps({'event':'api_embedded_data_error','name':name,'error':str(exc)[:200]}), flush=True)
+            return []
+
+    def _embedded_json_endpoint(self, name):
+        return self._json(200, self._report_embedded_array(name))
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
@@ -309,6 +324,8 @@ class H(http.server.SimpleHTTPRequestHandler):
         if path == "/auth/callback": return self._auth_callback()
         if path == "/auth/logout": return self._auth_logout()
         if not self._require_auth(path): return
+        if path == "/api/remakes": return self._embedded_json_endpoint("REMAKES")
+        if path == "/api/qc-rejections": return self._embedded_json_endpoint("QC_REJECTIONS")
         if path == "/api/refresh": return self._refresh()
         if path == "/api/status": return self._status()
         if path == "/api/visits": return self._visits()
