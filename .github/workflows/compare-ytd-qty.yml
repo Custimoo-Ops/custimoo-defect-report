@@ -35,7 +35,8 @@ jobs:
           ), completed AS (
             SELECT o.order_no,o.created_at,COALESCE(iq.qty,COALESCE(NULLIF(o.price_info->>'total_quantity','')::numeric,0)) qty,
                    MAX(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) shipped_at,
-                   bool_and(oi.status::text='completed') all_completed
+                   bool_and(oi.status::text='completed') all_completed,
+                   bool_and(oi.status::text <> 'order_cancel') no_cancel
             FROM bronze.orders o JOIN bronze.order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL
             LEFT JOIN item_qty iq ON iq.order_id=o.id
             LEFT JOIN bronze.order_item_activities a ON a.order_item_id=oi.id
@@ -43,6 +44,8 @@ jobs:
           ) SELECT
           COUNT(*) FILTER (WHERE created_at>='2026-01-01' AND created_at<'2027-01-01'),
           SUM(qty) FILTER (WHERE created_at>='2026-01-01' AND created_at<'2027-01-01'),
+          COUNT(*) FILTER (WHERE no_cancel AND created_at>='2026-01-01' AND created_at<'2027-01-01'),
+          SUM(qty) FILTER (WHERE no_cancel AND created_at>='2026-01-01' AND created_at<'2027-01-01'),
           COUNT(*) FILTER (WHERE all_completed AND created_at>='2026-01-01' AND created_at<'2027-01-01'),
           SUM(qty) FILTER (WHERE all_completed AND created_at>='2026-01-01' AND created_at<'2027-01-01'),
           COUNT(*) FILTER (WHERE all_completed AND shipped_at>='2026-01-01' AND shipped_at<'2027-01-01'),
