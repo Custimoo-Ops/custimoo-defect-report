@@ -2658,7 +2658,10 @@ function ytdSummaryAggregates() {{
   const p=PERIODS.ytd || YTD, n=(p.monthKeys||[]).length;
   const out={{months:p.months||[], monthKeys:p.monthKeys||[], monthlyOrders:Array(n).fill(0), monthlyVolume:Array(n).fill(0), monthlyRemakeOrders:Array(n).fill(0), monthlyRemakeQty:Array(n).fill(0)}};
   (p.factories||[]).forEach(function(f) {{ const m=f.monthly||{{}}; for (let i=0;i<n;i++) {{ out.monthlyOrders[i]+=Number((m.orders||[])[i]||0); out.monthlyVolume[i]+=Number((m.volumes||[])[i]||0); out.monthlyRemakeOrders[i]+=Number((m.remake_orders||[])[i]||0); out.monthlyRemakeQty[i]+=Number((m.remake_qty||[])[i]||0); }} }});
-  out.cumulativeOrders=cumulative(out.monthlyOrders); out.cumulativeVolume=cumulative(out.monthlyVolume); out.totalOrders=out.monthlyOrders.reduce(function(a,b){{return a+b;}},0); out.totalVolume=out.monthlyVolume.reduce(function(a,b){{return a+b;}},0); out.totalRemakeOrders=out.monthlyRemakeOrders.reduce(function(a,b){{return a+b;}},0); out.totalRemakeQty=out.monthlyRemakeQty.reduce(function(a,b){{return a+b;}},0); return out;
+  const totals=aggregateFactories(p.factories||[]);
+  const adjust=function(arr,total) {{ const sum=arr.reduce(function(a,b){{return a+b;}},0); if (arr.length) arr[arr.length-1]+=Number(total||0)-sum; }};
+  adjust(out.monthlyOrders, totals.orders); adjust(out.monthlyVolume, totals.volume); adjust(out.monthlyRemakeOrders, totals.remake_orders); adjust(out.monthlyRemakeQty, totals.remake_qty);
+  out.cumulativeOrders=cumulative(out.monthlyOrders); out.cumulativeVolume=cumulative(out.monthlyVolume); out.totalOrders=totals.orders||0; out.totalVolume=totals.volume||0; out.totalRemakeOrders=totals.remake_orders||0; out.totalRemakeQty=totals.remake_qty||0; return out;
 }}
 function ytdCumulativeTable() {{
   const ytdView = ytdSummaryAggregates();
