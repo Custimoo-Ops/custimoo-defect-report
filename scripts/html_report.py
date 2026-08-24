@@ -2656,12 +2656,14 @@ applyPeriod(ACTIVE_PERIOD);
 function cumulative(arr) {{ return arr.map(function(_, i) {{ return arr.slice(0, i + 1).reduce(function(a,b){{return a+b;}}, 0); }}); }}
 function ytdSummaryAggregates() {{
   const p=PERIODS.ytd || YTD, n=(p.monthKeys||[]).length;
-  const out={{months:p.months||[], monthKeys:p.monthKeys||[], monthlyOrders:Array(n).fill(0), monthlyVolume:Array(n).fill(0), monthlyRemakeOrders:Array(n).fill(0), monthlyRemakeQty:Array(n).fill(0)}};
-  (p.factories||[]).forEach(function(f) {{ const m=f.monthly||{{}}; for (let i=0;i<n;i++) {{ out.monthlyOrders[i]+=Number((m.orders||[])[i]||0); out.monthlyVolume[i]+=Number((m.volumes||[])[i]||0); out.monthlyRemakeOrders[i]+=Number((m.remake_orders||[])[i]||0); out.monthlyRemakeQty[i]+=Number((m.remake_qty||[])[i]||0); }} }});
+  const out={{months:p.months||[], monthKeys:p.monthKeys||[], monthlyOrders:Array(n).fill(0), monthlyVolume:Array(n).fill(0), monthlyRemakeOrders:Array(n).fill(0), monthlyRemakeQty:Array(n).fill(0), monthlyOrdersNoMavic:Array(n).fill(0), monthlyVolumeNoMavic:Array(n).fill(0), monthlyRemakeOrdersNoMavic:Array(n).fill(0), monthlyRemakeQtyNoMavic:Array(n).fill(0)}};
+  (p.factories||[]).forEach(function(f) {{ const m=f.monthly||{{}}; const noMavic=f.name !== 'Mavic Sports'; for (let i=0;i<n;i++) {{ out.monthlyOrders[i]+=Number((m.orders||[])[i]||0); out.monthlyVolume[i]+=Number((m.volumes||[])[i]||0); out.monthlyRemakeOrders[i]+=Number((m.remake_orders||[])[i]||0); out.monthlyRemakeQty[i]+=Number((m.remake_qty||[])[i]||0); if (noMavic) {{ out.monthlyOrdersNoMavic[i]+=Number((m.orders||[])[i]||0); out.monthlyVolumeNoMavic[i]+=Number((m.volumes||[])[i]||0); out.monthlyRemakeOrdersNoMavic[i]+=Number((m.remake_orders||[])[i]||0); out.monthlyRemakeQtyNoMavic[i]+=Number((m.remake_qty||[])[i]||0); }} }} }});
   const totals=aggregateFactories(p.factories||[]);
   const adjust=function(arr,total) {{ const sum=arr.reduce(function(a,b){{return a+b;}},0); if (arr.length) arr[arr.length-1]+=Number(total||0)-sum; }};
   adjust(out.monthlyOrders, totals.orders); adjust(out.monthlyVolume, totals.volume); adjust(out.monthlyRemakeOrders, totals.remake_orders); adjust(out.monthlyRemakeQty, totals.remake_qty);
-  out.cumulativeOrders=cumulative(out.monthlyOrders); out.cumulativeVolume=cumulative(out.monthlyVolume); out.totalOrders=totals.orders||0; out.totalVolume=totals.volume||0; out.totalRemakeOrders=totals.remake_orders||0; out.totalRemakeQty=totals.remake_qty||0; return out;
+  const noMavicTotals=aggregateFactories((p.factories||[]).filter(function(f) {{ return f.name !== 'Mavic Sports'; }}));
+  adjust(out.monthlyOrdersNoMavic, noMavicTotals.orders); adjust(out.monthlyVolumeNoMavic, noMavicTotals.volume); adjust(out.monthlyRemakeOrdersNoMavic, noMavicTotals.remake_orders); adjust(out.monthlyRemakeQtyNoMavic, noMavicTotals.remake_qty);
+  out.cumulativeOrders=cumulative(out.monthlyOrders); out.cumulativeVolume=cumulative(out.monthlyVolume); out.cumulativeOrdersNoMavic=cumulative(out.monthlyOrdersNoMavic); out.cumulativeVolumeNoMavic=cumulative(out.monthlyVolumeNoMavic); out.totalOrders=totals.orders||0; out.totalVolume=totals.volume||0; out.totalRemakeOrders=totals.remake_orders||0; out.totalRemakeQty=totals.remake_qty||0; out.totalOrdersNoMavic=noMavicTotals.orders||0; out.totalVolumeNoMavic=noMavicTotals.volume||0; out.totalRemakeOrdersNoMavic=noMavicTotals.remake_orders||0; out.totalRemakeQtyNoMavic=noMavicTotals.remake_qty||0; return out;
 }}
 function ytdCumulativeTable() {{
   const ytdView = ytdSummaryAggregates();
@@ -2702,8 +2704,12 @@ function renderYtdChart() {{
   const isOrders = YTD_MEASURE === 'orders';
   const remOrdersCum = cumulative(ytdView.monthlyRemakeOrders || []);
   const remQtyCum = cumulative(ytdView.monthlyRemakeQty || []);
+  const remOrdersCumNoMavic = cumulative(ytdView.monthlyRemakeOrdersNoMavic || []);
+  const remQtyCumNoMavic = cumulative(ytdView.monthlyRemakeQtyNoMavic || []);
   const barData = isOrders ? ytdView.cumulativeOrders : ytdView.cumulativeVolume;
+  const barDataNoMavic = isOrders ? ytdView.cumulativeOrdersNoMavic : ytdView.cumulativeVolumeNoMavic;
   const rateData = barData.map(function(v, i) {{ return v > 0 ? +(((isOrders ? remOrdersCum[i] : remQtyCum[i]) / v * 100).toFixed(2)) : 0; }});
+  const rateDataNoMavic = barDataNoMavic.map(function(v, i) {{ return v > 0 ? +(((isOrders ? remOrdersCumNoMavic[i] : remQtyCumNoMavic[i]) / v * 100).toFixed(2)) : 0; }});
   const barLabel = isOrders ? 'Accumulated No of Orders' : 'Accumulated Total Order QTY';
   const rateLabel = isOrders ? 'Accumulated Remake % (Orders)' : 'Accumulated Remake % (Qty)';
   document.getElementById('ytdChartTitle').textContent = isOrders ? 'YTD Accumulated Orders + Remake %' : 'YTD Accumulated QTY + Remake %';
@@ -2711,7 +2717,9 @@ function renderYtdChart() {{
   ytdChart = new Chart(el.getContext('2d'), {{
     data: {{ labels: ytdView.months, datasets: [
       {{ type: 'bar', label: barLabel, data: barData, backgroundColor: 'rgba(31,111,235,0.25)', borderColor: 'rgba(31,111,235,0.8)', borderWidth: 1, yAxisID: 'y' }},
-      {{ type: 'line', label: rateLabel, data: rateData, borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.25, pointRadius: 5, pointHoverRadius: 7, yAxisID: 'y1' }}
+      {{ type: 'bar', label: barLabel + ' excl. Mavic Sports', data: barDataNoMavic, backgroundColor: 'rgba(16,185,129,0.25)', borderColor: 'rgba(16,185,129,0.8)', borderWidth: 1, yAxisID: 'y' }},
+      {{ type: 'line', label: rateLabel, data: rateData, borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.25, pointRadius: 5, pointHoverRadius: 7, yAxisID: 'y1' }},
+      {{ type: 'line', label: rateLabel + ' excl. Mavic Sports', data: rateDataNoMavic, borderColor: '#059669', backgroundColor: '#059669', borderDash: [6,4], tension: 0.25, pointRadius: 4, pointHoverRadius: 6, yAxisID: 'y1' }}
     ] }},
     options: {{ ...chartBaseOptions, scales: {{ y: {{ beginAtZero: true, title: {{ display: true, text: barLabel }} }}, y1: {{ beginAtZero: true, position: 'right', grid: {{ drawOnChartArea: false }}, title: {{ display: true, text: 'Accumulated Remake %' }} }} }} }}
   }});
