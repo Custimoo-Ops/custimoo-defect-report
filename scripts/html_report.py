@@ -1891,7 +1891,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
   <section id="summary" class="page active">
     <div class="exec-grid">
       <div class="card metric"><div class="label">3-Month Rolling Remake Rate</div><div class="value" id="rollingRate"></div><div class="sub" id="rollingSub"></div></div>
-      <div class="card metric"><div class="label" id="selectedRateLabel">Selected Period Remake Rate</div><div class="value" id="totalRate"></div><div class="sub" id="totalSub"></div></div>
+      <div class="card metric"><div class="label" id="selectedRateLabel">Selected Period Remake Rate</div><div class="value" id="totalRate"></div><div class="sub" id="totalSub"></div><div class="sub" id="latestRemakeSub"></div></div>
     </div>
     <div class="card metric"><div class="label" id="goalRateLabel">2026 Goal — Remake QTY Error Rate</div><div class="value" id="goalRate">0.50%</div><div class="sub" id="goalSub">Goal for 2026: ≤0.50% remake-qty error rate.</div></div>
     <div class="card">
@@ -2479,6 +2479,10 @@ function updateSummaryStats() {{
   document.getElementById('selectedRateLabel').textContent = 'Selected Period Remake Rate';
   document.getElementById('totalRate').textContent = selectedRemakeRate.toFixed(2) + '%';
   document.getElementById('totalSub').textContent = 'Selected period: ' + (d.name || 'Selected period') + ' · ' + label + ' · ' + selectedNum.toLocaleString() + ' ' + numLabel + ' / ' + selectedDen.toLocaleString() + ' ' + denLabel;
+  const remakeRows = (typeof REMAKES !== 'undefined' ? REMAKES : []);
+  const periodRemakes = remakeRows.filter(function(r) {{ const m=String(r.month||r.created_date||r.date||'').slice(0,7); return !m || (d.monthKeys||[]).indexOf(m) >= 0; }});
+  const latestRemake = (periodRemakes.length ? periodRemakes : remakeRows).slice().sort(function(a,b) {{ return String(b.month||b.created_date||b.date||'').localeCompare(String(a.month||a.created_date||a.date||'')) || Number(String(b.order||'').replace(/\\D/g,'')) - Number(String(a.order||'').replace(/\\D/g,'')); }})[0];
+  document.getElementById('latestRemakeSub').textContent = latestRemake ? 'Latest remake: #' + (latestRemake.order||'—') + ' · ' + Number(latestRemake.qty||latestRemake.total_qty||0).toLocaleString() + ' QTY · ' + (latestRemake.factory||'') + ' · ' + (latestRemake.category||'Uncategorized') + ' · ' + (latestRemake.culprit||'Culprit not set') : 'Latest remake: none in selected period';
   const ytd = PERIODS.ytd || DATA;
   const ytdAgg = aggregateFactories(ytd.factories || []);
   const ytdNum = isOrders ? (ytdAgg.remake_orders || 0) : (ytdAgg.remake_qty || 0);
