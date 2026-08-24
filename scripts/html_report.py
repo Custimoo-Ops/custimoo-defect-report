@@ -249,6 +249,11 @@ def load_qarma_stats_scoped(month_filter=None):
     return out
 
 qarma_stats = load_qarma_stats_scoped()
+if os.environ.get('REPORT_RECONCILIATION'):
+    _raw_eligible = [r for r in load_qarma_rows() if is_qarma_final_candidate(r)]
+    _scope_orders = {o for o, f, m, q in QARMA_SCOPE}
+    _matched = [r for r in _raw_eligible if str(r.get('Order number') or '').strip() in _scope_orders]
+    print('QARMA_SCOPE_DEBUG raw=%s eligible=%s scope_orders=%s matched=%s stats_factories=%s' % (len(load_qarma_rows()), len(_raw_eligible), len(_scope_orders), len(_matched), sorted(qarma_stats)), flush=True)
 
 month_labels = {
     "2025-10": "Oct 2025", "2025-11": "Nov 2025", "2025-12": "Dec 2025",
