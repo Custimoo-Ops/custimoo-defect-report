@@ -1036,7 +1036,8 @@ for _qr in load_qarma_rows():
     _qo = str(_qr.get('Order number') or '').strip()
     if not _qo or not is_qarma_final_candidate(_qr): continue
     _qm = dt_to_month(_qr.get('Scheduled inspection date') or _qr.get('Inspection end time'))
-    _qd = _factory_qarma_details.setdefault(_qo, {'rejected': False, 'reinspected': False, 'comments': [], 'links': [], 'months': set()})
+    _qd = _factory_qarma_details.setdefault(_qo, {'rejected': False, 'reinspected': False, 'comments': [], 'links': [], 'months': set(), 'factories': set()})
+    _qd['factories'].add(norm_qarma_supplier(_qr.get('Supplier name')))
     if _qm: _qd['months'].add(_qm)
     if str(_qr.get('Conclusion') or '').strip() == 'Rejected': _qd['rejected'] = True
     if str(_qr.get('Reinspection of') or '').strip(): _qd['reinspected'] = True
@@ -1049,7 +1050,12 @@ for _order,_created,_date,_actual_shipping_date,_shipping_date,_qty,_factories,_
     _qd = _factory_qarma_details.get(str(_order), {})
     _row = {'order': str(_order), 'created_date': str(_created)[:19] if _created else '', 'completed_date': str(_date)[:19] if _date else '', 'actual_shipping_date': str(_actual_shipping_date)[:19] if _actual_shipping_date else '', 'backend_shipping_date': str(_shipping_date)[:19] if _shipping_date else '', 'qty': int(_qty or 0), 'customer': _customer or '(unknown)', 'customer_ref': str(_customer_ref or ''), 'qarma_checked': bool(_q), 'qarma_error': bool(_q.get('defects', 0)), 'qarma_rejected': bool(_qd.get('rejected')), 'qarma_reinspected': bool(_qd.get('reinspected')), 'qarma_months': sorted(_qd.get('months', set())), 'qarma_comment': ' · '.join(_qd.get('comments', [])), 'qarma_report_link': (_qd.get('links') or [''])[0], 'remake': str(_order) in REMAKE_ORDERS}
     for _factory in str(_factories or '(unknown)').split(','):
-        FACTORY_SHARE_ORDERS.setdefault(factory_data.norm_factory(_factory.strip()), []).append(_row)
+        _factory_norm = factory_data.norm_factory(_factory.strip())
+        _fr = dict(_row)
+        _fr['factory'] = _factory_norm
+        _fr['qarma_rejected_factory'] = bool(_qd.get('rejected') and _factory_norm in _qd.get('factories', set()))
+        _fr['qarma_reinspected_factory'] = bool(_qd.get('reinspected') and _factory_norm in _qd.get('factories', set()))
+        FACTORY_SHARE_ORDERS.setdefault(_factory_norm, []).append(_fr)
 _factory_share_cur.close()
 for _factory in FACTORY_SHARE_ORDERS:
     FACTORY_SHARE_ORDERS[_factory].sort(key=lambda r: r.get('actual_shipping_date') or r.get('completed_date',''), reverse=True)
@@ -2980,7 +2986,7 @@ function showFactorySharePage(slug) {{
   const periodMonths = new Set(period.monthKeys || MONTH_KEYS);
   const orders = (FACTORY_SHARE_ORDERS[f.name] || []).filter(function(r) {{ return periodMonths.has(String(r.created_date || '').slice(0,7)); }});
   const qarmaPeriodMonths = new Set(period.monthKeys || MONTH_KEYS);
-  orders.forEach(function(r) {{ const qm=new Set(r.qarma_months || []); r.qarma_checked_period = Array.from(qm).some(function(m) {{ return qarmaPeriodMonths.has(m); }}); r.qarma_rejected_period = r.qarma_checked_period && r.qarma_rejected; }});
+  orders.forEach(function(r) {{ const qm=new Set(r.qarma_months || []); r.qarma_checked_period = Array.from(qm).some(function(m) {{ return qarmaPeriodMonths.has(m); }}); r.qarma_rejected_period = r.qarma_checked_period && r.qarma_rejected_factory; }});
   const reinspectionCard=document.querySelector('.factory-filter-card[data-filter="reinspection"]'); if (reinspectionCard) reinspectionCard.querySelector('.value').textContent=orders.filter(function(r) {{ return r.qarma_reinspected; }}).length.toLocaleString();
   function dateOnly(v) {{ return String(v||'').slice(0,10) || '—'; }}
   function renderFactoryOrderRows(list) {{ document.getElementById('factoryShareOrders').innerHTML = list.map(function(r) {{ const qlink=/^https?:\\/\\//i.test(r.qarma_report_link||'') ? '<a href="'+escapeAttr(r.qarma_report_link)+'" target="_blank" rel="noopener">Open report</a>' : '—'; return '<tr><td>#'+esc(r.order)+'</td><td>'+esc(r.customer_ref||'—')+'</td><td>'+dateOnly(r.actual_shipping_date)+'</td><td>'+dateOnly(r.completed_date)+'</td><td>'+dateOnly(r.backend_shipping_date)+'</td><td>'+esc(r.customer||'')+'</td><td class="right">'+Number(r.qty||0).toLocaleString()+'</td><td>'+ (r.qarma_checked_period?'Yes':'No') +'</td><td>'+ (r.qarma_rejected_period?'Yes':'No') +'</td><td>'+ (r.qarma_reinspected?'Yes':'No') +'</td><td>'+esc(r.qarma_comment||'—')+'</td><td>'+qlink+'</td><td>'+ (r.remake?'Yes':'No') +'</td></tr>'; }}).join('') || '<tr><td colspan="13">No matching completed orders in the selected period.</td></tr>'; }}
