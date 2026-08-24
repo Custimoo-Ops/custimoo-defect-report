@@ -19,6 +19,7 @@ except Exception:
 FACTORY_SHARE_BUILD = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
 FACTORY_SHARE_LINKS_JSON = json.dumps({slug: '/factory/' + slug + '?token=' + str(token) + '&v=' + FACTORY_SHARE_BUILD for slug, token in FACTORY_SHARE_TOKENS.items()})
 data = factory_data.generate()
+QARMA_SCOPE = {tuple(x) for x in data.get('qarma_scope', [])}
 hummel_account_data = factory_data.generate(customer_company='Hummel Pro NA')
 
 months = data['months']
@@ -213,7 +214,38 @@ def load_qarma_order_stats(month_filter=None):
     QARMA_ORDER_STATS_CACHE[cache_key] = out
     return out
 
-qarma_stats = load_qarma_stats()
+def load_qarma_stats_scoped(month_filter=None):
+    """Qarma metrics restricted to the same completed/shipped Bronze order scope."""
+    cache_key = ('scoped', tuple(month_filter) if month_filter else tuple(months))
+    if cache_key in QARMA_STATS_CACHE: return QARMA_STATS_CACHE[cache_key]
+    wanted = set(month_filter) if month_filter else set(months)
+    allowed = {(o, f) for o, f, m in QARMA_SCOPE if m in wanted}
+    stats = defaultdict(lambda: {'sample_qty': 0, 'defects': 0, 'reports': set(), 'orders': set(), 'reinspection_orders': set(), 'rejected_orders': set()})
+    seen = set()
+    for raw in load_qarma_rows():
+        order = str(raw.get('Order number') or '').strip()
+        factory = norm_qarma_supplier(raw.get('Supplier name'))
+        if not order or (order, factory) not in allowed or not is_qarma_final_candidate(raw): continue
+        if str(raw.get('Reinspection of') or '').strip():
+            stats[factory]['reinspection_orders'].add(order)
+            continue
+        stats[factory]['orders'].add(order)
+        if str(raw.get('Conclusion') or '').strip() == 'Rejected': stats[factory]['rejected_orders'].add(order)
+        report_id = str(raw.get('Report inspection id') or raw.get('Inspection id') or '').strip()
+        if report_id:
+            stats[factory]['reports'].add(report_id)
+            key = (factory, report_id)
+            if key not in seen:
+                seen.add(key)
+                stats[factory]['sample_qty'] += safe_int(raw.get('Actual sample quantity'))
+        stats[factory]['defects'] += sum(safe_int(raw.get(k)) for k in ('Minor defects pieces affected','Major defects pieces affected','Critical defects pieces affected'))
+    out = {}
+    for f, v in stats.items():
+        out[f] = {'sample_qty': v['sample_qty'], 'defects': v['defects'], 'rate': round(v['defects']/v['sample_qty']*100,2) if v['sample_qty'] else 0, 'inspections': len(v['reports']), 'orders_checked': len(v['orders']), 'orders_with_reinspection': len(v['reinspection_orders']), 'rejected_orders': len(v['rejected_orders']), 'order_rate': round(len(v['rejected_orders'])/len(v['orders'])*100,2) if v['orders'] else 0}
+    QARMA_STATS_CACHE[cache_key] = out
+    return out
+
+qarma_stats = load_qarma_stats_scoped()
 
 month_labels = {
     "2025-10": "Oct 2025", "2025-11": "Nov 2025", "2025-12": "Dec 2025",
@@ -300,7 +332,7 @@ ytd_defect_orders = sum(defect_order_count.get(m, 0) for m in ytd_months)
 ytd_rate = round(ytd_defects / ytd_volume * 100, 2) if ytd_volume > 0 else 0
 ytd_order_rate = round(ytd_defect_orders / ytd_orders * 100, 2) if ytd_orders > 0 else 0
 
-ytd_qarma_stats = load_qarma_stats(ytd_months)
+ytd_qarma_stats = load_qarma_stats_scoped(ytd_months)
 
 # YTD factory totals
 ytd_factories = []
@@ -1103,7 +1135,7 @@ def qarma_empty():
     return {'sample_qty': 0, 'defects': 0, 'rate': 0, 'inspections': 0, 'orders_checked': 0, 'orders_with_reinspection': 0, 'rejected_orders': 0, 'order_rate': 0}
 
 def factory_rows_for_months(month_keys):
-    qstats = load_qarma_stats(month_keys)
+    qstats = load_qarma_stats_scoped(month_keys)
     rows = []
     month_set = set(month_keys)
     for fd in factory_monthly_data:

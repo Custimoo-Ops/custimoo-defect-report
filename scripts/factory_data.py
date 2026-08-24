@@ -342,6 +342,7 @@ HAVING bool_and(oi.status::text = 'completed')
 
     qarma_shipment_rows = load_qarma_shipment_rows()
     qarma_order_numbers = set()
+    qarma_scope = set()
     for qr in qarma_shipment_rows:
         month = qr['month']
         f = qr['factory']
@@ -355,6 +356,7 @@ HAVING bool_and(oi.status::text = 'completed')
         _report_date = _date_info.get('shipping') or _date_info.get('completed')
         month = str(_report_date)[:7] if _report_date else qr['month']
         qarma_order_numbers.add(ono)
+        qarma_scope.add((ono, f, month))
         key = (f, month, ono)
         if key not in seen_order_factories:
             seen_order_factories.add(key)
@@ -503,6 +505,7 @@ HAVING bool_and(oi.status::text='completed')
         'remake_by_month': remake_by_month,
         'factories': factory_stats,
         'factory_monthly': factory_monthly_data,
+        'qarma_scope': sorted(qarma_scope),
     }
 
 if __name__ == "__main__":
