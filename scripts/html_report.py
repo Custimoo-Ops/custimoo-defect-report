@@ -2060,6 +2060,9 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
   <section id="factory-share-page" class="page">
     <div class="card"><h3 class="section-title" id="factoryShareTitle">Factory Performance</h3><div class="hint">Factory-specific shared view. Period: <select id="factorySharePeriod"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select></div></div>
     <div class="exec-grid" id="factoryShareKpis"></div>
+    <div class="card"><h3 class="section-title">Qarma Errors</h3><div style="overflow:auto"><table><thead><tr><th>Order</th><th>Actual Shipping Date</th><th>Qarma Rejected</th><th>Reinspected</th><th>Qarma Comment</th><th>Qarma Report</th></tr></thead><tbody id="factoryShareQarmaErrors"></tbody></table></div></div>
+    <div class="card"><h3 class="section-title">Remake Analysis</h3><div style="overflow:auto"><table><thead><tr><th>Order</th><th>QTY</th><th>Category</th><th>Culprit</th><th>Subcategory</th><th>Source</th><th>Verification</th><th>Comment</th></tr></thead><tbody id="factoryShareRemakeAnalysis"></tbody></table></div></div>
+    <div class="card"><h3 class="section-title">QC Analysis</h3><div style="overflow:auto"><table><thead><tr><th>Order</th><th>QC Date</th><th>QC Comment</th><th>Error Type</th><th>Reinspection</th><th>How to Avoid</th><th>Work Notes</th></tr></thead><tbody id="factoryShareQcAnalysis"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Completed Orders</h3><div class="factory-share-orders-scroll"><table><thead><tr><th>Order</th><th>Customer Ref</th><th>Actual Shipping Date</th><th>Completed Date</th><th>Backend Shipping Status Date</th><th>Customer</th><th class="right">Order QTY</th><th>Qarma Checked</th><th>Qarma Rejected</th><th>Reinspected</th><th>Qarma Comment</th><th>Qarma Report</th><th>Remake</th></tr></thead><tbody id="factoryShareOrders"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Monthly Detail</h3><table><thead><tr><th>Month</th><th class="right">Orders</th><th class="right">Order QTY</th><th class="right">Remakes</th><th class="right">Remake QTY</th><th class="right">Qarma Checked</th><th class="right">Qarma Errors</th></tr></thead><tbody id="factoryShareMonthly"></tbody></table></div>
   </section>
@@ -2987,6 +2990,17 @@ function showFactorySharePage(slug) {{
   }}
   renderFactoryOrderRows(orders);
   renderFactoryMonthly(orders);
+  function renderFactoryAnalysis() {{
+    const qErrors=orders.filter(function(r) {{ return r.qarma_rejected_period; }});
+    document.getElementById('factoryShareQarmaErrors').innerHTML=qErrors.map(function(r) {{ const link=/^https?:\\/\\//i.test(r.qarma_report_link||'') ? '<a href="'+escapeAttr(r.qarma_report_link)+'" target="_blank" rel="noopener">Open report</a>' : '—'; return '<tr><td>#'+esc(r.order)+'</td><td>'+dateOnly(r.actual_shipping_date)+'</td><td>Yes</td><td>'+ (r.qarma_reinspected?'Yes':'No') +'</td><td>'+esc(r.qarma_comment||'—')+'</td><td>'+link+'</td></tr>'; }}).join('') || '<tr><td colspan="6">No Qarma errors for this factory and period.</td></tr>';
+    const matchFactory=function(r) {{ return factorySlug(r.factory||r.raw_factory||'')===factorySlug(f.name); }};
+    const matchPeriod=function(r) {{ const d=String(r.month||r.date||r.fu_month||'').slice(0,7); return !d || periodMonths.has(d); }};
+    const rem=(typeof REMAKES!=='undefined'?REMAKES:[]).filter(function(r) {{ return matchFactory(r) && matchPeriod(r); }});
+    document.getElementById('factoryShareRemakeAnalysis').innerHTML=rem.map(function(r) {{ return '<tr><td>#'+esc(r.order||'')+'</td><td>'+Number(r.qty||r.total_qty||0).toLocaleString()+'</td><td>'+esc(r.category||'—')+'</td><td>'+esc(r.culprit||'—')+'</td><td>'+esc(r.culprit_subcategory||'—')+'</td><td>'+esc(r.source||'—')+'</td><td>'+esc(r.verification_status||'—')+'</td><td>'+esc(r.comment||'—')+'</td></tr>'; }}).join('') || '<tr><td colspan="8">No remake analysis rows for this factory and period.</td></tr>';
+    const qc=(typeof QC_REJECTIONS!=='undefined'?QC_REJECTIONS:[]).filter(function(r) {{ return matchFactory(r) && matchPeriod(r); }});
+    document.getElementById('factoryShareQcAnalysis').innerHTML=qc.map(function(r) {{ return '<tr><td>#'+esc(r.order||'')+'</td><td>'+esc(dateOnly(r.date||r.month))+'</td><td>'+esc(r.qc_comment||'—')+'</td><td>'+esc(r.error_type||'Investigating')+'</td><td>'+esc(r.reinspection_status||'No')+'</td><td>'+esc(r.avoidance_action||'—')+'</td><td>'+esc(r.work_comment||'—')+'</td></tr>'; }}).join('') || '<tr><td colspan="7">No QC analysis rows for this factory and period.</td></tr>';
+  }}
+  renderFactoryAnalysis();
   document.querySelectorAll('.factory-filter-card').forEach(function(card) {{ card.addEventListener('click', function() {{ const filter=card.dataset.filter; const subset=filter==='all' ? orders : filter==='remake' ? orders.filter(function(r) {{ return r.remake; }}) : filter==='qarma_checked' ? orders.filter(function(r) {{ return r.qarma_checked_period; }}) : filter==='qarma_rejected' ? orders.filter(function(r) {{ return r.qarma_rejected_period; }}) : orders.filter(function(r) {{ return r.qarma_reinspected; }}); renderFactoryOrderRows(subset); renderFactoryMonthly(subset); }}); }});
   return true;
 }}
