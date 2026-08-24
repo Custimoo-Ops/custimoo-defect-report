@@ -62,7 +62,12 @@ jobs:
           s = open('report.html', encoding='utf-8').read()
           m = re.search(r'const YTD = (.*?);', s, re.S)
           ytd = json.JSONDecoder().raw_decode(m.group(1))[0]
+          p = re.search(r'const PERIODS = (.*?);', s, re.S)
+          periods = json.JSONDecoder().raw_decode(p.group(1))[0]
+          ytd_payload = periods.get('ytd', {})
+          mavic = next((x for x in ytd_payload.get('factories', []) if x.get('name') == 'Mavic Sports'), {})
           print('YTD_RECONCILIATION total_qty=%s total_orders=%s' % (ytd.get('volume'), ytd.get('orders')))
+          print('MAVIC_YTD_RECONCILIATION total_qty=%s qarma_checked=%s qarma_defects=%s coverage=%s' % (mavic.get('volume'), (mavic.get('qarma') or {}).get('sample_qty'), (mavic.get('qarma') or {}).get('defects'), (mavic.get('qarma') or {}).get('rate')))
           PY
           echo "Report: $(wc -c < report.html) bytes"
 
