@@ -359,6 +359,7 @@ HAVING bool_and(oi.status::text = 'completed')
         if customer_order_nums is not None and ono not in customer_order_nums:
             continue
         _date_info = completed_order_dates[ono]
+        qty = _date_info.get('qty', 0)
         _report_date = _date_info.get('shipping') or _date_info.get('completed')
         month = str(_report_date)[:7] if _report_date else qr['month']
         qarma_order_numbers.add(ono)
