@@ -364,6 +364,7 @@ HAVING bool_and(oi.status::text = 'completed')
         month = str(_report_date)[:7] if _report_date else qr['month']
         qarma_order_numbers.add(ono)
         qarma_scope.add((ono, f, month, _date_info.get('qty', 0)))
+        factory_month_pipe[f][month]['qty'] += qty
         key = (f, month, ono)
         if key not in seen_order_factories:
             seen_order_factories.add(key)
