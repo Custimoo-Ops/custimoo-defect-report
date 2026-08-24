@@ -249,6 +249,9 @@ def load_qarma_stats_scoped(month_filter=None):
     return out
 
 qarma_stats = load_qarma_stats_scoped()
+if os.environ.get('REPORT_RECONCILIATION'):
+    _m_scope = [(o, q) for o, f, m, q in QARMA_SCOPE if f == 'Mavic Sports' and m.startswith('2026')]
+    print('MAVIC_SCOPE_DEBUG orders=%s scope_qty=%s stats=%s' % (len(set(o for o, q in _m_scope)), sum(q for o, q in _m_scope), qarma_stats.get('Mavic Sports', {})), flush=True)
 
 month_labels = {
     "2025-10": "Oct 2025", "2025-11": "Nov 2025", "2025-12": "Dec 2025",
