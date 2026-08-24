@@ -2330,7 +2330,7 @@ function actionPlanTooltip(f) {{
     + line('0.5%', 0.005) + '\\n\\n'
     + line('0.2%', 0.002);
 }}
-function measureTooltip(label, formula) {{ return label + ' — ' + (ACTIVE_MEASURE === 'orders' ? 'No of Orders' : 'QTY') + '\\n\\n' + formula; }}
+function measureTooltip(label, formula) {{ return label + '\\n\\nPopulation rules apply in both modes (No of Orders and QTY).\\n\\n' + formula; }}
 function qtyRulesTooltip() {{ return measureTooltip('Total Order QTY', 'orders.deleted_at IS NULL; order_items.status is not order_cancel; period uses orders.created_at; quantity is summed from factory_products → prices → sizes → quantity; price_info.total_quantity is fallback only; excluded factories are excluded from factory detail rows.'); }}
 function qarmaRulesTooltip() {{ return measureTooltip('Qarma measures', 'eligible original final inspections only; Status = Report; Inspection type = Final; Conclusion = Approved or Rejected; Supplier QC ≠ true; inspector email ends @custimoo.com; reinspection rows excluded from checked-QTY totals; duplicate rows deduplicated by report ID; order must match Bronze scope; checked QTY capped at matched Bronze order QTY.'); }}
 function measureCells(f, q) {{
