@@ -328,17 +328,23 @@ def generate(defects_only=False, customer_company=None):
     cur.execute("""
 SELECT o.order_no,
        max(CASE WHEN a.status::text='completed' THEN COALESCE(a.created_at,a.updated_at) END) AS completed_date,
-       max(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS actual_shipping_date
+       max(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS actual_shipping_date,
+       COALESCE(SUM(pq.product_qty), MAX(COALESCE(NULLIF(o.price_info->>'total_quantity','')::numeric,0)))::int AS order_qty
 FROM orders o
 JOIN order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL
+LEFT JOIN LATERAL (
+  SELECT NULLIF(SUM(NULLIF(sz->>'quantity','')::numeric),0)::numeric AS product_qty
+  FROM jsonb_array_elements(COALESCE(oi.factory_products,'[]'::jsonb)) prod
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(prod->'prices'->'sizes','[]'::jsonb)) sz
+) pq ON true
 LEFT JOIN order_item_activities a ON a.order_item_id=oi.id
 WHERE o.deleted_at IS NULL
-GROUP BY o.order_no
+GROUP BY o.order_no,o.price_info
 HAVING bool_and(oi.status::text = 'completed')
 """)
     completed_order_dates = {}
-    for _ono, _completed, _shipped in cur.fetchall():
-        completed_order_dates[str(_ono)] = {'completed': _completed, 'shipping': _shipped}
+    for _ono, _completed, _shipped, _qty in cur.fetchall():
+        completed_order_dates[str(_ono)] = {'completed': _completed, 'shipping': _shipped, 'qty': int(_qty or 0)}
 
     qarma_shipment_rows = load_qarma_shipment_rows()
     qarma_order_numbers = set()
@@ -356,7 +362,7 @@ HAVING bool_and(oi.status::text = 'completed')
         _report_date = _date_info.get('shipping') or _date_info.get('completed')
         month = str(_report_date)[:7] if _report_date else qr['month']
         qarma_order_numbers.add(ono)
-        qarma_scope.add((ono, f, month))
+        qarma_scope.add((ono, f, month, _date_info.get('qty', 0)))
         key = (f, month, ono)
         if key not in seen_order_factories:
             seen_order_factories.add(key)

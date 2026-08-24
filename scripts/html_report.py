@@ -219,9 +219,11 @@ def load_qarma_stats_scoped(month_filter=None):
     cache_key = ('scoped', tuple(month_filter) if month_filter else tuple(months))
     if cache_key in QARMA_STATS_CACHE: return QARMA_STATS_CACHE[cache_key]
     wanted = set(month_filter) if month_filter else set(months)
-    allowed = {(o, f) for o, f, m in QARMA_SCOPE if m in wanted}
+    allowed = {(o, f) for o, f, m, q in QARMA_SCOPE if m in wanted}
+    order_qty = {o: q for o, f, m, q in QARMA_SCOPE if m in wanted}
     stats = defaultdict(lambda: {'sample_qty': 0, 'defects': 0, 'reports': set(), 'orders': set(), 'reinspection_orders': set(), 'rejected_orders': set()})
     seen = set()
+    order_samples = defaultdict(lambda: defaultdict(int))
     for raw in load_qarma_rows():
         order = str(raw.get('Order number') or '').strip()
         factory = norm_qarma_supplier(raw.get('Supplier name'))
@@ -237,11 +239,12 @@ def load_qarma_stats_scoped(month_filter=None):
             key = (factory, report_id)
             if key not in seen:
                 seen.add(key)
-                stats[factory]['sample_qty'] += safe_int(raw.get('Actual sample quantity'))
+                order_samples[factory][order] += safe_int(raw.get('Actual sample quantity'))
         stats[factory]['defects'] += sum(safe_int(raw.get(k)) for k in ('Minor defects pieces affected','Major defects pieces affected','Critical defects pieces affected'))
     out = {}
     for f, v in stats.items():
-        out[f] = {'sample_qty': v['sample_qty'], 'defects': v['defects'], 'rate': round(v['defects']/v['sample_qty']*100,2) if v['sample_qty'] else 0, 'inspections': len(v['reports']), 'orders_checked': len(v['orders']), 'orders_with_reinspection': len(v['reinspection_orders']), 'rejected_orders': len(v['rejected_orders']), 'order_rate': round(len(v['rejected_orders'])/len(v['orders'])*100,2) if v['orders'] else 0}
+        checked_qty = sum(min(sample, order_qty.get(order, sample)) for order, sample in order_samples[f].items())
+        out[f] = {'sample_qty': checked_qty, 'defects': v['defects'], 'rate': round(v['defects']/checked_qty*100,2) if checked_qty else 0, 'inspections': len(v['reports']), 'orders_checked': len(v['orders']), 'orders_with_reinspection': len(v['reinspection_orders']), 'rejected_orders': len(v['rejected_orders']), 'order_rate': round(len(v['rejected_orders'])/len(v['orders'])*100,2) if v['orders'] else 0}
     QARMA_STATS_CACHE[cache_key] = out
     return out
 
