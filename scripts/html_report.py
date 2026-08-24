@@ -2562,7 +2562,10 @@ function updatePeriodKpis() {{
   document.getElementById('periodKpiLabel').textContent = label + ' Remakes';
 }}
 function updateYtdKpis() {{
+  const previousData = ACTIVE_DATA;
+  ACTIVE_DATA = PERIODS.ytd || YTD;
   updatePeriodKpis();
+  ACTIVE_DATA = previousData;
   if (YTD_MEASURE === 'orders') {{
     document.querySelector('#ytdVolume').closest('.metric').querySelector('.label').textContent = 'Selected Period No of Orders';
   }} else {{
@@ -2666,10 +2669,11 @@ function ytdCumulativeTable() {{
 }}
 function renderYtdFactoryTable() {{
   const head = document.getElementById('ytdFactoryHead');
+  const ytdSync = PERIODS.ytd || YTD;
   const prev = ACTIVE_MEASURE;
   ACTIVE_MEASURE = YTD_MEASURE;
   head.innerHTML = '<th>Factory</th>' + measureHeaders() + '<th class="right">Qarma Err%</th><th class="right">Qarma QC to 0.5% / 0.2%</th>';
-  renderFactoryTable('ytdFactoryBody', YTD.factories || [], false, {{}});
+  renderFactoryTable('ytdFactoryBody', ytdSync.factories || [], false, {{}});
   ACTIVE_MEASURE = prev;
 }}
 let ytdChart = null;
