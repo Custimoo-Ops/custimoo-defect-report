@@ -1013,6 +1013,7 @@ GROUPING_JSON_SAFE = GROUPING_JSON.replace('<', '\\u003C').replace('>', '\\u003E
 _factory_share_cur = conn.cursor()
 _factory_share_cur.execute("""
 SELECT o.order_no,
+       o.created_at AS created_date,
        max(CASE WHEN a.status::text='completed' THEN COALESCE(a.created_at,a.updated_at) END) AS completed_date,
        max(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS actual_shipping_date,
        max(CASE WHEN oi.status::text IN ('shipped','completed') OR oi.shipping_status IS NOT NULL THEN oi.status_updated_at END) AS backend_shipping_date,
@@ -1043,10 +1044,10 @@ for _qr in load_qarma_rows():
     if _comment and _comment not in _qd['comments']: _qd['comments'].append(_comment)
     _link = str(_qr.get('Link to report') or '').strip()
     if _link and _link not in _qd['links']: _qd['links'].append(_link)
-for _order,_date,_actual_shipping_date,_shipping_date,_qty,_factories,_customer,_customer_ref,_otype in _factory_share_cur.fetchall():
+for _order,_created,_date,_actual_shipping_date,_shipping_date,_qty,_factories,_customer,_customer_ref,_otype in _factory_share_cur.fetchall():
     _q = qarma_order_stats.get(str(_order), {})
     _qd = _factory_qarma_details.get(str(_order), {})
-    _row = {'order': str(_order), 'completed_date': str(_date)[:19] if _date else '', 'actual_shipping_date': str(_actual_shipping_date)[:19] if _actual_shipping_date else '', 'backend_shipping_date': str(_shipping_date)[:19] if _shipping_date else '', 'qty': int(_qty or 0), 'customer': _customer or '(unknown)', 'customer_ref': str(_customer_ref or ''), 'qarma_checked': bool(_q), 'qarma_error': bool(_q.get('defects', 0)), 'qarma_rejected': bool(_qd.get('rejected')), 'qarma_reinspected': bool(_qd.get('reinspected')), 'qarma_months': sorted(_qd.get('months', set())), 'qarma_comment': ' · '.join(_qd.get('comments', [])), 'qarma_report_link': (_qd.get('links') or [''])[0], 'remake': str(_order) in REMAKE_ORDERS}
+    _row = {'order': str(_order), 'created_date': str(_created)[:19] if _created else '', 'completed_date': str(_date)[:19] if _date else '', 'actual_shipping_date': str(_actual_shipping_date)[:19] if _actual_shipping_date else '', 'backend_shipping_date': str(_shipping_date)[:19] if _shipping_date else '', 'qty': int(_qty or 0), 'customer': _customer or '(unknown)', 'customer_ref': str(_customer_ref or ''), 'qarma_checked': bool(_q), 'qarma_error': bool(_q.get('defects', 0)), 'qarma_rejected': bool(_qd.get('rejected')), 'qarma_reinspected': bool(_qd.get('reinspected')), 'qarma_months': sorted(_qd.get('months', set())), 'qarma_comment': ' · '.join(_qd.get('comments', [])), 'qarma_report_link': (_qd.get('links') or [''])[0], 'remake': str(_order) in REMAKE_ORDERS}
     for _factory in str(_factories or '(unknown)').split(','):
         FACTORY_SHARE_ORDERS.setdefault(factory_data.norm_factory(_factory.strip()), []).append(_row)
 _factory_share_cur.close()
@@ -2976,7 +2977,7 @@ function showFactorySharePage(slug) {{
   const periodQ = periodFactory.qarma || {{}};
   document.getElementById('factoryShareKpis').innerHTML = [['Total Orders',periodFactory.orders||0,'all'],['Total Order QTY',periodFactory.volume||0,'all'],['Remake Orders',periodFactory.remake_orders||0,'remake'],['Remake QTY',periodFactory.remake_qty||0,'remake'],['Qarma Orders Checked',periodQ.orders_checked||0,'qarma_checked'],['Qarma Error Orders',periodQ.rejected_orders||0,'qarma_rejected'],['Orders with Reinspection',periodQ.orders_with_reinspection||0,'reinspection']].map(function(x) {{ return '<div class="card metric factory-filter-card" data-filter="'+x[2]+'" title="Click to show matching orders" style="cursor:pointer"><div class="label">'+x[0]+'</div><div class="value">'+Number(x[1]||0).toLocaleString()+'</div></div>'; }}).join('');
   const periodMonths = new Set(period.monthKeys || MONTH_KEYS);
-  const orders = (FACTORY_SHARE_ORDERS[f.name] || []).filter(function(r) {{ return periodMonths.has(String(r.actual_shipping_date || r.completed_date || '').slice(0,7)); }});
+  const orders = (FACTORY_SHARE_ORDERS[f.name] || []).filter(function(r) {{ return periodMonths.has(String(r.created_date || '').slice(0,7)); }});
   const qarmaPeriodMonths = new Set(period.monthKeys || MONTH_KEYS);
   orders.forEach(function(r) {{ const qm=new Set(r.qarma_months || []); r.qarma_checked_period = Array.from(qm).some(function(m) {{ return qarmaPeriodMonths.has(m); }}); r.qarma_rejected_period = r.qarma_checked_period && r.qarma_rejected; }});
   const reinspectionCard=document.querySelector('.factory-filter-card[data-filter="reinspection"]'); if (reinspectionCard) reinspectionCard.querySelector('.value').textContent=orders.filter(function(r) {{ return r.qarma_reinspected; }}).length.toLocaleString();
