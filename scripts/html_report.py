@@ -1935,7 +1935,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
   </section>
   <section id="ytd" class="page">
     <div class="exec-grid">
-      <div class="card metric"><div class="label">YTD 2026 Total Order QTY</div><div class="value" id="ytdVolume"></div><div class="sub">Jan – Jun 2026*</div></div>
+      <div class="card metric"><div class="label">YTD 2026 Total Order QTY</div><div class="value" id="ytdVolume"></div><div class="sub" id="ytdVolumeSub"></div></div>
       <div class="card metric"><div class="label" id="periodKpiLabel">YTD 2026 Remakes</div><div class="value" id="periodKpiValue"></div><div class="sub" id="periodKpiSub"></div></div>
     </div>
     <div class="card">
@@ -2544,6 +2544,8 @@ document.getElementById('ytdVolume').textContent = DATA.totalVolume.toLocaleStri
 function updatePeriodKpis() {{
   var d = ACTIVE_DATA;
   var label = d.name || 'YTD 2026';
+  var ytdMonths = YTD.months || [];
+  document.getElementById('ytdVolumeSub').textContent = ytdMonths.length ? (ytdMonths[0] + ' – ' + ytdMonths[ytdMonths.length - 1]) : 'No YTD months';
   var remOrders = d.totalRemakeOrders || 0;
   var remQty = d.totalRemakeQty || 0;
   if (YTD_MEASURE === 'orders') {{
