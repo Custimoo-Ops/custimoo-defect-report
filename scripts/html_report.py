@@ -245,15 +245,11 @@ def load_qarma_stats_scoped(month_filter=None):
     for f, v in stats.items():
         checked_qty = sum(min(sample, order_qty.get(order, sample)) for order, sample in order_samples[f].items())
         out[f] = {'sample_qty': checked_qty, 'defects': v['defects'], 'rate': round(v['defects']/checked_qty*100,2) if checked_qty else 0, 'inspections': len(v['reports']), 'orders_checked': len(v['orders']), 'orders_with_reinspection': len(v['reinspection_orders']), 'rejected_orders': len(v['rejected_orders']), 'order_rate': round(len(v['rejected_orders'])/len(v['orders'])*100,2) if v['orders'] else 0}
+    QARMA_SOURCE_META['filtered_rows'] = sum(1 for raw in load_qarma_rows() if is_qarma_included(raw))
     QARMA_STATS_CACHE[cache_key] = out
     return out
 
 qarma_stats = load_qarma_stats_scoped()
-if os.environ.get('REPORT_RECONCILIATION'):
-    _raw_eligible = [r for r in load_qarma_rows() if is_qarma_final_candidate(r)]
-    _scope_orders = {o for o, f, m, q in QARMA_SCOPE}
-    _matched = [r for r in _raw_eligible if str(r.get('Order number') or '').strip() in _scope_orders]
-    print('QARMA_SCOPE_DEBUG raw=%s eligible=%s scope_orders=%s matched=%s stats_factories=%s' % (len(load_qarma_rows()), len(_raw_eligible), len(_scope_orders), len(_matched), sorted(qarma_stats)), flush=True)
 
 month_labels = {
     "2025-10": "Oct 2025", "2025-11": "Nov 2025", "2025-12": "Dec 2025",
@@ -2324,6 +2320,7 @@ function actionPlanTooltip(f) {{
     + line('0.2%', 0.002);
 }}
 function qtyRulesTooltip() {{ return 'Total Order QTY rules\\n\\n• orders.deleted_at IS NULL\\n• order_items.status is not order_cancel\\n• Period is based on orders.created_at\\n• QTY = sum of factory_products → prices → sizes → quantity\\n• price_info.total_quantity is used only as fallback\\n• Excluded factories: Augusta De Mexico, Dongguan Yida Textile Co.,Ltd, FeelGood Printwear, Hummel'; }}
+function qarmaRulesTooltip() {{ return 'Qarma rules\\n\\n• Eligible original final inspections only\\n• Status = Report\\n• Inspection type = Final\\n• Conclusion = Approved or Rejected\\n• Supplier QC ≠ true\\n• Inspector email ends @custimoo.com\\n• Reinspections excluded from checked-QTY totals\\n• Duplicate rows deduplicated by report ID\\n• Order must match the Bronze non-cancelled YTD/period population\\n• Checked QTY is capped at the matched Bronze order QTY'; }}
 function measureCells(f, q) {{
   const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q, f.orders) : qarmaRate(q, f.volume);
   if (ACTIVE_MEASURE === 'orders') {{
@@ -2339,10 +2336,10 @@ function measureCells(f, q) {{
   }}
   // qty mode
   return '<td class="right" title="' + escapeAttr(qtyRulesTooltip()) + '">' + (f.volume || 0).toLocaleString() + '</td>'
-    + '<td class="right">' + (q.sample_qty || 0).toLocaleString() + '</td>'
-    + '<td class="right">' + (q.orders_with_reinspection || 0).toLocaleString() + '</td>'
-    + '<td class="right">' + ((f.volume || 0) > 0 ? (((q.sample_qty || 0) / f.volume * 100).toFixed(1) + '%') : '—') + '</td>'
-    + '<td class="right">' + (q.defects || 0).toLocaleString() + '</td>'
+    + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + (q.sample_qty || 0).toLocaleString() + '</td>'
+    + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + (q.orders_with_reinspection || 0).toLocaleString() + '</td>'
+    + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + ((f.volume || 0) > 0 ? (((q.sample_qty || 0) / f.volume * 100).toFixed(1) + '%') : '—') + '</td>'
+    + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + (q.defects || 0).toLocaleString() + '</td>'
     + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
     + '<td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td>'
     + '<td class="right">' + (f.remake_orders_checked_by_qarma || 0).toLocaleString() + '</td>'
