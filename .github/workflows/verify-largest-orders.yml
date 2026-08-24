@@ -1,0 +1,49 @@
+name: Verify Largest Bronze Orders
+on:
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: python3 -m pip install --disable-pip-version-check --no-input --prefer-binary psycopg2-binary
+      - name: Set up SSH tunnel
+        env:
+          KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          HOST: ${{ secrets.TUNNEL_HOST }}
+          PORT: ${{ secrets.TUNNEL_PORT }}
+          USER: ${{ secrets.TUNNEL_USER }}
+          RDS: ${{ secrets.RDS_HOST }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$PORT" "$HOST" > ~/.ssh/known_hosts 2>/dev/null
+          ssh -f -N -L 5433:${RDS}:5432 -p "$PORT" "$USER@$HOST" -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes
+      - name: Verify Bronze quantities
+        env:
+          CUSTIMOO_DB_PASSWORD: ${{ secrets.CUSTIMOO_DB_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import json, os, psycopg2
+          orders=['24770','25605','21131','18559','17903','27007','19760','21723']
+          expected={'24770':40864,'25605':38810,'21131':28590,'18559':26223,'17903':18352,'27007':15755,'19760':15500,'21723':13000}
+          c=psycopg2.connect(host='127.0.0.1',port=5433,dbname='custimoo-prod',user='lakr@custimoo.com',password=os.environ['CUSTIMOO_DB_PASSWORD'],sslmode='require')
+          cur=c.cursor(); cur.execute("SELECT o.order_no,o.created_at,oi.factory_products FROM bronze.orders o JOIN bronze.order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL WHERE o.deleted_at IS NULL AND o.order_no=ANY(%s) ORDER BY o.order_no,oi.id", (orders,))
+          rows={}
+          for no,created,products in cur.fetchall():
+              d=rows.setdefault(str(no),{'created':str(created)[:10],'qty':0,'items':0})
+              d['items']+=1
+              try: products=json.loads(products) if isinstance(products,str) else (products or [])
+              except Exception: products=[]
+              total=0
+              for p in products or []:
+                  for sz in ((p or {}).get('prices') or {}).get('sizes') or []:
+                      try: total+=int(float(sz.get('quantity') or 0))
+                      except Exception: pass
+              d['qty']+=total
+          for no in orders:
+              d=rows.get(no,{'created':'MISSING','qty':0,'items':0}); print('%s bronze_qty=%s screenshot_qty=%s delta=%s created=%s items=%s' % (no,d['qty'],expected[no],d['qty']-expected[no],d['created'],d['items']))
+          PY
