@@ -370,14 +370,19 @@ HAVING bool_and(oi.status::text = 'completed')
                 factory_month_pipe[f][month]['remake_checked_orders'].add(ono)
 
     cur.execute("""
-SELECT o.order_no, MAX(oi.status_updated_at) AS completed_date,
+SELECT o.order_no, MAX(CASE WHEN a.status::text='completed' THEN COALESCE(a.created_at,a.updated_at) END) AS completed_date,
        MAX(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS actual_shipping_date,
+       COALESCE(SUM(pq.product_qty), MAX(COALESCE(NULLIF(o.price_info->>'total_quantity','')::numeric,0)))::int AS qty,
        COALESCE(string_agg(DISTINCT oi.factory_name, ', ' ORDER BY oi.factory_name),'(unknown)') as raw_factory,
-       COALESCE(NULLIF(o.price_info->>'total_quantity', '')::numeric, 0)::int as qty,
        MAX(o.order_type_symbol) AS order_type_symbol
 FROM orders o
 JOIN order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL
-LEFT JOIN order_item_activities a ON a.order_item_id=oi.id AND a.status::text='shipped'
+LEFT JOIN LATERAL (
+  SELECT NULLIF(SUM(NULLIF(sz->>'quantity','')::numeric),0)::numeric AS product_qty
+  FROM jsonb_array_elements(COALESCE(oi.factory_products,'[]'::jsonb)) prod
+  CROSS JOIN LATERAL jsonb_array_elements(COALESCE(prod->'prices'->'sizes','[]'::jsonb)) sz
+) pq ON true
+LEFT JOIN order_item_activities a ON a.order_item_id=oi.id
 WHERE o.deleted_at IS NULL
 GROUP BY o.order_no,o.price_info
 HAVING bool_and(oi.status::text='completed')
@@ -390,10 +395,10 @@ HAVING bool_and(oi.status::text='completed')
         month = str(report_date)[:7] if report_date else "?"
         if month < REPORT_START[:7] or month >= REPORT_END[:7]:
             continue
-        f = norm_factory(r[3])
+        f = norm_factory(r[4])
         if f in EXCLUDED_FACTORIES:
             continue
-        qty = r[4] or 0
+        qty = r[3] or 0
         if customer_order_nums is not None and ono not in customer_order_nums:
             continue
         if ono in qarma_order_numbers:
