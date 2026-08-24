@@ -2567,9 +2567,16 @@ function updateYtdKpis() {{
   ACTIVE_DATA = PERIODS.ytd || YTD;
   updatePeriodKpis();
   ACTIVE_DATA = previousData;
+  const ytdAgg = ytdSummaryAggregates();
   if (YTD_MEASURE === 'orders') {{
+    document.getElementById('ytdVolume').textContent = ytdAgg.totalOrders.toLocaleString();
+    document.getElementById('periodKpiValue').textContent = ytdAgg.totalRemakeOrders.toLocaleString();
+    document.getElementById('periodKpiSub').textContent = 'YTD · ' + (ytdAgg.totalOrders ? (ytdAgg.totalRemakeOrders/ytdAgg.totalOrders*100).toFixed(2) : '0.00') + '% of ' + ytdAgg.totalOrders.toLocaleString() + ' orders are remakes';
     document.querySelector('#ytdVolume').closest('.metric').querySelector('.label').textContent = 'Selected Period No of Orders';
   }} else {{
+    document.getElementById('ytdVolume').textContent = ytdAgg.totalVolume.toLocaleString();
+    document.getElementById('periodKpiValue').textContent = ytdAgg.totalRemakeQty.toLocaleString();
+    document.getElementById('periodKpiSub').textContent = 'YTD · ' + (ytdAgg.totalVolume ? (ytdAgg.totalRemakeQty/ytdAgg.totalVolume*100).toFixed(2) : '0.00') + '% of ' + ytdAgg.totalVolume.toLocaleString() + ' items · ' + ytdAgg.totalRemakeQty.toLocaleString() + ' remake qty';
     document.querySelector('#ytdVolume').closest('.metric').querySelector('.label').textContent = 'Selected Period Total Order QTY';
   }}
 }}
@@ -2647,24 +2654,30 @@ document.getElementById('resetBtn').addEventListener('click', function() {{ rend
 applyPeriod(ACTIVE_PERIOD);
 
 function cumulative(arr) {{ return arr.map(function(_, i) {{ return arr.slice(0, i + 1).reduce(function(a,b){{return a+b;}}, 0); }}); }}
+function ytdSummaryAggregates() {{
+  const p=PERIODS.ytd || YTD, n=(p.monthKeys||[]).length;
+  const out={{months:p.months||[], monthKeys:p.monthKeys||[], monthlyOrders:Array(n).fill(0), monthlyVolume:Array(n).fill(0), monthlyRemakeOrders:Array(n).fill(0), monthlyRemakeQty:Array(n).fill(0)}};
+  (p.factories||[]).forEach(function(f) {{ const m=f.monthly||{{}}; for (let i=0;i<n;i++) {{ out.monthlyOrders[i]+=Number((m.orders||[])[i]||0); out.monthlyVolume[i]+=Number((m.volumes||[])[i]||0); out.monthlyRemakeOrders[i]+=Number((m.remake_orders||[])[i]||0); out.monthlyRemakeQty[i]+=Number((m.remake_qty||[])[i]||0); }} }});
+  out.cumulativeOrders=cumulative(out.monthlyOrders); out.cumulativeVolume=cumulative(out.monthlyVolume); out.totalOrders=out.monthlyOrders.reduce(function(a,b){{return a+b;}},0); out.totalVolume=out.monthlyVolume.reduce(function(a,b){{return a+b;}},0); out.totalRemakeOrders=out.monthlyRemakeOrders.reduce(function(a,b){{return a+b;}},0); out.totalRemakeQty=out.monthlyRemakeQty.reduce(function(a,b){{return a+b;}},0); return out;
+}}
 function ytdCumulativeTable() {{
-  const ytdView = PERIODS.ytd || YTD;
+  const ytdView = ytdSummaryAggregates();
   const head = document.getElementById('ytdMonthlyHead');
   const body = document.getElementById('ytdMonthlyBody');
-  const remOrdersCum = cumulative(YTD_VIEW.monthlyRemakeOrders || []);
-  const remQtyCum = cumulative(YTD_VIEW.monthlyRemakeQty || []);
+  const remOrdersCum = cumulative(ytdView.monthlyRemakeOrders || []);
+  const remQtyCum = cumulative(ytdView.monthlyRemakeQty || []);
   if (YTD_MEASURE === 'orders') {{
     head.innerHTML = '<th>Month</th><th class="right">Monthly Orders</th><th class="right">Accumulated Orders</th><th class="right">Monthly Remake Orders</th><th class="right">Accumulated Remake Orders</th><th class="right">Accumulated Remake %</th>';
-    body.innerHTML = YTD_VIEW.months.map(function(m, i) {{
-      const rate = (YTD_VIEW.cumulativeOrders[i] || 0) > 0 ? remOrdersCum[i] / YTD_VIEW.cumulativeOrders[i] * 100 : 0;
-      return '<tr><td><strong>' + m + '</strong></td><td class="right">' + (YTD_VIEW.monthlyOrders[i] || 0).toLocaleString() + '</td><td class="right">' + (YTD_VIEW.cumulativeOrders[i] || 0).toLocaleString() + '</td><td class="right">' + ((YTD_VIEW.monthlyRemakeOrders || [])[i] || 0).toLocaleString() + '</td><td class="right">' + remOrdersCum[i].toLocaleString() + '</td><td class="right">' + pctPill(rate) + '</td></tr>';
+    body.innerHTML = ytdView.months.map(function(m, i) {{
+      const rate = (ytdView.cumulativeOrders[i] || 0) > 0 ? remOrdersCum[i] / ytdView.cumulativeOrders[i] * 100 : 0;
+      return '<tr><td><strong>' + m + '</strong></td><td class="right">' + (ytdView.monthlyOrders[i] || 0).toLocaleString() + '</td><td class="right">' + (ytdView.cumulativeOrders[i] || 0).toLocaleString() + '</td><td class="right">' + ((ytdView.monthlyRemakeOrders || [])[i] || 0).toLocaleString() + '</td><td class="right">' + remOrdersCum[i].toLocaleString() + '</td><td class="right">' + pctPill(rate) + '</td></tr>';
     }}).join('');
     document.getElementById('ytdMonthlyTitle').textContent = 'YTD Monthly Accumulated Orders + Remakes';
   }} else {{
     head.innerHTML = '<th>Month</th><th class="right">Monthly Order QTY</th><th class="right">Accumulated Order QTY</th><th class="right">Monthly Remake QTY</th><th class="right">Accumulated Remake QTY</th><th class="right">Accumulated Remake %</th>';
-    body.innerHTML = YTD_VIEW.months.map(function(m, i) {{
-      const rate = (YTD_VIEW.cumulativeVolume[i] || 0) > 0 ? remQtyCum[i] / YTD_VIEW.cumulativeVolume[i] * 100 : 0;
-      return '<tr><td><strong>' + m + '</strong></td><td class="right">' + (YTD_VIEW.monthlyVolume[i] || 0).toLocaleString() + '</td><td class="right">' + (YTD_VIEW.cumulativeVolume[i] || 0).toLocaleString() + '</td><td class="right">' + ((YTD_VIEW.monthlyRemakeQty || [])[i] || 0).toLocaleString() + '</td><td class="right">' + remQtyCum[i].toLocaleString() + '</td><td class="right">' + pctPill(rate) + '</td></tr>';
+    body.innerHTML = ytdView.months.map(function(m, i) {{
+      const rate = (ytdView.cumulativeVolume[i] || 0) > 0 ? remQtyCum[i] / ytdView.cumulativeVolume[i] * 100 : 0;
+      return '<tr><td><strong>' + m + '</strong></td><td class="right">' + (ytdView.monthlyVolume[i] || 0).toLocaleString() + '</td><td class="right">' + (ytdView.cumulativeVolume[i] || 0).toLocaleString() + '</td><td class="right">' + ((ytdView.monthlyRemakeQty || [])[i] || 0).toLocaleString() + '</td><td class="right">' + remQtyCum[i].toLocaleString() + '</td><td class="right">' + pctPill(rate) + '</td></tr>';
     }}).join('');
     document.getElementById('ytdMonthlyTitle').textContent = 'YTD Monthly Accumulated QTY + Remakes';
   }}
@@ -2680,19 +2693,20 @@ function renderYtdFactoryTable() {{
 }}
 let ytdChart = null;
 function renderYtdChart() {{
+  const ytdView = ytdSummaryAggregates();
   const el = document.getElementById('ytdChart');
   if (!el || !el.offsetParent) return;
   const isOrders = YTD_MEASURE === 'orders';
-  const remOrdersCum = cumulative(YTD_VIEW.monthlyRemakeOrders || []);
-  const remQtyCum = cumulative(YTD_VIEW.monthlyRemakeQty || []);
-  const barData = isOrders ? YTD_VIEW.cumulativeOrders : YTD_VIEW.cumulativeVolume;
+  const remOrdersCum = cumulative(ytdView.monthlyRemakeOrders || []);
+  const remQtyCum = cumulative(ytdView.monthlyRemakeQty || []);
+  const barData = isOrders ? ytdView.cumulativeOrders : ytdView.cumulativeVolume;
   const rateData = barData.map(function(v, i) {{ return v > 0 ? +(((isOrders ? remOrdersCum[i] : remQtyCum[i]) / v * 100).toFixed(2)) : 0; }});
   const barLabel = isOrders ? 'Accumulated No of Orders' : 'Accumulated Total Order QTY';
   const rateLabel = isOrders ? 'Accumulated Remake % (Orders)' : 'Accumulated Remake % (Qty)';
   document.getElementById('ytdChartTitle').textContent = isOrders ? 'YTD Accumulated Orders + Remake %' : 'YTD Accumulated QTY + Remake %';
   if (ytdChart) ytdChart.destroy();
   ytdChart = new Chart(el.getContext('2d'), {{
-    data: {{ labels: YTD_VIEW.months, datasets: [
+    data: {{ labels: ytdView.months, datasets: [
       {{ type: 'bar', label: barLabel, data: barData, backgroundColor: 'rgba(31,111,235,0.25)', borderColor: 'rgba(31,111,235,0.8)', borderWidth: 1, yAxisID: 'y' }},
       {{ type: 'line', label: rateLabel, data: rateData, borderColor: '#ef4444', backgroundColor: '#ef4444', tension: 0.25, pointRadius: 5, pointHoverRadius: 7, yAxisID: 'y1' }}
     ] }},
