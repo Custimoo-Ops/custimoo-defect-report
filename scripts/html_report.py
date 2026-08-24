@@ -2109,6 +2109,7 @@ const FACTORY_COLORS = {FACTORY_COLORS};
 const MONTH_KEYS = {MONTH_KEYS};
 const GROUPINGS = {GROUPING_JSON_SAFE};
 const PERIODS = {PERIODS_JSON_SAFE};
+Object.assign(YTD, PERIODS.ytd || {{}});
 const REMAKES = {REMAKE_MGMT_JSON};
 const REMAKE_SAVE_URL = '{REMAKE_SAS_URL}';
 const REMAKE_DATA_URL = 'https://custimoolivedata.z13.web.core.windows.net/remake-mgmt-data.json';
