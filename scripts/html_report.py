@@ -2332,12 +2332,12 @@ function actionPlanTooltip(f) {{
     + line('0.2%', 0.002);
 }}
 function measureTooltip(label, formula) {{ return label + ' — applies to No of Orders and QTY\\n\\n' + formula; }}
-function qtyRulesTooltip() {{ return measureTooltip('Total Order QTY', 'orders.deleted_at IS NULL; order_items.status is not order_cancel; period uses orders.created_at; quantity is summed from factory_products → prices → sizes → quantity; price_info.total_quantity is fallback only; excluded factories are excluded from factory detail rows.'); }}
+function qtyRulesTooltip() {{ return measureTooltip('Total Order QTY', 'orders.deleted_at IS NULL; order_items.status is not order_cancel; period uses actual shipped activity date, falling back to completed activity date and then created date; quantity is summed from factory_products → prices → sizes → quantity; price_info.total_quantity is fallback only; excluded factories are excluded from factory detail rows.'); }}
 function qarmaRulesTooltip() {{ return measureTooltip('Qarma measures', 'eligible original final inspections only; Status = Report; Inspection type = Final; Conclusion = Approved or Rejected; Supplier QC ≠ true; inspector email ends @custimoo.com; reinspection rows excluded from checked-QTY totals; duplicate rows deduplicated by report ID; order must match Bronze scope; checked QTY capped at matched Bronze order QTY.'); }}
 function measureCells(f, q) {{
   const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q, f.orders) : qarmaRate(q, f.volume);
   if (ACTIVE_MEASURE === 'orders') {{
-    return '<td class="right" title="' + escapeAttr(measureTooltip('Total Orders', 'Distinct orders with orders.deleted_at IS NULL and order_items.status not equal to order_cancel, bucketed by orders.created_at.')) + '">' + (f.orders || 0).toLocaleString() + '</td>'
+    return '<td class="right" title="' + escapeAttr(measureTooltip('Total Orders', 'Distinct orders with orders.deleted_at IS NULL and order_items.status not equal to order_cancel, bucketed by actual shipped activity date with completed/created fallback.')) + '">' + (f.orders || 0).toLocaleString() + '</td>'
       + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + (q.orders_checked || 0).toLocaleString() + '</td>'
       + '<td class="right" title="' + escapeAttr(measureTooltip('Orders with Reinspection', 'Distinct orders with at least one eligible reinspection record.')) + '">' + (q.orders_with_reinspection || 0).toLocaleString() + '</td>'
       + '<td class="right" title="' + escapeAttr(measureTooltip('Qarma Error Orders', 'Distinct eligible orders with a rejected original Qarma inspection.')) + '">' + (q.rejected_orders || 0).toLocaleString() + '</td>'
@@ -2985,7 +2985,7 @@ function showFactorySharePage(slug) {{
   const periodQ = periodFactory.qarma || {{}};
   document.getElementById('factoryShareKpis').innerHTML = [['Total Orders',periodFactory.orders||0,'all'],['Total Order QTY',periodFactory.volume||0,'all'],['Remake Orders',periodFactory.remake_orders||0,'remake'],['Remake QTY',periodFactory.remake_qty||0,'remake'],['Qarma Orders Checked',periodQ.orders_checked||0,'qarma_checked'],['Qarma Error Orders',periodQ.rejected_orders||0,'qarma_rejected'],['Orders with Reinspection',periodQ.orders_with_reinspection||0,'reinspection']].map(function(x) {{ return '<div class="card metric factory-filter-card" data-filter="'+x[2]+'" title="Click to show matching orders" style="cursor:pointer"><div class="label">'+x[0]+'</div><div class="value">'+Number(x[1]||0).toLocaleString()+'</div></div>'; }}).join('');
   const periodMonths = new Set(period.monthKeys || MONTH_KEYS);
-  const orders = (FACTORY_SHARE_ORDERS[f.name] || []).filter(function(r) {{ return periodMonths.has(String(r.created_date || '').slice(0,7)); }});
+  const orders = (FACTORY_SHARE_ORDERS[f.name] || []).filter(function(r) {{ return periodMonths.has(String(r.actual_shipping_date || r.completed_date || r.created_date || '').slice(0,7)); }});
   const qarmaPeriodMonths = new Set(period.monthKeys || MONTH_KEYS);
   orders.forEach(function(r) {{ const qm=new Set(r.qarma_months || []); r.qarma_checked_period = r.qarma_checked_factory && Array.from(qm).some(function(m) {{ return qarmaPeriodMonths.has(m); }}); r.qarma_rejected_period = r.qarma_checked_period && r.qarma_rejected_factory; }});
   const checkedCard=document.querySelector('.factory-filter-card[data-filter="qarma_checked"]'); if (checkedCard) checkedCard.querySelector('.value').textContent=orders.filter(function(r) {{ return r.qarma_checked_period; }}).length.toLocaleString();

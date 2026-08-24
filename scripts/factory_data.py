@@ -365,7 +365,7 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
             continue
         _date_info = completed_order_dates[ono]
         qty = _date_info.get('qty', 0)
-        _report_date = _date_info.get('created')
+        _report_date = _date_info.get('shipping') or _date_info.get('completed') or _date_info.get('created')
         month = str(_report_date)[:7] if _report_date else qr['month']
         qarma_order_numbers.add(ono)
         qarma_scope.add((ono, f, month, _date_info.get('qty', 0)))
@@ -383,7 +383,7 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
                 factory_month_pipe[f][month]['remake_checked_orders'].add(ono)
 
     cur.execute("""
-SELECT o.order_no, o.created_at AS created_date,
+SELECT o.order_no, COALESCE(MAX(stage.shipped_at), o.created_at) AS report_date,
        COALESCE(SUM(pq.product_qty), MAX(COALESCE(NULLIF(o.price_info->>'total_quantity','')::numeric,0)))::int AS qty,
        COALESCE(string_agg(DISTINCT oi.factory_name, ', ' ORDER BY oi.factory_name),'(unknown)') as raw_factory,
        MAX(o.order_type_symbol) AS order_type_symbol
@@ -406,8 +406,8 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
 
     for r in cur.fetchall():
         ono = str(r[0])
-        created_date = r[1]
-        month = str(created_date)[:7] if created_date else "?"
+        report_date = r[1]
+        month = str(report_date)[:7] if report_date else "?"
         if month < REPORT_START[:7] or month >= REPORT_END[:7]:
             continue
         f = norm_factory(r[3])
@@ -435,8 +435,8 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
     overall_monthly_pipe = defaultdict(int)
     overall_monthly_orders = defaultdict(int)
     for _ono, _info in completed_order_dates.items():
-        _created = _info.get('created')
-        _month = str(_created)[:7] if _created else '?'
+        _report_date = _info.get('shipping') or _info.get('completed') or _info.get('created')
+        _month = str(_report_date)[:7] if _report_date else '?'
         if REPORT_START[:7] <= _month < REPORT_END[:7]:
             overall_monthly_pipe[_month] += _info.get('qty', 0)
             overall_monthly_orders[_month] += 1
