@@ -432,15 +432,18 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
                 factory_month_pipe[f][month]['remake_orders'] += 1
                 factory_month_pipe[f][month]['remake_unchecked_orders'].add(ono)
 
-    # Totals are derived from non-excluded factory rows so excluded factories (e.g. Augusta) are removed everywhere.
-    total_monthly_pipe = defaultdict(int)
-    total_monthly_orders = defaultdict(int)
-    for f, month_map in factory_month_pipe.items():
-        if f in EXCLUDED_FACTORIES:
-            continue
-        for month, vals in month_map.items():
-            total_monthly_pipe[month] += vals.get('qty', 0)
-            total_monthly_orders[month] += vals.get('orders', 0)
+    overall_monthly_pipe = defaultdict(int)
+    overall_monthly_orders = defaultdict(int)
+    for _ono, _info in completed_order_dates.items():
+        _created = _info.get('created')
+        _month = str(_created)[:7] if _created else '?'
+        if REPORT_START[:7] <= _month < REPORT_END[:7]:
+            overall_monthly_pipe[_month] += _info.get('qty', 0)
+            overall_monthly_orders[_month] += 1
+
+    # Overall totals follow the Bronze population exactly; factory detail rows retain exclusions.
+    total_monthly_pipe = overall_monthly_pipe
+    total_monthly_orders = overall_monthly_orders
 
     # Remake monthly counts derive from the same hybrid Qarma-first/backend-fallback shipment basis.
     remake_by_month = {}
