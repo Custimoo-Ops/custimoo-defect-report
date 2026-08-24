@@ -1491,16 +1491,18 @@ if os.path.exists(_missing_path):
 # Add Bronze customer/company names to every remake row.
 _remake_customer_cur = conn.cursor()
 _remake_customer_cur.execute("""
-SELECT o.order_no, COALESCE(NULLIF(co.company_name, ''), NULLIF(BTRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), '(unknown)')
+SELECT o.order_no, COALESCE(NULLIF(co.company_name, ''), NULLIF(BTRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), '(unknown)'), o.customer_reference_no
 FROM orders o
 LEFT JOIN customers c ON c.id = o.customer_id
 LEFT JOIN companies co ON co.id = c.company_id
 WHERE o.order_type_symbol IN ('R', 'Ri') AND o.deleted_at IS NULL
 """)
-_remake_customer_by_order = {str(r[0]).replace('#', '').strip(): str(r[1] or '(unknown)') for r in _remake_customer_cur.fetchall()}
+_remake_customer_by_order = {str(r[0]).replace('#', '').strip(): {'customer': str(r[1] or '(unknown)'), 'customer_ref': str(r[2] or '')} for r in _remake_customer_cur.fetchall()}
 _remake_customer_cur.close()
 for _r in REMAKE_MGMT:
-    _r['customer'] = _remake_customer_by_order.get(str(_r.get('order') or '').replace('#', '').strip(), _r.get('customer') or '(unknown)')
+    _cust = _remake_customer_by_order.get(str(_r.get('order') or '').replace('#', '').strip(), {})
+    _r['customer'] = _cust.get('customer') or _r.get('customer') or '(unknown)'
+    _r['customer_ref'] = _cust.get('customer_ref') or _r.get('customer_ref') or ''
 
 # Infer original order references from existing comments, without replacing manual values.
 _original_order_re = re.compile(r'(?:\b(?:reorder|remake|replacement)\b[^#\n]{0,80}?|\b(?:repeat order|same issue as|from order|for order|of order)\b[^#\n]{0,40}?|\border\b\s+)(?:#\s*)?(\d{4,})', re.IGNORECASE)
@@ -2482,7 +2484,7 @@ function updateSummaryStats() {{
   const remakeRows = (typeof REMAKES !== 'undefined' ? REMAKES : []);
   const periodRemakes = remakeRows.filter(function(r) {{ const m=String(r.month||r.created_date||r.date||'').slice(0,7); return !m || (d.monthKeys||[]).indexOf(m) >= 0; }});
   const latestRemake = (periodRemakes.length ? periodRemakes : remakeRows).slice().sort(function(a,b) {{ return String(b.month||b.created_date||b.date||'').localeCompare(String(a.month||a.created_date||a.date||'')) || Number(String(b.order||'').replace(/\\D/g,'')) - Number(String(a.order||'').replace(/\\D/g,'')); }})[0];
-  document.getElementById('latestRemakeSub').textContent = latestRemake ? 'Latest remake: #' + (latestRemake.order||'—') + ' · ' + Number(latestRemake.qty||latestRemake.total_qty||0).toLocaleString() + ' QTY · ' + (latestRemake.factory||'') + ' · ' + (latestRemake.category||'Uncategorized') + ' · ' + (latestRemake.culprit||'Culprit not set') : 'Latest remake: none in selected period';
+  document.getElementById('latestRemakeSub').textContent = latestRemake ? 'Latest remake: #' + (latestRemake.order||'—') + ' · ' + (latestRemake.customer_ref||'Customer Ref not set') + ' · ' + Number(latestRemake.qty||latestRemake.total_qty||0).toLocaleString() + ' QTY · ' + (latestRemake.factory||'') + ' · ' + (latestRemake.category||'Uncategorized') + ' · ' + (latestRemake.culprit||'Culprit not set') : 'Latest remake: none in selected period';
   const ytd = PERIODS.ytd || DATA;
   const ytdAgg = aggregateFactories(ytd.factories || []);
   const ytdNum = isOrders ? (ytdAgg.remake_orders || 0) : (ytdAgg.remake_qty || 0);
