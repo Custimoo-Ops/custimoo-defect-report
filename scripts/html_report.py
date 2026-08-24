@@ -2318,6 +2318,7 @@ function actionPlanTooltip(f) {{
     + line('0.5%', 0.005) + '\\n\\n'
     + line('0.2%', 0.002);
 }}
+function qtyRulesTooltip() {{ return 'Total Order QTY rules\\n\\n• orders.deleted_at IS NULL\\n• order_items.status is not order_cancel\\n• Period is based on orders.created_at\\n• QTY = sum of factory_products → prices → sizes → quantity\\n• price_info.total_quantity is used only as fallback\\n• Excluded factories: Augusta De Mexico, Dongguan Yida Textile Co.,Ltd, FeelGood Printwear, Hummel'; }}
 function measureCells(f, q) {{
   const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q, f.orders) : qarmaRate(q, f.volume);
   if (ACTIVE_MEASURE === 'orders') {{
@@ -2332,7 +2333,7 @@ function measureCells(f, q) {{
       + '<td class="right">' + pctPill((f.orders || 0) > 0 ? (f.remake_orders || 0) / f.orders * 100 : 0) + '</td>';
   }}
   // qty mode
-  return '<td class="right">' + (f.volume || 0).toLocaleString() + '</td>'
+  return '<td class="right" title="' + escapeAttr(qtyRulesTooltip()) + '">' + (f.volume || 0).toLocaleString() + '</td>'
     + '<td class="right">' + (q.sample_qty || 0).toLocaleString() + '</td>'
     + '<td class="right">' + (q.orders_with_reinspection || 0).toLocaleString() + '</td>'
     + '<td class="right">' + ((f.volume || 0) > 0 ? (((q.sample_qty || 0) / f.volume * 100).toFixed(1) + '%') : '—') + '</td>'
