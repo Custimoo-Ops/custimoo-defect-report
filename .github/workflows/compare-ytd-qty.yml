@@ -1,0 +1,52 @@
+name: Compare YTD Quantity Populations
+on:
+  workflow_dispatch:
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m pip install --disable-pip-version-check --no-input --prefer-binary psycopg2-binary
+      - name: Set up SSH tunnel
+        env:
+          KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          HOST: ${{ secrets.TUNNEL_HOST }}
+          PORT: ${{ secrets.TUNNEL_PORT }}
+          USER: ${{ secrets.TUNNEL_USER }}
+          RDS: ${{ secrets.RDS_HOST }}
+        run: |
+          mkdir -p ~/.ssh; printf '%s\n' "$KEY" > ~/.ssh/id_rsa; chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$PORT" "$HOST" > ~/.ssh/known_hosts 2>/dev/null
+          ssh -f -N -L 5433:${RDS}:5432 -p "$PORT" "$USER@$HOST" -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes
+      - name: Compare populations
+        env:
+          CUSTIMOO_DB_PASSWORD: ${{ secrets.CUSTIMOO_DB_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import os, psycopg2
+          c=psycopg2.connect(host='127.0.0.1',port=5433,dbname='custimoo-prod',user='lakr@custimoo.com',password=os.environ['CUSTIMOO_DB_PASSWORD'],sslmode='require');cur=c.cursor()
+          sql="""
+          WITH item_qty AS (
+            SELECT oi.order_id, COALESCE(NULLIF(SUM(NULLIF(sz->>'quantity','')::numeric),0),0)::numeric AS qty
+            FROM bronze.order_items oi
+            LEFT JOIN LATERAL jsonb_array_elements(COALESCE(oi.factory_products,'[]'::jsonb)) prod ON true
+            LEFT JOIN LATERAL jsonb_array_elements(COALESCE(prod->'prices'->'sizes','[]'::jsonb)) sz ON true
+            WHERE oi.deleted_at IS NULL GROUP BY oi.order_id
+          ), completed AS (
+            SELECT o.order_no,o.created_at,COALESCE(iq.qty,COALESCE(NULLIF(o.price_info->>'total_quantity','')::numeric,0)) qty,
+                   MAX(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) shipped_at,
+                   bool_and(oi.status::text='completed') all_completed
+            FROM bronze.orders o JOIN bronze.order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL
+            LEFT JOIN item_qty iq ON iq.order_id=o.id
+            LEFT JOIN bronze.order_item_activities a ON a.order_item_id=oi.id
+            WHERE o.deleted_at IS NULL GROUP BY o.order_no,o.created_at,iq.qty,o.price_info
+          ) SELECT
+          COUNT(*) FILTER (WHERE all_completed AND created_at>='2026-01-01' AND created_at<'2027-01-01'),
+          SUM(qty) FILTER (WHERE all_completed AND created_at>='2026-01-01' AND created_at<'2027-01-01'),
+          COUNT(*) FILTER (WHERE all_completed AND shipped_at>='2026-01-01' AND shipped_at<'2027-01-01'),
+          SUM(qty) FILTER (WHERE all_completed AND shipped_at>='2026-01-01' AND shipped_at<'2027-01-01'),
+          COUNT(*) FILTER (WHERE all_completed AND COALESCE(shipped_at,created_at)>='2026-01-01' AND COALESCE(shipped_at,created_at)<'2027-01-01'),
+          SUM(qty) FILTER (WHERE all_completed AND COALESCE(shipped_at,created_at)>='2026-01-01' AND COALESCE(shipped_at,created_at)<'2027-01-01') FROM completed
+          """
+          cur.execute(sql);print('created_ytd_orders,created_ytd_qty,shipped_ytd_orders,shipped_ytd_qty,ship_or_created_orders,ship_or_created_qty=',cur.fetchone())
+          PY
