@@ -327,8 +327,8 @@ def generate(defects_only=False, customer_company=None):
     # Completed-order population: every active item must be completed; use the latest completed status date.
     cur.execute("""
 SELECT o.order_no,
-       max(CASE WHEN a.status::text='completed' THEN COALESCE(a.created_at,a.updated_at) END) AS completed_date,
-       max(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS actual_shipping_date,
+       max(stage.completed_at) AS completed_date,
+       max(stage.shipped_at) AS actual_shipping_date,
        COALESCE(SUM(pq.product_qty), MAX(COALESCE(NULLIF(o.price_info->>'total_quantity','')::numeric,0)))::int AS order_qty
 FROM orders o
 JOIN order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL
@@ -337,7 +337,11 @@ LEFT JOIN LATERAL (
   FROM jsonb_array_elements(COALESCE(oi.factory_products,'[]'::jsonb)) prod
   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(prod->'prices'->'sizes','[]'::jsonb)) sz
 ) pq ON true
-LEFT JOIN order_item_activities a ON a.order_item_id=oi.id
+LEFT JOIN LATERAL (
+  SELECT MAX(CASE WHEN a.status::text='completed' THEN COALESCE(a.created_at,a.updated_at) END) AS completed_at,
+         MAX(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS shipped_at
+  FROM order_item_activities a WHERE a.order_item_id=oi.id
+) stage ON true
 WHERE o.deleted_at IS NULL
 GROUP BY o.order_no,o.price_info
 HAVING bool_and(oi.status::text = 'completed')
@@ -378,8 +382,8 @@ HAVING bool_and(oi.status::text = 'completed')
                 factory_month_pipe[f][month]['remake_checked_orders'].add(ono)
 
     cur.execute("""
-SELECT o.order_no, MAX(CASE WHEN a.status::text='completed' THEN COALESCE(a.created_at,a.updated_at) END) AS completed_date,
-       MAX(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS actual_shipping_date,
+SELECT o.order_no, MAX(stage.completed_at) AS completed_date,
+ MAX(stage.shipped_at) AS actual_shipping_date,
        COALESCE(SUM(pq.product_qty), MAX(COALESCE(NULLIF(o.price_info->>'total_quantity','')::numeric,0)))::int AS qty,
        COALESCE(string_agg(DISTINCT oi.factory_name, ', ' ORDER BY oi.factory_name),'(unknown)') as raw_factory,
        MAX(o.order_type_symbol) AS order_type_symbol
@@ -390,7 +394,11 @@ LEFT JOIN LATERAL (
   FROM jsonb_array_elements(COALESCE(oi.factory_products,'[]'::jsonb)) prod
   CROSS JOIN LATERAL jsonb_array_elements(COALESCE(prod->'prices'->'sizes','[]'::jsonb)) sz
 ) pq ON true
-LEFT JOIN order_item_activities a ON a.order_item_id=oi.id
+LEFT JOIN LATERAL (
+  SELECT MAX(CASE WHEN a.status::text='completed' THEN COALESCE(a.created_at,a.updated_at) END) AS completed_at,
+         MAX(CASE WHEN a.status::text='shipped' THEN COALESCE(a.created_at,a.updated_at) END) AS shipped_at
+  FROM order_item_activities a WHERE a.order_item_id=oi.id
+) stage ON true
 WHERE o.deleted_at IS NULL
 GROUP BY o.order_no,o.price_info
 HAVING bool_and(oi.status::text='completed')
