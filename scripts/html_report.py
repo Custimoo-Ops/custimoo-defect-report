@@ -2319,20 +2319,21 @@ function actionPlanTooltip(f) {{
     + line('0.5%', 0.005) + '\\n\\n'
     + line('0.2%', 0.002);
 }}
-function qtyRulesTooltip() {{ return 'Total Order QTY rules\\n\\n• orders.deleted_at IS NULL\\n• order_items.status is not order_cancel\\n• Period is based on orders.created_at\\n• QTY = sum of factory_products → prices → sizes → quantity\\n• price_info.total_quantity is used only as fallback\\n• Excluded factories: Augusta De Mexico, Dongguan Yida Textile Co.,Ltd, FeelGood Printwear, Hummel'; }}
-function qarmaRulesTooltip() {{ return 'Qarma rules\\n\\n• Eligible original final inspections only\\n• Status = Report\\n• Inspection type = Final\\n• Conclusion = Approved or Rejected\\n• Supplier QC ≠ true\\n• Inspector email ends @custimoo.com\\n• Reinspections excluded from checked-QTY totals\\n• Duplicate rows deduplicated by report ID\\n• Order must match the Bronze non-cancelled YTD/period population\\n• Checked QTY is capped at the matched Bronze order QTY'; }}
+function measureTooltip(label, formula) {{ return label + ' — ' + (ACTIVE_MEASURE === 'orders' ? 'No of Orders' : 'QTY') + '\\n\\n' + formula; }}
+function qtyRulesTooltip() {{ return measureTooltip('Total Order QTY', 'orders.deleted_at IS NULL; order_items.status is not order_cancel; period uses orders.created_at; quantity is summed from factory_products → prices → sizes → quantity; price_info.total_quantity is fallback only; excluded factories are excluded from factory detail rows.'); }}
+function qarmaRulesTooltip() {{ return measureTooltip('Qarma measures', 'eligible original final inspections only; Status = Report; Inspection type = Final; Conclusion = Approved or Rejected; Supplier QC ≠ true; inspector email ends @custimoo.com; reinspection rows excluded from checked-QTY totals; duplicate rows deduplicated by report ID; order must match Bronze scope; checked QTY capped at matched Bronze order QTY.'); }}
 function measureCells(f, q) {{
   const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q, f.orders) : qarmaRate(q, f.volume);
   if (ACTIVE_MEASURE === 'orders') {{
-    return '<td class="right">' + (f.orders || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (q.orders_checked || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (q.orders_with_reinspection || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (q.rejected_orders || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
-      + '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (f.remake_orders_checked_by_qarma || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + (f.remake_orders_not_checked_by_qarma || 0).toLocaleString() + '</td>'
-      + '<td class="right">' + pctPill((f.orders || 0) > 0 ? (f.remake_orders || 0) / f.orders * 100 : 0) + '</td>';
+    return '<td class="right" title="' + escapeAttr(measureTooltip('Total Orders', 'Distinct orders with orders.deleted_at IS NULL and order_items.status not equal to order_cancel, bucketed by orders.created_at.')) + '">' + (f.orders || 0).toLocaleString() + '</td>'
+      + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + (q.orders_checked || 0).toLocaleString() + '</td>'
+      + '<td class="right" title="' + escapeAttr(measureTooltip('Orders with Reinspection', 'Distinct orders with at least one eligible reinspection record.')) + '">' + (q.orders_with_reinspection || 0).toLocaleString() + '</td>'
+      + '<td class="right" title="' + escapeAttr(measureTooltip('Qarma Error Orders', 'Distinct eligible orders with a rejected original Qarma inspection.')) + '">' + (q.rejected_orders || 0).toLocaleString() + '</td>'
+      + '<td class="right" title="' + escapeAttr(measureTooltip('Qarma Err%', 'Rejected Qarma orders divided by Qarma checked orders.')) + '">' + pctPill(qarmaErrPct) + '</td>'
+      + '<td class="right" title="' + escapeAttr(measureTooltip('Remake Orders', 'Distinct backend R/Ri orders in the period, excluding explicit cancelled and not-remake actions.')) + '">' + (f.remake_orders || 0).toLocaleString() + '</td>'
+      + '<td class="right" title="' + escapeAttr(measureTooltip('Remakes — Qarma Checked', 'Distinct remake orders that match an eligible Qarma checked order.')) + '">' + (f.remake_orders_checked_by_qarma || 0).toLocaleString() + '</td>'
+      + '<td class="right" title="' + escapeAttr(measureTooltip('Remakes — Qarma Not Checked', 'Distinct remake orders without a matching eligible Qarma checked order.')) + '">' + (f.remake_orders_not_checked_by_qarma || 0).toLocaleString() + '</td>'
+      + '<td class="right" title="' + escapeAttr(measureTooltip('Remake Orders Err%', 'Remake Orders divided by Total Orders.')) + '">' + pctPill((f.orders || 0) > 0 ? (f.remake_orders || 0) / f.orders * 100 : 0) + '</td>';
   }}
   // qty mode
   return '<td class="right" title="' + escapeAttr(qtyRulesTooltip()) + '">' + (f.volume || 0).toLocaleString() + '</td>'
@@ -2340,11 +2341,11 @@ function measureCells(f, q) {{
     + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + (q.orders_with_reinspection || 0).toLocaleString() + '</td>'
     + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + ((f.volume || 0) > 0 ? (((q.sample_qty || 0) / f.volume * 100).toFixed(1) + '%') : '—') + '</td>'
     + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + (q.defects || 0).toLocaleString() + '</td>'
-    + '<td class="right">' + pctPill(qarmaErrPct) + '</td>'
-    + '<td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td>'
-    + '<td class="right">' + (f.remake_orders_checked_by_qarma || 0).toLocaleString() + '</td>'
-    + '<td class="right">' + (f.remake_orders_not_checked_by_qarma || 0).toLocaleString() + '</td>'
-    + '<td class="right">' + pctPill((f.volume || 0) > 0 ? (f.remake_qty || 0) / f.volume * 100 : 0) + '</td>';
+    + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + pctPill(qarmaErrPct) + '</td>'
+    + '<td class="right" title="' + escapeAttr(measureTooltip('Remake QTY', 'Sum of product-size QTY for backend R/Ri remake orders, excluding explicit cancelled and not-remake actions.')) + '">' + (f.remake_qty || 0).toLocaleString() + '</td>'
+    + '<td class="right" title="' + escapeAttr(measureTooltip('Remakes — Qarma Checked', 'Distinct remake orders matched to eligible Qarma checked orders.')) + '">' + (f.remake_orders_checked_by_qarma || 0).toLocaleString() + '</td>'
+    + '<td class="right" title="' + escapeAttr(measureTooltip('Remakes — Qarma Not Checked', 'Distinct remake orders without eligible Qarma coverage.')) + '">' + (f.remake_orders_not_checked_by_qarma || 0).toLocaleString() + '</td>'
+    + '<td class="right" title="' + escapeAttr(measureTooltip('Remake QTY Err%', 'Remake QTY divided by Total Order QTY.')) + '">' + pctPill((f.volume || 0) > 0 ? (f.remake_qty || 0) / f.volume * 100 : 0) + '</td>';
 }}
 function measureHeaders() {{
   if (ACTIVE_MEASURE === 'orders') {{
