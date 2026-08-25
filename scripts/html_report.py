@@ -1591,6 +1591,7 @@ for _row in load_qarma_rows():
         'tracking_no': '',
         'tracking_link': '',
         'error_type': '',
+        'error_subcategory': '',
         'avoidance_action': '',
         'work_comment': '',
     })
@@ -2029,6 +2030,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <div class="card"><h3 class="section-title">QC Rejection Forensics — Error Types and Prevention</h3><div class="hint">Orders are grouped from the shared QC Rejections annotations. <strong>Not yet forensically reviewed</strong> means Error Type, How to Avoid, and Work Notes are all empty.</div><div id="qcAnalysisKpis" class="exec-grid"></div></div>
     <div class="card"><h3 class="section-title">Unreviewed QC Rejections</h3><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Factory</th><th>Order QTY</th><th>Defect QTY</th><th>QC Date</th></tr></thead><tbody id="qcUnreviewedBody"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">By Error Type</h3><table><thead><tr><th>Error Type</th><th class="right">Orders</th><th class="right">Defect QTY</th></tr></thead><tbody id="qcErrorTypeBody"></tbody></table></div>
+    <div class="card"><h3 class="section-title">By Error Subcategory</h3><table><thead><tr><th>Error Subcategory</th><th class="right">Orders</th><th class="right">Defect QTY</th></tr></thead><tbody id="qcSubcategoryBody"></tbody></table></div>
     <div class="card"><h3 class="section-title">Prevention Actions</h3><table><thead><tr><th>How to Avoid</th><th class="right">Orders</th></tr></thead><tbody id="qcPreventionBody"></tbody></table></div>
   </section>
   <section id="qc-rejections" class="page">
@@ -2042,7 +2044,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       </div>
       <div class="qc-rejections-scroll">
         <table class="remake-table qc-rejections-table"><thead><tr>
-          <th>Order</th><th>QC Date</th><th>Factory</th><th>Items</th><th class="qc-comment">QC Comment</th><th class="right">Order QTY</th><th class="right">QTY Checked</th><th class="right">Defect QTY</th><th>Severity</th><th>Inspector</th><th>Final QC Approved</th><th>Reinspection</th><th>Reinspection Count</th><th>Latest Reinspection Date</th><th>Shipped</th><th>Tracking</th><th style="min-width:170px">Error Type</th><th style="min-width:260px">How to Avoid</th><th style="min-width:320px">Work Notes</th>
+          <th>Order</th><th>QC Date</th><th>Factory</th><th>Items</th><th class="qc-comment">QC Comment</th><th class="right">Order QTY</th><th class="right">QTY Checked</th><th class="right">Defect QTY</th><th>Severity</th><th>Inspector</th><th>Final QC Approved</th><th>Reinspection</th><th>Reinspection Count</th><th>Latest Reinspection Date</th><th>Shipped</th><th>Tracking</th><th style="min-width:170px">Error Type</th><th style="min-width:220px">Error Subcategory</th><th style="min-width:260px">How to Avoid</th><th style="min-width:320px">Work Notes</th>
         </tr></thead><tbody id="qcRejectionBody"></tbody></table>
       </div>
     </div>
@@ -2851,11 +2853,11 @@ function renderForensics() {{
   document.getElementById('remakeUnreviewedBody').innerHTML = remUn.map(function(r) {{ return '<tr><td>#'+esc(remakeOrderKey(r))+'</td><td>'+esc(r.customer||'(unknown)')+'</td><td class="right">'+(Number(r.qty)||0).toLocaleString()+'</td><td>'+esc(r.factory||'')+'</td><td>'+esc(r.admin||'')+'</td><td>'+esc(r.month||'')+'</td></tr>'; }}).join('') || '<tr><td colspan="6">All remake orders have forensic notes.</td></tr>';
   function groupHtml(g) {{ return Object.keys(g).sort().map(function(k) {{ return '<tr><td>'+esc(k)+'</td><td class="right">'+g[k].orders.toLocaleString()+'</td><td class="right">'+g[k].qty.toLocaleString()+'</td></tr>'; }}).join(''); }}
   document.getElementById('remakeCategoryBody').innerHTML = groupHtml(remCat); document.getElementById('remakeCulpritBody').innerHTML = groupHtml(remCul);
-  const qcUn = forensicsRows(qcRejectionRows, ['error_type','avoidance_action','work_comment']); const et={{}}, pa={{}};
-  qcRejectionRows.forEach(function(r) {{ const e=String(r.error_type||'Investigating').trim()||'Investigating', a=String(r.avoidance_action||'No prevention action recorded').trim()||'No prevention action recorded'; const ge=et[e]||(et[e]={{orders:0,qty:0}}); ge.orders++; ge.qty+=Number(r.defects_qty)||0; pa[a]=(pa[a]||0)+1; }});
+  const qcUn = forensicsRows(qcRejectionRows, ['error_type','error_subcategory','avoidance_action','work_comment']); const et={{}}, escat={{}}, pa={{}};
+  qcRejectionRows.forEach(function(r) {{ const e=String(r.error_type||'Investigating').trim()||'Investigating', s=String(r.error_subcategory||'Uncategorized').trim()||'Uncategorized', a=String(r.avoidance_action||'No prevention action recorded').trim()||'No prevention action recorded'; const ge=et[e]||(et[e]={{orders:0,qty:0}}); ge.orders++; ge.qty+=Number(r.defects_qty)||0; const gs=escat[s]||(escat[s]={{orders:0,qty:0}}); gs.orders++; gs.qty+=Number(r.defects_qty)||0; pa[a]=(pa[a]||0)+1; }});
   document.getElementById('qcAnalysisKpis').innerHTML = [['Total rejected orders',qcRejectionRows.length],['Reviewed',qcRejectionRows.length-qcUn.length],['Not forensically reviewed',qcUn.length],['Orders with reinspection',REINSPECTION_SUMMARY.orders],['Reinspection events',REINSPECTION_SUMMARY.events],['Approved reinspections',REINSPECTION_SUMMARY.approved_events],['Rejected reinspections',REINSPECTION_SUMMARY.rejected_events]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1].toLocaleString()+'</div></div>'; }}).join('');
   document.getElementById('qcUnreviewedBody').innerHTML = qcUn.map(function(r) {{ return '<tr><td>#'+esc(qcRejectionKey(r))+'</td><td>'+esc(r.factory||'')+'</td><td class="right">'+(Number(r.total_qty)||0).toLocaleString()+'</td><td class="right">'+(Number(r.defects_qty)||0).toLocaleString()+'</td><td>'+esc(r.date||'')+'</td></tr>'; }}).join('') || '<tr><td colspan="5">All QC rejections have forensic notes.</td></tr>';
-  document.getElementById('qcErrorTypeBody').innerHTML = groupHtml(et); document.getElementById('qcPreventionBody').innerHTML = Object.keys(pa).sort().map(function(k) {{ return '<tr><td>'+esc(k)+'</td><td class="right">'+pa[k].toLocaleString()+'</td></tr>'; }}).join('');
+  document.getElementById('qcErrorTypeBody').innerHTML = groupHtml(et); document.getElementById('qcSubcategoryBody').innerHTML = groupHtml(escat); document.getElementById('qcPreventionBody').innerHTML = Object.keys(pa).sort().map(function(k) {{ return '<tr><td>'+esc(k)+'</td><td class="right">'+pa[k].toLocaleString()+'</td></tr>'; }}).join('');
 }}
 // Init Remake Mgmt
 (function() {{
@@ -2917,6 +2919,16 @@ function qcTrackingHtml(r) {{
   if (linkHtml) return linkHtml;
   return r.shipped ? 'No tracking' : '—';
 }}
+function qcSubcategoryOptions(type, current) {{
+  const groups = {{
+    '': ['Pending investigation','Awaiting evidence','Root cause not confirmed'],
+    'Custimoo error': ['Design','Administrative','Shipping','External'],
+    'Factory error': ['Quality','Production','Packing','Shipping','Other'],
+    'BOTH': ['Custimoo — Design','Custimoo — Administrative','Custimoo — Shipping','Custimoo — External','Factory — Quality','Factory — Production','Factory — Packing','Factory — Shipping','Factory — Other']
+  }};
+  const values = groups[type] || groups[''];
+  return '<option value="">Select subcategory</option>' + values.map(function(v) {{ return '<option value="'+escapeAttr(v)+'"'+(v===current?' selected':'')+'>'+esc(v)+'</option>'; }}).join('');
+}}
 function renderQcRejections() {{
   const rows = qcRejectionRows.slice().sort(function(a,b) {{
     const handledCmp = qcRejectionHandled(a) - qcRejectionHandled(b);
@@ -2930,6 +2942,7 @@ function renderQcRejections() {{
     const selectedCustimoo = r.error_type === 'Custimoo error' ? ' selected' : '';
     const selectedFactory = r.error_type === 'Factory error' ? ' selected' : '';
     const selectedBoth = r.error_type === 'BOTH' ? ' selected' : '';
+    const subcategory = qcSubcategoryOptions(r.error_type || '', r.error_subcategory || '');
     return '<tr data-order="' + escapeAttr(order) + '">'
       + '<td data-label="Order" class="order-num">' + qcBackendOrderHtml(r) + '</td>'
       + '<td data-label="QC Date">' + esc(r.date || r.month || '') + '</td>'
@@ -2948,10 +2961,11 @@ function renderQcRejections() {{
       + '<td data-label="Shipped">' + (r.shipped ? 'Yes' + (r.shipping_date ? ' · ' + esc(r.shipping_date) : '') : 'No') + '</td>'
       + '<td data-label="Tracking">' + qcTrackingHtml(r) + '</td>'
       + '<td data-label="Error Type"><select class="qc-edit qc-error-type" aria-label="Error type for order ' + escapeAttr(order) + '"><option value="">Investigating</option><option value="Custimoo error"' + selectedCustimoo + '>Custimoo error</option><option value="Factory error"' + selectedFactory + '>Factory error</option><option value="BOTH"' + selectedBoth + '>BOTH</option></select></td>'
+      + '<td data-label="Error Subcategory"><select class="qc-edit qc-error-subcategory" aria-label="Error subcategory for order ' + escapeAttr(order) + '">' + subcategory + '</select></td>'
       + '<td data-label="How to Avoid"><textarea class="qc-edit qc-avoidance" aria-label="How to avoid error for order ' + escapeAttr(order) + '" placeholder="Preventive action">' + esc(r.avoidance_action || '') + '</textarea></td>'
       + '<td data-label="Work Notes"><input class="qc-edit qc-work-comment" aria-label="Work notes for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.work_comment || '') + '" placeholder="Investigation / follow-up"></td>'
       + '</tr>';
-  }}).join('') || '<tr><td colspan="19">No eligible QC rejections in the report period.</td></tr>';
+  }}).join('') || '<tr><td colspan="20">No eligible QC rejections in the report period.</td></tr>';
   document.getElementById('qcRejectionCount').textContent = rows.length + ' rejected orders';
 }}
 function saveQcRejections() {{
@@ -2964,7 +2978,7 @@ function saveQcRejections() {{
   fetch(QC_REJECTIONS_DATA_URL + '?merge=' + Date.now()).then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }}).then(function(saved) {{
     const latest = Array.isArray(saved) ? saved : Object.keys(saved || {{}}).map(function(k) {{ return Object.assign({{}}, saved[k] || {{}}, {{order:String(k).replace(/^#/,'').trim()}}); }});
     const byOrder = new Map(latest.map(function(r) {{ return [qcRejectionKey(r), r]; }}));
-    qcRejectionRows.forEach(function(r) {{ const s=byOrder.get(qcRejectionKey(r)); const dirtyFields=dirty.get(qcRejectionKey(r)) || new Set(); if (s) {{ if (!dirtyFields.has('error_type')) r.error_type=s.error_type||r.error_type||''; if (!dirtyFields.has('avoidance_action')) r.avoidance_action=s.avoidance_action||r.avoidance_action||''; if (!dirtyFields.has('work_comment')) r.work_comment=s.work_comment||r.work_comment||''; }} }});
+    qcRejectionRows.forEach(function(r) {{ const s=byOrder.get(qcRejectionKey(r)); const dirtyFields=dirty.get(qcRejectionKey(r)) || new Set(); if (s) {{ if (!dirtyFields.has('error_type')) r.error_type=s.error_type||r.error_type||''; if (!dirtyFields.has('error_subcategory')) r.error_subcategory=s.error_subcategory||r.error_subcategory||''; if (!dirtyFields.has('avoidance_action')) r.avoidance_action=s.avoidance_action||r.avoidance_action||''; if (!dirtyFields.has('work_comment')) r.work_comment=s.work_comment||r.work_comment||''; }} }});
     dirty.forEach(function(fields, key) {{ const row=qcRejectionRows.find(function(r) {{ return qcRejectionKey(r)===key; }}); if (!row) return; const target=byOrder.get(key) || row; fields.forEach(function(field) {{ target[field]=row[field] || ''; }}); }});
     const merged = latest.concat(qcRejectionRows.filter(function(r) {{ return !byOrder.has(qcRejectionKey(r)); }}));
     return fetch(QC_REJECTIONS_SAVE_URL, {{method:'PUT', headers:{{'x-ms-blob-type':'BlockBlob','Content-Type':'application/json'}}, body:JSON.stringify(merged)}});
@@ -2982,7 +2996,7 @@ function mergeSavedQcRejections(saved) {{
   const byOrder = new Map(entries.map(function(r) {{ return [qcRejectionKey(r), r]; }}));
   qcRejectionRows.forEach(function(r) {{
     const savedRow = byOrder.get(qcRejectionKey(r));
-    if (savedRow) {{ r.error_type = savedRow.error_type || r.error_type || ''; r.avoidance_action = savedRow.avoidance_action || r.avoidance_action || ''; r.work_comment = savedRow.work_comment || r.work_comment || ''; }}
+    if (savedRow) {{ r.error_type = savedRow.error_type || r.error_type || ''; r.error_subcategory = savedRow.error_subcategory || r.error_subcategory || ''; r.avoidance_action = savedRow.avoidance_action || r.avoidance_action || ''; r.work_comment = savedRow.work_comment || r.work_comment || ''; }}
   }});
 }}
 (function() {{
@@ -2994,7 +3008,8 @@ function mergeSavedQcRejections(saved) {{
     const rowEl = input.closest('tr');
     const row = qcRejectionRows.find(function(r) {{ return qcRejectionKey(r) === rowEl.dataset.order; }});
     if (!row) return;
-    if (input.classList.contains('qc-error-type')) {{ row.error_type = input.value; qcDirtyFields.set(qcRejectionKey(row), new Set([...(qcDirtyFields.get(qcRejectionKey(row)) || []), 'error_type'])); }}
+    if (input.classList.contains('qc-error-type')) {{ row.error_type = input.value; row.error_subcategory = ''; qcDirtyFields.set(qcRejectionKey(row), new Set([...(qcDirtyFields.get(qcRejectionKey(row)) || []), 'error_type', 'error_subcategory'])); renderQcRejections(); }}
+    if (input.classList.contains('qc-error-subcategory')) {{ row.error_subcategory = input.value; qcDirtyFields.set(qcRejectionKey(row), new Set([...(qcDirtyFields.get(qcRejectionKey(row)) || []), 'error_subcategory'])); }}
     if (input.classList.contains('qc-avoidance')) {{ row.avoidance_action = input.value; qcDirtyFields.set(qcRejectionKey(row), new Set([...(qcDirtyFields.get(qcRejectionKey(row)) || []), 'avoidance_action'])); }}
     if (input.classList.contains('qc-work-comment')) {{ row.work_comment = input.value; qcDirtyFields.set(qcRejectionKey(row), new Set([...(qcDirtyFields.get(qcRejectionKey(row)) || []), 'work_comment'])); }}
     scheduleQcRejectionSave();
