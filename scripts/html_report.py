@@ -2025,7 +2025,9 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     </div>
   </section>
   <section id="remake-analysis" class="page">
-    <div class="card"><h3 class="section-title">Remake Forensics — Categories and Culprits</h3><div class="hint">Orders are grouped from the shared Remake Mgmt annotations. <strong>Not yet forensically reviewed</strong> means Category, Culprit, and Comment are all empty.</div><div id="remakeAnalysisKpis" class="exec-grid"></div></div>
+    <div class="card"><div class="section-head"><h3 class="section-title">Remake Forensics — Categories and Culprits</h3><label class="muted">Factory <select id="remakeAnalysisFactoryFilter" class="filter-select"><option value="">All factories</option></select></label></div><div class="hint">Orders are grouped from shared Remake Mgmt annotations. Reviewed means the team has entered category, culprit, subcategory, comment, or verification information.</div><div id="remakeAnalysisKpis" class="exec-grid"></div></div>
+    <div class="card"><h3 class="section-title">Reviewed Remake Orders — Team Analysis Completed</h3><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Customer</th><th>QTY</th><th>Factory</th><th>Category</th><th>Culprit</th><th>Subcategory</th><th>Verification</th><th>Comment</th></tr></thead><tbody id="remakeReviewedBody"></tbody></table></div></div>
+    <div class="card"><h3 class="section-title">Largest Unreviewed Remake Orders</h3><div class="hint">Outstanding orders sorted by QTY, largest first.</div><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Customer</th><th>QTY</th><th>Factory</th><th>Admin</th><th>Month</th></tr></thead><tbody id="remakeLargeUnreviewedBody"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Unreviewed Remake Orders</h3><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Customer</th><th>QTY</th><th>Factory</th><th>Admin</th><th>Month</th></tr></thead><tbody id="remakeUnreviewedBody"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">By Category</h3><table><thead><tr><th>Category</th><th class="right">Orders</th><th class="right">QTY</th></tr></thead><tbody id="remakeCategoryBody"></tbody></table></div>
     <div class="card"><h3 class="section-title">By Culprit</h3><table><thead><tr><th>Culprit</th><th class="right">Orders</th><th class="right">QTY</th></tr></thead><tbody id="remakeCulpritBody"></tbody></table></div>
@@ -2849,11 +2851,16 @@ function mergeSavedRemakes(saved) {{
 }}
 
 function forensicsRows(rows, fields) {{ return rows.filter(function(r) {{ return fields.every(function(f) {{ return !String(r[f] || '').trim(); }}); }}); }}
-function renderForensics() {{
-  const remUn = forensicsRows(remakeRows, ['category','culprit','comment']);
+function renderForensics(factoryFilter) {{
+  const filteredRemakes = remakeRows.filter(function(r) {{ return !factoryFilter || String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(factoryFilter) >= 0; }});
+  const remUn = forensicsRows(filteredRemakes, ['category','culprit','comment']);
+  const remReviewed = filteredRemakes.filter(function(r) {{ return remUn.indexOf(r) < 0; }});
   const remCat = {{}}, remCul = {{}};
-  remakeRows.forEach(function(r) {{ const c=String(r.category||'Uncategorized').trim()||'Uncategorized', u=String(r.culprit||'Unassigned').trim()||'Unassigned'; [ [remCat,c], [remCul,u] ].forEach(function(pair) {{ const g=pair[0][pair[1]]||(pair[0][pair[1]]={{orders:0,qty:0}}); g.orders++; g.qty += Number(r.qty)||0; }}); }});
-  document.getElementById('remakeAnalysisKpis').innerHTML = [['Total remake orders',remakeRows.length],['Reviewed',remakeRows.length-remUn.length],['Not forensically reviewed',remUn.length]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1].toLocaleString()+'</div></div>'; }}).join('');
+  filteredRemakes.forEach(function(r) {{ const c=String(r.category||'Uncategorized').trim()||'Uncategorized', u=String(r.culprit||'Unassigned').trim()||'Unassigned'; [ [remCat,c], [remCul,u] ].forEach(function(pair) {{ const g=pair[0][pair[1]]||(pair[0][pair[1]]={{orders:0,qty:0}}); g.orders++; g.qty += Number(r.qty)||0; }}); }});
+  document.getElementById('remakeAnalysisKpis').innerHTML = [['Total remake orders',filteredRemakes.length],['Reviewed',remReviewed.length],['Not forensically reviewed',remUn.length]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1].toLocaleString()+'</div></div>'; }}).join('');
+  document.getElementById('remakeReviewedBody').innerHTML = remReviewed.slice().sort(function(a,b) {{ return Number(b.qty||0)-Number(a.qty||0); }}).map(function(r) {{ return '<tr><td>#'+esc(remakeOrderKey(r))+'</td><td>'+esc(r.customer||'(unknown)')+'</td><td class="right">'+(Number(r.qty)||0).toLocaleString()+'</td><td>'+esc(r.factory||'')+'</td><td>'+esc(r.category||'—')+'</td><td>'+esc(r.culprit||'—')+'</td><td>'+esc(r.culprit_subcategory||'—')+'</td><td>'+esc(r.verification_status||'—')+'</td><td>'+esc(r.comment||'—')+'</td></tr>'; }}).join('') || '<tr><td colspan="9">No reviewed remake orders match this factory.</td></tr>';
+  const largeUn = remUn.slice().sort(function(a,b) {{ return Number(b.qty||0)-Number(a.qty||0); }}).slice(0,25);
+  document.getElementById('remakeLargeUnreviewedBody').innerHTML = largeUn.map(function(r) {{ return '<tr><td>#'+esc(remakeOrderKey(r))+'</td><td>'+esc(r.customer||'(unknown)')+'</td><td class="right"><strong>'+(Number(r.qty)||0).toLocaleString()+'</strong></td><td>'+esc(r.factory||'')+'</td><td>'+esc(r.admin||'')+'</td><td>'+esc(r.month||'')+'</td></tr>'; }}).join('') || '<tr><td colspan="6">No unreviewed remake orders match this factory.</td></tr>';
   document.getElementById('remakeUnreviewedBody').innerHTML = remUn.map(function(r) {{ return '<tr><td>#'+esc(remakeOrderKey(r))+'</td><td>'+esc(r.customer||'(unknown)')+'</td><td class="right">'+(Number(r.qty)||0).toLocaleString()+'</td><td>'+esc(r.factory||'')+'</td><td>'+esc(r.admin||'')+'</td><td>'+esc(r.month||'')+'</td></tr>'; }}).join('') || '<tr><td colspan="6">All remake orders have forensic notes.</td></tr>';
   function groupHtml(g) {{ return Object.keys(g).sort().map(function(k) {{ return '<tr><td>'+esc(k)+'</td><td class="right">'+g[k].orders.toLocaleString()+'</td><td class="right">'+g[k].qty.toLocaleString()+'</td></tr>'; }}).join(''); }}
   document.getElementById('remakeCategoryBody').innerHTML = groupHtml(remCat); document.getElementById('remakeCulpritBody').innerHTML = groupHtml(remCul);
@@ -2863,6 +2870,15 @@ function renderForensics() {{
   document.getElementById('qcUnreviewedBody').innerHTML = qcUn.map(function(r) {{ return '<tr><td>#'+esc(qcRejectionKey(r))+'</td><td>'+esc(r.factory||'')+'</td><td class="right">'+(Number(r.total_qty)||0).toLocaleString()+'</td><td class="right">'+(Number(r.defects_qty)||0).toLocaleString()+'</td><td>'+esc(r.date||'')+'</td></tr>'; }}).join('') || '<tr><td colspan="5">All QC rejections have forensic notes.</td></tr>';
   document.getElementById('qcErrorTypeBody').innerHTML = groupHtml(et); document.getElementById('qcSubcategoryBody').innerHTML = groupHtml(escat); document.getElementById('qcPreventionBody').innerHTML = Object.keys(pa).sort().map(function(k) {{ return '<tr><td>'+esc(k)+'</td><td class="right">'+pa[k].toLocaleString()+'</td></tr>'; }}).join('');
 }}
+// Init Remake Analysis factory filter
+(function() {{
+  const select=document.getElementById('remakeAnalysisFactoryFilter');
+  if (!select) return;
+  const factories=[...new Set(remakeRows.flatMap(function(r) {{ return String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).filter(Boolean); }}))].sort();
+  factories.forEach(function(name) {{ const opt=document.createElement('option'); opt.value=name; opt.textContent=name; select.appendChild(opt); }});
+  select.addEventListener('change', function() {{ renderForensics(select.value); }});
+}})();
+
 // Init Remake Mgmt
 (function() {{
   if (!document.getElementById('remakeMgmtBody')) return;
