@@ -2418,10 +2418,11 @@ function setBreakdownHeader(mode) {{
   document.getElementById('breakdownHint').textContent = (mode === 'factory' ? 'Factory view combines backend remake data with Qarma physical QC catch data.' : 'Selected grouping combines backend remake data with Qarma measures where order matching is available.') + qnote;
 }}
 function renderFactoryTable(tbodyId, list, clickable, opts) {{
-  const total = aggregateFactories(list || []); total.name = 'Total';
-  const noMavicList = (list || []).filter(function(f) {{ return f.name !== 'Mavic Sports'; }});
+  const sortedList = (list || []).slice().sort(function(a,b) {{ return Number(b.volume||0)-Number(a.volume||0) || String(a.name||'').localeCompare(String(b.name||'')); }});
+  const total = aggregateFactories(sortedList); total.name = 'Total';
+  const noMavicList = sortedList.filter(function(f) {{ return f.name !== 'Mavic Sports'; }});
   const noMavic = aggregateFactories(noMavicList); noMavic.name = 'Total excl. Mavic Sports';
-  document.getElementById(tbodyId).innerHTML = (list || []).map(function(f) {{ return factoryRow(f, {{clickable: clickable}}); }}).join('') + factoryRow(total, {{cls:'total-row'}}) + factoryRow(noMavic, {{cls:'no-mavic-row'}});
+  document.getElementById(tbodyId).innerHTML = sortedList.map(function(f) {{ return factoryRow(f, {{clickable: clickable}}); }}).join('') + factoryRow(total, {{cls:'total-row'}}) + factoryRow(noMavic, {{cls:'no-mavic-row'}});
 }}
 function renderActionPlanDiagnostics(mode) {{
   const body = document.getElementById('actionPlanDiagnosticsBody');
@@ -2453,7 +2454,7 @@ function renderGroupingTable(mode) {{
   var filter = document.getElementById('breakdownFilter'); if (filter && filter.value !== mode) filter.value = mode;
   if (mode === 'factory') {{ renderFactoryTable('factoryBody', ACTIVE_DATA.factories || [], true, {{}}); renderActionPlanDiagnostics(mode); return; }}
   if (mode === 'all') {{ const total = aggregateFactories(ACTIVE_DATA.factories || []); total.name = 'All'; document.getElementById('factoryBody').innerHTML = factoryRow(total, {{cls:'total-row'}}); renderActionPlanDiagnostics(mode); return; }}
-  const rows = ((ACTIVE_GROUPINGS || {{}})[mode] || []);
+  const rows = (((ACTIVE_GROUPINGS || {{}})[mode] || []).slice().sort(function(a,b) {{ return Number(b.volume||0)-Number(a.volume||0) || String(a.name||'').localeCompare(String(b.name||'')); }}));
   const total = aggregateFactories(rows); total.name = 'Total';
   document.getElementById('factoryBody').innerHTML = rows.map(function(r) {{ return factoryRow(r, {{}}); }}).join('') + factoryRow(total, {{cls:'total-row'}});
   renderActionPlanDiagnostics(mode);
@@ -2782,6 +2783,8 @@ function renderRemakeMgmt(filterAdmin, filterMonth) {{
   if (filterAdmin) rows = rows.filter(function(r) {{ return r.admin === filterAdmin; }});
   if (filterMonth) rows = rows.filter(function(r) {{ return r.month === filterMonth; }});
   rows = rows.slice().sort(function(a,b) {{
+    const qtyCmp = Number(b.qty || 0) - Number(a.qty || 0);
+    if (qtyCmp) return qtyCmp;
     const excludedCmp = remakeIsExcluded(a) - remakeIsExcluded(b);
     if (excludedCmp) return excludedCmp;
     const handledCmp = remakeIsHandled(a) - remakeIsHandled(b);
@@ -2952,6 +2955,8 @@ function qcSubcategoryOptions(type, current) {{
 }}
 function renderQcRejections() {{
   const rows = qcRejectionRows.slice().sort(function(a,b) {{
+    const qtyCmp = Number(b.total_qty || b.defects_qty || 0) - Number(a.total_qty || a.defects_qty || 0);
+    if (qtyCmp) return qtyCmp;
     const handledCmp = qcRejectionHandled(a) - qcRejectionHandled(b);
     if (handledCmp) return handledCmp;
     return String(b.date || '').localeCompare(String(a.date || '')) || (parseInt(String(b.order || '').replace(/\D/g,''),10) || 0) - (parseInt(String(a.order || '').replace(/\D/g,''),10) || 0);
@@ -3069,7 +3074,7 @@ function showFactorySharePage(slug) {{
   const reinspectionCard=document.querySelector('.factory-filter-card[data-filter="reinspection"]'); if (reinspectionCard) reinspectionCard.querySelector('.value').textContent=orders.filter(function(r) {{ return r.qarma_reinspected_factory; }}).length.toLocaleString();
   const reinspectionEventsCard=document.querySelector('.factory-filter-card[data-filter="reinspection_events"]'); if (reinspectionEventsCard) reinspectionEventsCard.querySelector('.value').textContent=orders.reduce(function(sum,r) {{ return sum + Number(r.qarma_reinspection_count_factory||0); }},0).toLocaleString();
   function dateOnly(v) {{ return String(v||'').slice(0,10) || '—'; }}
-  function renderFactoryOrderRows(list) {{ document.getElementById('factoryShareOrders').innerHTML = list.map(function(r) {{ const qlink=/^https?:\\/\\//i.test(r.qarma_report_link||'') ? '<a href="'+escapeAttr(r.qarma_report_link)+'" target="_blank" rel="noopener">Open report</a>' : '—'; return '<tr><td>#'+esc(r.order)+'</td><td>'+esc(r.customer_ref||'—')+'</td><td>'+dateOnly(r.created_date)+'</td><td>'+dateOnly(r.actual_shipping_date)+'</td><td>'+esc(r.customer||'')+'</td><td class="right">'+Number(r.qty||0).toLocaleString()+'</td><td>'+ (r.qarma_checked_period?'Yes':'No') +'</td><td>'+ (r.qarma_rejected_period?'Yes':'No') +'</td><td>'+ (r.qarma_reinspected_factory?'Yes':'No') +'</td><td class="right">'+Number(r.qarma_reinspection_count_factory||0).toLocaleString()+'</td><td>'+esc(r.qarma_comment||'—')+'</td><td>'+qlink+'</td><td>'+ (r.remake?'Yes':'No') +'</td></tr>'; }}).join('') || '<tr><td colspan="13">No matching completed orders in the selected period.</td></tr>'; }}
+  function renderFactoryOrderRows(list) {{ document.getElementById('factoryShareOrders').innerHTML = list.slice().sort(function(a,b) {{ return Number(b.qty||0)-Number(a.qty||0); }}).map(function(r) {{ const qlink=/^https?:\\/\\//i.test(r.qarma_report_link||'') ? '<a href="'+escapeAttr(r.qarma_report_link)+'" target="_blank" rel="noopener">Open report</a>' : '—'; return '<tr><td>#'+esc(r.order)+'</td><td>'+esc(r.customer_ref||'—')+'</td><td>'+dateOnly(r.created_date)+'</td><td>'+dateOnly(r.actual_shipping_date)+'</td><td>'+esc(r.customer||'')+'</td><td class="right">'+Number(r.qty||0).toLocaleString()+'</td><td>'+ (r.qarma_checked_period?'Yes':'No') +'</td><td>'+ (r.qarma_rejected_period?'Yes':'No') +'</td><td>'+ (r.qarma_reinspected_factory?'Yes':'No') +'</td><td class="right">'+Number(r.qarma_reinspection_count_factory||0).toLocaleString()+'</td><td>'+esc(r.qarma_comment||'—')+'</td><td>'+qlink+'</td><td>'+ (r.remake?'Yes':'No') +'</td></tr>'; }}).join('') || '<tr><td colspan="13">No matching completed orders in the selected period.</td></tr>'; }}
   function renderFactoryMonthly(list) {{
     const byMonth={{}};
     list.forEach(function(r) {{ const k=String(r.actual_shipping_date||r.completed_date||'').slice(0,7); if (!k) return; const x=byMonth[k]||(byMonth[k]={{orders:0,qty:0,remakes:0,remake_qty:0,qarma_checked:0,qarma_errors:0}}); x.orders++; x.qty+=Number(r.qty||0); if (r.remake) {{ x.remakes++; x.remake_qty+=Number(r.qty||0); }} if (r.qarma_checked_period) x.qarma_checked++; if (r.qarma_rejected_period) x.qarma_errors++; }});
