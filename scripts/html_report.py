@@ -2025,7 +2025,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     </div>
   </section>
   <section id="remake-analysis" class="page">
-    <div class="card"><div class="section-head"><h3 class="section-title">Remake Forensics — Categories and Culprits</h3><label class="muted">Factory <select id="remakeAnalysisFactoryFilter" class="filter-select"><option value="">All factories</option></select></label></div><div class="hint">Orders are grouped from shared Remake Mgmt annotations. Reviewed means the team has entered category, culprit, subcategory, comment, or verification information.</div><div id="remakeAnalysisKpis" class="exec-grid"></div></div>
+    <div class="card"><div class="section-head"><h3 class="section-title">Remake Forensics — Categories and Culprits</h3><label class="muted">Factory <select id="remakeAnalysisFactoryFilter" class="filter-select"><option value="">All factories</option></select></label></div><div class="hint">Reviewed means Category and Culprit are assigned, any required Custimoo subcategory is set, and the team has added a comment or verification status. A Category alone is not complete.</div><div id="remakeAnalysisKpis" class="exec-grid"></div></div>
     <div class="card"><h3 class="section-title">Reviewed Remake Orders — Team Analysis Completed</h3><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Customer</th><th>QTY</th><th>Factory</th><th>Category</th><th>Culprit</th><th>Subcategory</th><th>Verification</th><th>Comment</th></tr></thead><tbody id="remakeReviewedBody"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Largest Unreviewed Remake Orders</h3><div class="hint">Outstanding orders sorted by QTY, largest first.</div><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Customer</th><th>QTY</th><th>Factory</th><th>Admin</th><th>Month</th></tr></thead><tbody id="remakeLargeUnreviewedBody"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Unreviewed Remake Orders</h3><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Customer</th><th>QTY</th><th>Factory</th><th>Admin</th><th>Month</th></tr></thead><tbody id="remakeUnreviewedBody"></tbody></table></div></div>
@@ -2853,7 +2853,8 @@ function mergeSavedRemakes(saved) {{
 function forensicsRows(rows, fields) {{ return rows.filter(function(r) {{ return fields.every(function(f) {{ return !String(r[f] || '').trim(); }}); }}); }}
 function renderForensics(factoryFilter) {{
   const filteredRemakes = remakeRows.filter(function(r) {{ return !factoryFilter || String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(factoryFilter) >= 0; }});
-  const remUn = forensicsRows(filteredRemakes, ['category','culprit','comment']);
+  const remakeReviewComplete = function(r) {{ const category=String(r.category||'').trim(); const culprit=String(r.culprit||'').trim(); const sub=String(r.culprit_subcategory||'').trim(); const notes=String(r.comment||'').trim(); const verified=String(r.verification_status||'').trim(); return Boolean(category && culprit && (culprit !== 'Custimoo' || sub) && (notes || verified)); }};
+  const remUn = filteredRemakes.filter(function(r) {{ return !remakeReviewComplete(r); }});
   const remReviewed = filteredRemakes.filter(function(r) {{ return remUn.indexOf(r) < 0; }});
   const remCat = {{}}, remCul = {{}};
   filteredRemakes.forEach(function(r) {{ const c=String(r.category||'Uncategorized').trim()||'Uncategorized', u=String(r.culprit||'Unassigned').trim()||'Unassigned'; [ [remCat,c], [remCul,u] ].forEach(function(pair) {{ const g=pair[0][pair[1]]||(pair[0][pair[1]]={{orders:0,qty:0}}); g.orders++; g.qty += Number(r.qty)||0; }}); }});
