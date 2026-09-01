@@ -2023,7 +2023,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       </div>
       <div class="remake-mgmt-scroll">
         <table class="remake-table"><thead>
-          <tr><th>Order</th><th>Original Order</th><th class="right">QTY</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th>Source</th><th>Verification</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
+          <tr><th>#</th><th>Order</th><th>Original Order</th><th class="right">QTY</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th>Source</th><th>Verification</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
         </thead><tbody id="remakeMgmtBody"></tbody></table>
       </div>
     </div>
@@ -2801,9 +2801,10 @@ function renderRemakeMgmt(filterAdmin, filterFactory, filterMonth) {{
     return orderB - orderA;
   }});
   const tbody = document.getElementById('remakeMgmtBody');
-  tbody.innerHTML = rows.map(function(r) {{
+  tbody.innerHTML = rows.map(function(r, rowIndex) {{
     const order = remakeOrderKey(r);
     return '<tr data-order="' + escapeAttr(order) + '">'
+      + '<td class="row-number">' + (rowIndex + 1) + '</td>'
       + '<td class="order-num">#' + esc(order) + '</td>'
       + '<td><input class="remake-edit remake-original-order" aria-label="Original order number for remake ' + escapeAttr(order) + '" value="' + escapeAttr(r.original_order || '') + '" placeholder="Original order"></td>'
       + '<td class="right">' + (r.qty || 0).toLocaleString() + '</td>'
@@ -2817,7 +2818,7 @@ function renderRemakeMgmt(filterAdmin, filterFactory, filterMonth) {{
       + '<td><select class="remake-edit remake-culprit" aria-label="Culprit for order ' + escapeAttr(order) + '">' + remakeCulpritOptions(r.culprit || '') + '</select>' + renderCustimooSubcategory(r, order) + '</td>'
       + '<td><input class="remake-edit remake-comment" aria-label="Comment for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.comment || '') + '" placeholder="Comment"></td>'
       + '</tr>';
-  }}).join('') || '<tr><td colspan="12">No remakes match the filters.</td></tr>';
+  }}).join('') || '<tr><td colspan="13">No remakes match the filters.</td></tr>';
   const grossQty = rows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);
   const netRows = rows.filter(function(r) {{ return !remakeIsExcluded(r); }});
   const netQty = netRows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);
