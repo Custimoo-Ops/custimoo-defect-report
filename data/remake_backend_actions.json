@@ -327,6 +327,36 @@
       "month": "2026-04",
       "admin": "Maryam Zahid",
       "reason": "It's a re-order not a remake"
+    },
+    {
+      "order": "23309",
+      "qty": 31,
+      "month": "2026-03",
+      "reason": "Incorrectly registered as a remake; ordinary invoiced order, not a remake."
+    },
+    {
+      "order": "23298",
+      "qty": 198,
+      "month": "2026-03",
+      "reason": "Incorrectly registered as a remake; ordinary invoiced order, not a remake."
+    },
+    {
+      "order": "23178",
+      "qty": 52,
+      "month": "2026-03",
+      "reason": "Incorrectly registered as a remake; ordinary invoiced order, not a remake."
+    },
+    {
+      "order": "23113",
+      "qty": 21,
+      "month": "2026-03",
+      "reason": "Incorrectly registered as a remake; ordinary invoiced order, not a remake."
+    },
+    {
+      "order": "26200",
+      "qty": 1,
+      "month": "2026-07",
+      "reason": "Incorrectly registered as a remake; should not count as a remake statistic."
     }
   ],
   "missing_in_backend": [
