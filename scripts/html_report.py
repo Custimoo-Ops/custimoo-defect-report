@@ -1799,19 +1799,24 @@ html = f"""<!DOCTYPE html>
   .factory-share-orders-scroll th:nth-child(13) {{ width: 5%; }}
   .factory-share-orders-scroll td {{ vertical-align: top; }}
   .factory-share-orders-scroll td:nth-child(11) {{ white-space: pre-wrap; }}
-  .remake-mgmt-scroll .remake-table {{ min-width: 2200px; table-layout: fixed; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(1) {{ width: 90px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(2) {{ width: 150px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(3) {{ width: 70px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(4) {{ width: 190px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(5) {{ width: 170px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(6) {{ width: 180px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(7) {{ width: 95px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(8) {{ width: 150px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(9) {{ width: 180px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(10) {{ width: 190px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(11) {{ width: 220px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(12) {{ width: 700px; }}
+  .remake-mgmt-scroll {{ overflow-x: auto; overflow-y: auto; max-height: 70vh; width: 100%; }}
+  .remake-mgmt-scroll .remake-table {{ min-width: 2340px; table-layout: fixed; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(1) {{ width: 55px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(2) {{ width: 100px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(3) {{ width: 150px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(4) {{ width: 80px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(5) {{ width: 120px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(6) {{ width: 190px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(7) {{ width: 170px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(8) {{ width: 180px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(9) {{ width: 95px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(10) {{ width: 150px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(11) {{ width: 180px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(12) {{ width: 190px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(13) {{ width: 220px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(14) {{ width: 420px; }}
+  .remake-mgmt-scroll .remake-table th, .remake-mgmt-scroll .remake-table td {{ vertical-align: top; }}
+  .remake-mgmt-scroll .remake-table td:nth-child(14) {{ white-space: normal; }}
   .remake-mgmt-scroll .remake-edit {{ width: 100%; min-width: 0; box-sizing: border-box; }}
   .wrap:has(#qc-rejections.active) {{ max-width: 1800px; }}
   .qc-rejections-scroll {{ overflow-x: hidden; max-height: none; }}
