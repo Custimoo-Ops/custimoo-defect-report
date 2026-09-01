@@ -2897,7 +2897,10 @@ var remakeAnalysisCulpritFilter = '';
 function renderForensics(factoryFilter, periodKey) {{
   const period = PERIODS[periodKey || 'ytd'] || DATA;
   const periodMonths = new Set(period.monthKeys || MONTH_KEYS);
-  const factoryRemakes = remakeRows.filter(function(r) {{ const factoryOk = !factoryFilter || String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(factoryFilter) >= 0; const rowMonth=String(r.month||r.created_date||r.date||'').slice(0,7); const periodOk = (periodKey || 'ytd') === 'all' ? true : (rowMonth && periodMonths.has(rowMonth)); return factoryOk && periodOk; }});
+  const shareLists = factoryFilter ? [FACTORY_SHARE_ORDERS[factoryFilter] || []] : Object.keys(FACTORY_SHARE_ORDERS || {{}}).map(function(k) {{ return FACTORY_SHARE_ORDERS[k] || []; }});
+  const authoritativeRemakes = new Set();
+  shareLists.forEach(function(list) {{ list.forEach(function(r) {{ const rowMonth=String(r.actual_shipping_date||r.completed_date||r.created_date||'').slice(0,7); if (r.remake && ((periodKey || 'ytd') === 'all' || (rowMonth && periodMonths.has(rowMonth)))) authoritativeRemakes.add(String(r.order||'').replace(/^#/,'').trim()); }}); }});
+  const factoryRemakes = remakeRows.filter(function(r) {{ const orderKey=remakeOrderKey(r); const factoryOk = !factoryFilter || String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(factoryFilter) >= 0; const rowMonth=String(r.month||r.created_date||r.date||'').slice(0,7); const periodOk = (periodKey || 'ytd') === 'all' ? true : (rowMonth && periodMonths.has(rowMonth)); return factoryOk && periodOk && (!authoritativeRemakes.size || authoritativeRemakes.has(orderKey)); }});
   const filteredRemakes = factoryRemakes.filter(function(r) {{
     const category = String(r.category || '').trim() || 'Uncategorized';
     const culprit = String(r.culprit || '').trim() || 'Unassigned';
