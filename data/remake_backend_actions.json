@@ -357,6 +357,36 @@
       "qty": 1,
       "month": "2026-07",
       "reason": "Incorrectly registered as a remake; should not count as a remake statistic."
+    },
+    {
+      "order": "22672",
+      "qty": 350,
+      "reason": "Failure-update record, but not marked as a backend remake; excluded from Remake Mgmt pending confirmation."
+    },
+    {
+      "order": "22788",
+      "qty": 4,
+      "reason": "Factory shortfall replacement, not a remake; only 3–4 missing pieces were shipped later."
+    },
+    {
+      "order": "24722",
+      "qty": 143,
+      "reason": "External-vendor label issue approved by customer and shipped; not a remake."
+    },
+    {
+      "order": "24976",
+      "qty": 303,
+      "reason": "Reorder, not a remake."
+    },
+    {
+      "order": "19636",
+      "qty": 2,
+      "reason": "Incorrect order number reported; not a remake."
+    },
+    {
+      "order": "23834",
+      "qty": 0,
+      "reason": "Customer feedback about stripe appearance; not a remake."
     }
   ],
   "missing_in_backend": [

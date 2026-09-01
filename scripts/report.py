@@ -26,7 +26,7 @@ WORD_NUM_PATTERN = r'\b(' + '|'.join(WORD_NUMS.keys()) + r')\b'
 # Exact counts (actual defective items as stated in or deduced from email bodies)
 MANUAL_EXACT = {
     "22643": 30,    # "30 Ringette Pants"
-    "24722": 143,   # "143 jerseys"
+    "24722": 0,     # Customer-approved external-vendor label issue; not a remake/defect
     "24516": 20,    # "all 20 pieces"
     "23613": 10,    # "10 pant shells"
     "22007": 2,     # "2 YM retail units"
@@ -42,7 +42,7 @@ MANUAL_EXACT = {
     "22699": 166,   # Blue buttons instead of white — all 166 jerseys
     "18913": 135,   # Bottom strap issue on all 135 ringette pants
     "21708": 521,   # Snap button issue — all 521 affected (QC rejection)
-    "22788": 304,   # Missing pcs — all 304 missing (shipping error)
+    "22788": 4,     # Only 3–4 pieces were short-shipped and sent later
     "21163": 388,   # Wrong sizing on entire 388pc sizerun
     "19345": 264,   # Wrong size/labels in socks — all 264 pairs
     "22412": 269,   # Factory missed shipping PCs — all 269
@@ -63,7 +63,7 @@ MANUAL_EXACT = {
     "19810": 2,     # Glitch — end user error (2 items)
     "20234": 21,    # Wrong sizes
     "21545": 10,    # Multiple issues
-    "19636": 2,     # "wrong color in 2 nameplates"
+    "19636": 0,     # Incorrect order number; not a remake/defect
     "20416": 18,    # Fw: Discount request — 18
     "20371": 18,    # Fw: Discount request — 18
     "20985": 2,     # Hurricanes ringette pants

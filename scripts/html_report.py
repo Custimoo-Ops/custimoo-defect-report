@@ -1523,10 +1523,12 @@ for _r in REMAKE_MGMT:
     if _match:
         _r['original_order'] = _match.group(1)
 
-# Apply permanent factory exclusions to this management tab as well.
+# Apply permanent factory and order exclusions to this management tab as well.
 def _remake_factory_is_excluded(factory_text):
     return any(factory_data.is_excluded_factory(part.strip()) for part in str(factory_text or '').split(','))
-REMAKE_MGMT = [r for r in REMAKE_MGMT if not _remake_factory_is_excluded(r.get('factory'))]
+def _remake_order_is_excluded(row):
+    return str(row.get('order') or '').replace('#', '').strip() in remake_backend_actions.EXCLUDED_REMAKE_ORDERS
+REMAKE_MGMT = [r for r in REMAKE_MGMT if not _remake_factory_is_excluded(r.get('factory')) and not _remake_order_is_excluded(r)]
 
 for _r in REMAKE_MGMT:
     _order = str(_r.get('order') or '').replace('#', '').strip()
