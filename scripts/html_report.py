@@ -1977,7 +1977,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <div class="card metric"><div class="label" id="periodKpiLabel">YTD 2026 Remakes</div><div class="value" id="periodKpiValue"></div><div class="sub" id="periodKpiSub"></div></div>
     </div>
     <div class="card">
-      <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="ytdMeasureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="ytdMeasureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div></div>
+      <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="ytdFactoryFilter" class="muted" style="font-size:13px;font-weight:700">Factory:</label><select id="ytdFactoryFilter" class="filter-select"><option value="">All factories</option></select><label for="ytdMeasureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="ytdMeasureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div></div>
       <div class="chart-wrap"><canvas id="ytdChart"></canvas></div>
       <div class="footnote">Blue bars show accumulated volume/orders. Red line shows accumulated remake percentage for the selected measure.</div>
     </div>
@@ -2705,14 +2705,15 @@ document.getElementById('resetBtn').addEventListener('click', function() {{ rend
 applyPeriod(ACTIVE_PERIOD);
 
 function cumulative(arr) {{ return arr.map(function(_, i) {{ return arr.slice(0, i + 1).reduce(function(a,b){{return a+b;}}, 0); }}); }}
-function ytdSummaryAggregates() {{
+function ytdSummaryAggregates(factoryFilter) {{
   const p=PERIODS.ytd || YTD, n=(p.monthKeys||[]).length;
+  const selectedFactories=(p.factories||[]).filter(function(f) {{ return !factoryFilter || f.name === factoryFilter; }});
   const out={{months:p.months||[], monthKeys:p.monthKeys||[], monthlyOrders:Array(n).fill(0), monthlyVolume:Array(n).fill(0), monthlyRemakeOrders:Array(n).fill(0), monthlyRemakeQty:Array(n).fill(0), monthlyOrdersNoMavic:Array(n).fill(0), monthlyVolumeNoMavic:Array(n).fill(0), monthlyRemakeOrdersNoMavic:Array(n).fill(0), monthlyRemakeQtyNoMavic:Array(n).fill(0)}};
-  (p.factories||[]).forEach(function(f) {{ const m=f.monthly||{{}}; const noMavic=f.name !== 'Mavic Sports'; for (let i=0;i<n;i++) {{ out.monthlyOrders[i]+=Number((m.orders||[])[i]||0); out.monthlyVolume[i]+=Number((m.volumes||[])[i]||0); out.monthlyRemakeOrders[i]+=Number((m.remake_orders||[])[i]||0); out.monthlyRemakeQty[i]+=Number((m.remake_qty||[])[i]||0); if (noMavic) {{ out.monthlyOrdersNoMavic[i]+=Number((m.orders||[])[i]||0); out.monthlyVolumeNoMavic[i]+=Number((m.volumes||[])[i]||0); out.monthlyRemakeOrdersNoMavic[i]+=Number((m.remake_orders||[])[i]||0); out.monthlyRemakeQtyNoMavic[i]+=Number((m.remake_qty||[])[i]||0); }} }} }});
-  const totals=aggregateFactories(p.factories||[]);
+  selectedFactories.forEach(function(f) {{ const m=f.monthly||{{}}; const noMavic=f.name !== 'Mavic Sports'; for (let i=0;i<n;i++) {{ out.monthlyOrders[i]+=Number((m.orders||[])[i]||0); out.monthlyVolume[i]+=Number((m.volumes||[])[i]||0); out.monthlyRemakeOrders[i]+=Number((m.remake_orders||[])[i]||0); out.monthlyRemakeQty[i]+=Number((m.remake_qty||[])[i]||0); if (noMavic) {{ out.monthlyOrdersNoMavic[i]+=Number((m.orders||[])[i]||0); out.monthlyVolumeNoMavic[i]+=Number((m.volumes||[])[i]||0); out.monthlyRemakeOrdersNoMavic[i]+=Number((m.remake_orders||[])[i]||0); out.monthlyRemakeQtyNoMavic[i]+=Number((m.remake_qty||[])[i]||0); }} }} }});
+  const totals=aggregateFactories(selectedFactories);
   const adjust=function(arr,total) {{ const sum=arr.reduce(function(a,b){{return a+b;}},0); if (arr.length) arr[arr.length-1]+=Number(total||0)-sum; }};
   adjust(out.monthlyOrders, totals.orders); adjust(out.monthlyVolume, totals.volume); adjust(out.monthlyRemakeOrders, totals.remake_orders); adjust(out.monthlyRemakeQty, totals.remake_qty);
-  const noMavicTotals=aggregateFactories((p.factories||[]).filter(function(f) {{ return f.name !== 'Mavic Sports'; }}));
+  const noMavicTotals=aggregateFactories(selectedFactories.filter(function(f) {{ return f.name !== 'Mavic Sports'; }}));
   adjust(out.monthlyOrdersNoMavic, noMavicTotals.orders); adjust(out.monthlyVolumeNoMavic, noMavicTotals.volume); adjust(out.monthlyRemakeOrdersNoMavic, noMavicTotals.remake_orders); adjust(out.monthlyRemakeQtyNoMavic, noMavicTotals.remake_qty);
   out.cumulativeOrders=cumulative(out.monthlyOrders); out.cumulativeVolume=cumulative(out.monthlyVolume); out.cumulativeOrdersNoMavic=cumulative(out.monthlyOrdersNoMavic); out.cumulativeVolumeNoMavic=cumulative(out.monthlyVolumeNoMavic); out.totalOrders=totals.orders||0; out.totalVolume=totals.volume||0; out.totalRemakeOrders=totals.remake_orders||0; out.totalRemakeQty=totals.remake_qty||0; out.totalOrdersNoMavic=noMavicTotals.orders||0; out.totalVolumeNoMavic=noMavicTotals.volume||0; out.totalRemakeOrdersNoMavic=noMavicTotals.remake_orders||0; out.totalRemakeQtyNoMavic=noMavicTotals.remake_qty||0; return out;
 }}
@@ -2748,8 +2749,9 @@ function renderYtdFactoryTable() {{
   ACTIVE_MEASURE = prev;
 }}
 let ytdChart = null;
+let YTD_FACTORY_FILTER = '';
 function renderYtdChart() {{
-  const ytdView = ytdSummaryAggregates();
+  const ytdView = ytdSummaryAggregates(YTD_FACTORY_FILTER);
   const el = document.getElementById('ytdChart');
   if (!el || !el.offsetParent) return;
   const isOrders = YTD_MEASURE === 'orders';
@@ -2763,7 +2765,8 @@ function renderYtdChart() {{
   const rateDataNoMavic = barDataNoMavic.map(function(v, i) {{ return v > 0 ? +(((isOrders ? remOrdersCumNoMavic[i] : remQtyCumNoMavic[i]) / v * 100).toFixed(2)) : 0; }});
   const barLabel = isOrders ? 'Accumulated No of Orders' : 'Accumulated Total Order QTY';
   const rateLabel = isOrders ? 'Accumulated Remake % (Orders)' : 'Accumulated Remake % (Qty)';
-  document.getElementById('ytdChartTitle').textContent = isOrders ? 'YTD Accumulated Orders + Remake %' : 'YTD Accumulated QTY + Remake %';
+  const selectedLabel = YTD_FACTORY_FILTER || 'All factories';
+  document.getElementById('ytdChartTitle').textContent = (isOrders ? 'YTD Accumulated Orders + Remake % — ' : 'YTD Accumulated QTY + Remake % — ') + selectedLabel;
   if (ytdChart) ytdChart.destroy();
   ytdChart = new Chart(el.getContext('2d'), {{
     data: {{ labels: ytdView.months, datasets: [
@@ -2779,6 +2782,11 @@ function applyYtdMeasure() {{
   const sel = document.getElementById('ytdMeasureFilter');
   YTD_MEASURE = sel ? sel.value : 'qty';
   updateYtdKpis(); ytdCumulativeTable(); renderYtdFactoryTable(); renderYtdChart();
+}}
+const ytdFactoryFilter = document.getElementById('ytdFactoryFilter');
+if (ytdFactoryFilter) {{
+  (PERIODS.ytd || YTD).factories.forEach(function(f) {{ const opt=document.createElement('option'); opt.value=f.name; opt.textContent=f.name; ytdFactoryFilter.appendChild(opt); }});
+  ytdFactoryFilter.addEventListener('change', function() {{ YTD_FACTORY_FILTER = ytdFactoryFilter.value; ytdCumulativeTable(); renderYtdChart(); }});
 }}
 const ytdMeasureFilter = document.getElementById('ytdMeasureFilter');
 if (ytdMeasureFilter) {{ ytdMeasureFilter.value = YTD_MEASURE; ytdMeasureFilter.addEventListener('change', applyYtdMeasure); }}
