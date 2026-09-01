@@ -2982,7 +2982,7 @@ function renderForensics(factoryFilter, periodKey) {{
   af.addEventListener('change', rerender);
   ff.addEventListener('change', rerender);
   mf.addEventListener('change', rerender);
-  document.getElementById('remakeMgmtBody').addEventListener('input', function(ev) {{
+  document.getElementById('remakeMgmtBody').addEventListener('change', function(ev) {{
     const input = ev.target;
     if (!input.classList.contains('remake-edit')) return;
     const row = remakeRows.find(function(r) {{ return remakeOrderKey(r) === input.closest('tr').dataset.order; }});
