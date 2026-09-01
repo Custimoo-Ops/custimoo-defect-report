@@ -2060,7 +2060,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     </div>
   </section>
   <section id="remake-analysis" class="page">
-    <div class="card"><div class="section-head"><h3 class="section-title">Remake Forensics — Categories and Culprits</h3><label class="muted">Factory <select id="remakeAnalysisFactoryFilter" class="filter-select"><option value="">All factories</option></select></label></div><div class="hint">Reviewed means Category and Culprit are assigned, any required Custimoo subcategory is set, and the team has added a comment or verification status. A Category alone is not complete.</div><div id="remakeAnalysisKpis" class="exec-grid"></div></div>
+    <div class="card"><div class="section-head"><h3 class="section-title">Remake Forensics — Categories and Culprits</h3><label class="muted">Factory <select id="remakeAnalysisFactoryFilter" class="filter-select"><option value="">All factories</option></select></label><label class="muted">Period <select id="remakeAnalysisPeriodFilter" class="filter-select"><option value="all">All</option><option value="ytd" selected>YTD 2026</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="quarter">Quarter</option></select></label></div><div class="hint">Reviewed means Category and Culprit are assigned, any required Custimoo subcategory is set, and the team has added a comment or verification status. A Category alone is not complete.</div><div id="remakeAnalysisKpis" class="exec-grid"></div></div>
     <div class="card"><h3 class="section-title">Reviewed Remake Orders — Team Analysis Completed</h3><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Customer</th><th>QTY</th><th>% of subtotal</th><th>Factory</th><th>Category</th><th>Culprit</th><th>Subcategory</th><th>Verification</th><th>Comment</th></tr></thead><tbody id="remakeReviewedBody"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Largest Unreviewed Remake Orders</h3><div class="hint">Outstanding orders sorted by QTY, largest first.</div><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Customer</th><th>QTY</th><th>% of subtotal</th><th>Factory</th><th>Admin</th><th>Month</th></tr></thead><tbody id="remakeLargeUnreviewedBody"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">By Category</h3><table><thead><tr><th>Category</th><th class="right">Orders</th><th class="right">QTY</th><th class="right">% of subtotal</th></tr></thead><tbody id="remakeCategoryBody"></tbody></table></div>
@@ -2894,8 +2894,10 @@ function mergeSavedRemakes(saved) {{
 function forensicsRows(rows, fields) {{ return rows.filter(function(r) {{ return fields.every(function(f) {{ return !String(r[f] || '').trim(); }}); }}); }}
 var remakeAnalysisCategoryFilter = '';
 var remakeAnalysisCulpritFilter = '';
-function renderForensics(factoryFilter) {{
-  const factoryRemakes = remakeRows.filter(function(r) {{ return !factoryFilter || String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(factoryFilter) >= 0; }});
+function renderForensics(factoryFilter, periodKey) {{
+  const period = PERIODS[periodKey || 'ytd'] || DATA;
+  const periodMonths = new Set(period.monthKeys || MONTH_KEYS);
+  const factoryRemakes = remakeRows.filter(function(r) {{ const factoryOk = !factoryFilter || String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(factoryFilter) >= 0; const rowMonth=String(r.month||r.created_date||r.date||'').slice(0,7); const periodOk = (periodKey || 'ytd') === 'all' ? true : (rowMonth && periodMonths.has(rowMonth)); return factoryOk && periodOk; }});
   const filteredRemakes = factoryRemakes.filter(function(r) {{
     const category = String(r.category || '').trim() || 'Uncategorized';
     const culprit = String(r.culprit || '').trim() || 'Unassigned';
@@ -2928,13 +2930,16 @@ function renderForensics(factoryFilter) {{
   if (!select) return;
   const factories=[...new Set(remakeRows.flatMap(function(r) {{ return String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).filter(Boolean); }}))].sort();
   factories.forEach(function(name) {{ const opt=document.createElement('option'); opt.value=name; opt.textContent=name; select.appendChild(opt); }});
-  select.addEventListener('change', function() {{ renderForensics(select.value); }});
+  const periodSelect=document.getElementById('remakeAnalysisPeriodFilter');
+  const rerender=function() {{ renderForensics(select.value, periodSelect.value); }};
+  select.addEventListener('change', rerender);
+  periodSelect.addEventListener('change', rerender);
   function handleRemakeAnalysisFilter(ev) {{
     const row=ev.target.closest('.remake-filter-row'); if (!row) return;
     const kind=row.dataset.filterKind, value=row.dataset.filterValue;
     if (kind === 'category') remakeAnalysisCategoryFilter = remakeAnalysisCategoryFilter === value ? '' : value;
     if (kind === 'culprit') remakeAnalysisCulpritFilter = remakeAnalysisCulpritFilter === value ? '' : value;
-    renderForensics(select.value);
+    renderForensics(select.value, periodSelect.value);
   }}
   document.getElementById('remakeCategoryBody').addEventListener('click', handleRemakeAnalysisFilter);
   document.getElementById('remakeCulpritBody').addEventListener('click', handleRemakeAnalysisFilter);
@@ -2976,7 +2981,7 @@ function renderForensics(factoryFilter) {{
   rerender();
   fetch(REMAKE_DATA_URL + '?v=' + Date.now())
     .then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }})
-    .then(function(saved) {{ mergeSavedRemakes(saved); rerender(); renderForensics(); setRemakeSaveStatus('Loaded saved annotations'); }})
+    .then(function(saved) {{ mergeSavedRemakes(saved); rerender(); renderForensics((document.getElementById('remakeAnalysisFactoryFilter') || {{value:''}}).value, (document.getElementById('remakeAnalysisPeriodFilter') || {{value:'ytd'}}).value); setRemakeSaveStatus('Loaded saved annotations'); }})
     .catch(function() {{ setRemakeSaveStatus(REMAKE_SAVE_URL ? 'Using embedded annotations' : 'Local only — save endpoint unavailable'); }});
 }})();
 
