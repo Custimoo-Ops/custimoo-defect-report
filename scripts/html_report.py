@@ -2905,6 +2905,17 @@ function renderForensics(factoryFilter, periodKey) {{
   const authoritativeRemakes = new Set();
   shareLists.forEach(function(list) {{ list.forEach(function(r) {{ const rowMonth=String(r.actual_shipping_date||r.completed_date||r.created_date||'').slice(0,7); if (r.remake && ((periodKey || 'ytd') === 'all' || (rowMonth && periodMonths.has(rowMonth)))) authoritativeRemakes.add(String(r.order||'').replace(/^#/,'').trim()); }}); }});
   (QARMA_SCOPE || []).forEach(function(x) {{ const orderKey=String(x[0]||'').replace(/^#/,'').trim(), scopeFactory=String(x[1]||'').trim(), scopeMonth=String(x[2]||'').slice(0,7); if (REMAKE_ORDER_NUMBERS.has(orderKey) && (!factoryFilter || scopeFactory === factoryFilter) && ((periodKey || 'ytd') === 'all' || (scopeMonth && periodMonths.has(scopeMonth)))) authoritativeRemakes.add(orderKey); }});
+  const authoritativeRows = [];
+  authoritativeRemakes.forEach(function(orderKey) {{
+    if (remakeRows.some(function(r) {{ return remakeOrderKey(r) === orderKey; }})) return;
+    let source = null;
+    shareLists.some(function(list) {{ return list.some(function(r) {{ if (String(r.order||'').replace(/^#/,'').trim() === orderKey) {{ source = r; return true; }} return false; }}); }});
+    if (!source) {{
+      (QARMA_SCOPE || []).some(function(x) {{ if (String(x[0]||'').replace(/^#/,'').trim() === orderKey) {{ source = {{order: orderKey, factory: x[1], month: x[2], qty: x[3] || 0}}; return true; }} return false; }});
+    }}
+    if (source) authoritativeRows.push(Object.assign({{order: orderKey, category: '', culprit: '', subcategory: '', verification: '', comment: ''}}, source));
+  }});
+  remakeRows = remakeRows.concat(authoritativeRows);
   const factoryRemakes = remakeRows.filter(function(r) {{ const orderKey=remakeOrderKey(r); const inAuthoritativeScope=authoritativeRemakes.has(orderKey); const factoryOk = !factoryFilter || String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(factoryFilter) >= 0; const rowMonth=String(r.month||r.created_date||r.date||'').slice(0,7); const periodOk = (periodKey || 'ytd') === 'all' ? true : (rowMonth && periodMonths.has(rowMonth)); return inAuthoritativeScope || (!authoritativeRemakes.size && factoryOk && periodOk); }});
   const filteredRemakes = factoryRemakes.filter(function(r) {{
     const category = String(r.category || '').trim() || 'Uncategorized';
