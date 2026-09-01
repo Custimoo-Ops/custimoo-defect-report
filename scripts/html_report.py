@@ -1807,6 +1807,9 @@ html = f"""<!DOCTYPE html>
   .factory-share-orders-scroll th:nth-child(13) {{ width: 5%; }}
   .factory-share-orders-scroll td {{ vertical-align: top; }}
   .factory-share-orders-scroll td:nth-child(11) {{ white-space: pre-wrap; }}
+  .remake-filter-row {{ cursor: pointer; }}
+  .remake-filter-row:hover, .remake-filter-row:focus {{ font-weight: 700; outline: 1px solid var(--border); outline-offset: -1px; }}
+  .remake-filter-row.active {{ font-weight: 700; }}
   .remake-mgmt-scroll {{ overflow-x: auto; overflow-y: auto; max-height: 70vh; width: 100%; }}
   .remake-mgmt-scroll .remake-table {{ min-width: 2340px; table-layout: fixed; }}
   .remake-mgmt-scroll .remake-table th:nth-child(1) {{ width: 55px; }}
@@ -2884,8 +2887,15 @@ function mergeSavedRemakes(saved) {{
 }}
 
 function forensicsRows(rows, fields) {{ return rows.filter(function(r) {{ return fields.every(function(f) {{ return !String(r[f] || '').trim(); }}); }}); }}
+var remakeAnalysisCategoryFilter = '';
+var remakeAnalysisCulpritFilter = '';
 function renderForensics(factoryFilter) {{
-  const filteredRemakes = remakeRows.filter(function(r) {{ return !factoryFilter || String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(factoryFilter) >= 0; }});
+  const factoryRemakes = remakeRows.filter(function(r) {{ return !factoryFilter || String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(factoryFilter) >= 0; }});
+  const filteredRemakes = factoryRemakes.filter(function(r) {{
+    const category = String(r.category || '').trim() || 'Uncategorized';
+    const culprit = String(r.culprit || '').trim() || 'Unassigned';
+    return (!remakeAnalysisCategoryFilter || category === remakeAnalysisCategoryFilter) && (!remakeAnalysisCulpritFilter || culprit === remakeAnalysisCulpritFilter);
+  }});
   const remakeReviewComplete = function(r) {{ const category=String(r.category||'').trim(); const culprit=String(r.culprit||'').trim(); const sub=String(r.culprit_subcategory||'').trim(); const notes=String(r.comment||'').trim(); const verified=String(r.verification_status||'').trim(); return Boolean(category && culprit && (culprit !== 'Custimoo' || sub) && (notes || verified)); }};
   const remUn = filteredRemakes.filter(function(r) {{ return !remakeReviewComplete(r); }});
   const remReviewed = filteredRemakes.filter(function(r) {{ return remUn.indexOf(r) < 0; }});
@@ -2897,8 +2907,8 @@ function renderForensics(factoryFilter) {{
   const largeUnSubtotal = largeUn.reduce(function(sum,r) {{ return sum+Number(r.qty||0); }},0);
   document.getElementById('remakeReviewedBody').innerHTML = remReviewed.slice().sort(function(a,b) {{ return Number(b.qty||0)-Number(a.qty||0); }}).map(function(r) {{ return '<tr><td>#'+esc(remakeOrderKey(r))+'</td><td>'+esc(r.customer||'(unknown)')+'</td><td class="right">'+(Number(r.qty)||0).toLocaleString()+'</td><td class="right">'+(reviewedSubtotal ? (Number(r.qty||0)/reviewedSubtotal*100).toFixed(1)+'%' : '0.0%')+'</td><td>'+esc(r.factory||'')+'</td><td>'+esc(r.category||'—')+'</td><td>'+esc(r.culprit||'—')+'</td><td>'+esc(r.culprit_subcategory||'—')+'</td><td>'+esc(r.verification_status||'—')+'</td><td>'+esc(r.comment||'—')+'</td></tr>'; }}).join('') || '<tr><td colspan="10">No reviewed remake orders match this factory.</td></tr>';
   document.getElementById('remakeLargeUnreviewedBody').innerHTML = largeUn.map(function(r) {{ return '<tr><td>#'+esc(remakeOrderKey(r))+'</td><td>'+esc(r.customer||'(unknown)')+'</td><td class="right"><strong>'+(Number(r.qty)||0).toLocaleString()+'</strong></td><td class="right">'+(largeUnSubtotal ? (Number(r.qty||0)/largeUnSubtotal*100).toFixed(1)+'%' : '0.0%')+'</td><td>'+esc(r.factory||'')+'</td><td>'+esc(r.admin||'')+'</td><td>'+esc(r.month||'')+'</td></tr>'; }}).join('') || '<tr><td colspan="7">No unreviewed remake orders match this factory.</td></tr>';
-  function groupHtml(g) {{ const subtotal=Object.keys(g).reduce(function(sum,k) {{ return sum + Number(g[k].qty||0); }},0); return Object.keys(g).sort(function(a,b) {{ return (g[b].qty||0)-(g[a].qty||0) || a.localeCompare(b); }}).map(function(k) {{ const share=subtotal ? (g[k].qty/subtotal*100).toFixed(1)+'%' : '0.0%'; return '<tr><td>'+esc(k)+'</td><td class="right">'+g[k].orders.toLocaleString()+'</td><td class="right">'+g[k].qty.toLocaleString()+'</td><td class="right">'+share+'</td></tr>'; }}).join(''); }}
-  document.getElementById('remakeCategoryBody').innerHTML = groupHtml(remCat); document.getElementById('remakeCulpritBody').innerHTML = groupHtml(remCul);
+  function groupHtml(g, kind) {{ const subtotal=Object.keys(g).reduce(function(sum,k) {{ return sum + Number(g[k].qty||0); }},0); return Object.keys(g).sort(function(a,b) {{ return (g[b].qty||0)-(g[a].qty||0) || a.localeCompare(b); }}).map(function(k) {{ const share=subtotal ? (g[k].qty/subtotal*100).toFixed(1)+'%' : '0.0%'; const active=(kind === 'category' ? remakeAnalysisCategoryFilter : remakeAnalysisCulpritFilter) === k; return '<tr class="remake-filter-row'+(active ? ' active' : '')+'" data-filter-kind="'+kind+'" data-filter-value="'+escapeAttr(k)+'" tabindex="0" role="button" aria-pressed="'+(active ? 'true' : 'false')+'"><td>'+esc(k)+'</td><td class="right">'+g[k].orders.toLocaleString()+'</td><td class="right">'+g[k].qty.toLocaleString()+'</td><td class="right">'+share+'</td></tr>'; }}).join(''); }}
+  document.getElementById('remakeCategoryBody').innerHTML = groupHtml(remCat, 'category'); document.getElementById('remakeCulpritBody').innerHTML = groupHtml(remCul, 'culprit');
   const qcUn = forensicsRows(qcRejectionRows, ['error_type','error_subcategory','avoidance_action','work_comment']); const et={{}}, escat={{}}, pa={{}};
   qcRejectionRows.forEach(function(r) {{ const e=String(r.error_type||'Investigating').trim()||'Investigating', s=String(r.error_subcategory||'Uncategorized').trim()||'Uncategorized', a=String(r.avoidance_action||'No prevention action recorded').trim()||'No prevention action recorded'; const ge=et[e]||(et[e]={{orders:0,qty:0}}); ge.orders++; ge.qty+=Number(r.defects_qty)||0; const gs=escat[s]||(escat[s]={{orders:0,qty:0}}); gs.orders++; gs.qty+=Number(r.defects_qty)||0; pa[a]=(pa[a]||0)+1; }});
   document.getElementById('qcAnalysisKpis').innerHTML = [['Total rejected orders',qcRejectionRows.length],['Reviewed',qcRejectionRows.length-qcUn.length],['Not forensically reviewed',qcUn.length],['Orders with reinspection',REINSPECTION_SUMMARY.orders],['Reinspection events',REINSPECTION_SUMMARY.events],['Approved reinspections',REINSPECTION_SUMMARY.approved_events],['Rejected reinspections',REINSPECTION_SUMMARY.rejected_events]].map(function(x) {{ return '<div class="card metric"><div class="label">'+x[0]+'</div><div class="value">'+x[1].toLocaleString()+'</div></div>'; }}).join('');
@@ -2913,6 +2923,17 @@ function renderForensics(factoryFilter) {{
   const factories=[...new Set(remakeRows.flatMap(function(r) {{ return String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).filter(Boolean); }}))].sort();
   factories.forEach(function(name) {{ const opt=document.createElement('option'); opt.value=name; opt.textContent=name; select.appendChild(opt); }});
   select.addEventListener('change', function() {{ renderForensics(select.value); }});
+  function handleRemakeAnalysisFilter(ev) {{
+    const row=ev.target.closest('.remake-filter-row'); if (!row) return;
+    const kind=row.dataset.filterKind, value=row.dataset.filterValue;
+    if (kind === 'category') remakeAnalysisCategoryFilter = remakeAnalysisCategoryFilter === value ? '' : value;
+    if (kind === 'culprit') remakeAnalysisCulpritFilter = remakeAnalysisCulpritFilter === value ? '' : value;
+    renderForensics(select.value);
+  }}
+  document.getElementById('remakeCategoryBody').addEventListener('click', handleRemakeAnalysisFilter);
+  document.getElementById('remakeCulpritBody').addEventListener('click', handleRemakeAnalysisFilter);
+  document.getElementById('remakeCategoryBody').addEventListener('keydown', function(ev) {{ if (ev.key === 'Enter' || ev.key === ' ') {{ ev.preventDefault(); handleRemakeAnalysisFilter(ev); }} }});
+  document.getElementById('remakeCulpritBody').addEventListener('keydown', function(ev) {{ if (ev.key === 'Enter' || ev.key === ' ') {{ ev.preventDefault(); handleRemakeAnalysisFilter(ev); }} }});
 }})();
 
 // Init Remake Mgmt
