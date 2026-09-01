@@ -238,6 +238,13 @@
   ],
   "not_remake": [
     {
+      "order": "22573",
+      "qty": 47,
+      "month": "2026-02",
+      "admin": "Muhammad Khizer",
+      "reason": "Not a production defect — customer requested a colour change and Tony approved the remake."
+    },
+    {
       "order": "22028",
       "qty": 350,
       "month": "2026-01",
