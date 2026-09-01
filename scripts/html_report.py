@@ -2054,7 +2054,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       </div>
       <div class="remake-mgmt-scroll">
         <table class="remake-table"><thead>
-          <tr><th>#</th><th>Order</th><th>Original Order</th><th class="right">QTY</th><th class="right">Affected QTY (FU)</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th>Source</th><th>Verification</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
+          <tr><th>#</th><th>Order</th><th>Original Order</th><th class="right">QTY</th><th class="right">Affected QTY (FU)</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th>Source</th><th>Verification</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:180px">Subcategory</th><th style="min-width:320px">Comment</th></tr>
         </thead><tbody id="remakeMgmtBody"></tbody></table>
       </div>
     </div>
@@ -2796,13 +2796,9 @@ function remakeCulpritOptions(selected) {{
 function custimooSubcategoryOptions(selected) {{ return '<option value="">Select subcategory</option>' + CUSTIMOO_SUBCATEGORIES.map(function(v) {{ return '<option value="' + escapeAttr(v) + '"' + (v === selected ? ' selected' : '') + '>' + esc(v) + '</option>'; }}).join(''); }}
 function renderCustimooSubcategory(row, order) {{ return row.culprit === 'Custimoo' ? '<select class="remake-edit remake-culprit-subcategory" aria-label="Custimoo subcategory for order ' + escapeAttr(order) + '">' + custimooSubcategoryOptions(row.culprit_subcategory || '') + '</select>' : '<span class="muted">—</span>'; }}
 function updateCustimooSubcategoryCell(row, order, input) {{
-  const cell = input.closest('td');
+  const cell = input.closest('tr').querySelector('.remake-culprit-subcategory-cell');
   if (!cell) return;
-  const old = cell.querySelector('.remake-culprit-subcategory');
-  if (old) old.remove();
-  const placeholder = cell.querySelector('.muted');
-  if (placeholder) placeholder.remove();
-  if (row.culprit === 'Custimoo') cell.insertAdjacentHTML('beforeend', renderCustimooSubcategory(row, order));
+  cell.innerHTML = renderCustimooSubcategory(row, order);
 }}
 function remakeCategoryOptions(selected) {{
   return '<option value="">Select category</option>' + REMAKE_CATEGORIES.map(function(category) {{
@@ -2850,10 +2846,11 @@ function renderRemakeMgmt(filterAdmin, filterFactory, filterMonth) {{
       + '<td>' + esc(r.source || 'Backend remake') + '</td>'
       + '<td>' + esc(r.verification_status || 'Confirmed backend remake') + '</td>'
       + '<td><select class="remake-edit remake-category" aria-label="Category for order ' + escapeAttr(order) + '">' + remakeCategoryOptions(r.category || '') + '</select></td>'
-      + '<td><select class="remake-edit remake-culprit" aria-label="Culprit for order ' + escapeAttr(order) + '">' + remakeCulpritOptions(r.culprit || '') + '</select>' + renderCustimooSubcategory(r, order) + '</td>'
+      + '<td><select class="remake-edit remake-culprit" aria-label="Culprit for order ' + escapeAttr(order) + '">' + remakeCulpritOptions(r.culprit || '') + '</select></td>'
+      + '<td class="remake-culprit-subcategory-cell">' + renderCustimooSubcategory(r, order) + '</td>'
       + '<td><input class="remake-edit remake-comment" aria-label="Comment for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.comment || '') + '" placeholder="Comment"></td>'
       + '</tr>';
-  }}).join('') || '<tr><td colspan="14">No remakes match the filters.</td></tr>';
+  }}).join('') || '<tr><td colspan="15">No remakes match the filters.</td></tr>';
   const grossQty = rows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);
   const netRows = rows.filter(function(r) {{ return !remakeIsExcluded(r); }});
   const netQty = netRows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);
