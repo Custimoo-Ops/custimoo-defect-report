@@ -2779,7 +2779,7 @@ var remakeData = {{}};
 var remakeSaveTimer = null;
 var remakeDirtyFields = new Map();
 var remakeRows = REMAKES.slice();
-const REMAKE_CATEGORIES = ['Color Mismatch','Customer Change','Damaged / Soiled','Fabric / Material','Logo / Design','No Record Found','Other','Print / Sublimation','Quantity Short / Missing','Sizing / Fit','Stitching / Construction','Uncategorized','Wrong Product / SKU'];
+const REMAKE_CATEGORIES = ['Color Mismatch','Customer Change','Damaged / Soiled','Fabric / Material','Logo / Design','No Record Found','Other','Panel mismatch','Print / Sublimation','Quantity Short / Missing','Sizing / Fit','Stitching / Construction','Uncategorized','Wrong Product / SKU'];
 const REMAKE_CULPRITS = ['Factory','Customer','Merchant','Shipping courier','Custimoo'];
 const CUSTIMOO_SUBCATEGORIES = ['Design','Administrative','Shipping','External'];
 function remakeCulpritOptions(selected) {{
