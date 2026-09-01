@@ -1069,6 +1069,8 @@ _factory_share_cur.close()
 for _factory in FACTORY_SHARE_ORDERS:
     FACTORY_SHARE_ORDERS[_factory].sort(key=lambda r: r.get('actual_shipping_date') or r.get('completed_date',''), reverse=True)
 FACTORY_SHARE_ORDERS_JSON = json.dumps(FACTORY_SHARE_ORDERS, cls=factory_data.DecimalEncoder)
+QARMA_SCOPE_JSON = json.dumps(sorted([list(x) for x in QARMA_SCOPE]), cls=factory_data.DecimalEncoder)
+REMAKE_ORDER_NUMBERS_JSON = json.dumps(sorted(REMAKE_ORDERS))
 
 
 def build_error_tracking():
@@ -2146,6 +2148,8 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
 const DATA = {DATA_JSON};
   const FACTORY_SHARE_LINKS = {FACTORY_SHARE_LINKS_JSON};
   const FACTORY_SHARE_ORDERS = {FACTORY_SHARE_ORDERS_JSON};
+  const QARMA_SCOPE = {QARMA_SCOPE_JSON};
+  const REMAKE_ORDER_NUMBERS = new Set({REMAKE_ORDER_NUMBERS_JSON});
 const HUMMEL_DATA = {HUMMEL_DATA_JSON};
 const YTD = {YTD_DATA_JSON};
 const FACTORY_COLORS = {FACTORY_COLORS};
@@ -2900,7 +2904,8 @@ function renderForensics(factoryFilter, periodKey) {{
   const shareLists = factoryFilter ? [FACTORY_SHARE_ORDERS[factoryFilter] || []] : Object.keys(FACTORY_SHARE_ORDERS || {{}}).map(function(k) {{ return FACTORY_SHARE_ORDERS[k] || []; }});
   const authoritativeRemakes = new Set();
   shareLists.forEach(function(list) {{ list.forEach(function(r) {{ const rowMonth=String(r.actual_shipping_date||r.completed_date||r.created_date||'').slice(0,7); if (r.remake && ((periodKey || 'ytd') === 'all' || (rowMonth && periodMonths.has(rowMonth)))) authoritativeRemakes.add(String(r.order||'').replace(/^#/,'').trim()); }}); }});
-  const factoryRemakes = remakeRows.filter(function(r) {{ const orderKey=remakeOrderKey(r); const factoryOk = !factoryFilter || String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(factoryFilter) >= 0; const rowMonth=String(r.month||r.created_date||r.date||'').slice(0,7); const periodOk = (periodKey || 'ytd') === 'all' ? true : (rowMonth && periodMonths.has(rowMonth)); return factoryOk && periodOk && (!authoritativeRemakes.size || authoritativeRemakes.has(orderKey)); }});
+  (QARMA_SCOPE || []).forEach(function(x) {{ const orderKey=String(x[0]||'').replace(/^#/,'').trim(), scopeFactory=String(x[1]||'').trim(), scopeMonth=String(x[2]||'').slice(0,7); if (REMAKE_ORDER_NUMBERS.has(orderKey) && (!factoryFilter || scopeFactory === factoryFilter) && ((periodKey || 'ytd') === 'all' || (scopeMonth && periodMonths.has(scopeMonth)))) authoritativeRemakes.add(orderKey); }});
+  const factoryRemakes = remakeRows.filter(function(r) {{ const orderKey=remakeOrderKey(r); const inAuthoritativeScope=authoritativeRemakes.has(orderKey); const factoryOk = !factoryFilter || String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(factoryFilter) >= 0; const rowMonth=String(r.month||r.created_date||r.date||'').slice(0,7); const periodOk = (periodKey || 'ytd') === 'all' ? true : (rowMonth && periodMonths.has(rowMonth)); return inAuthoritativeScope || (!authoritativeRemakes.size && factoryOk && periodOk); }});
   const filteredRemakes = factoryRemakes.filter(function(r) {{
     const category = String(r.category || '').trim() || 'Uncategorized';
     const culprit = String(r.culprit || '').trim() || 'Unassigned';
