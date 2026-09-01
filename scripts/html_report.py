@@ -1498,16 +1498,23 @@ if os.path.exists(_missing_path):
         })
         _existing.add(_mo)
 
-# Add Bronze customer/company names to every remake row.
+# Add Bronze customer/company names to every displayed remake row. Some
+# manually/external-listed rows are not currently typed R/Ri, so lookup by the
+# displayed order numbers rather than restricting the enrichment query by type.
 _remake_customer_cur = conn.cursor()
-_remake_customer_cur.execute("""
+_remake_customer_order_nums = [str(r.get('order') or '').replace('#', '').strip() for r in REMAKE_MGMT]
+_remake_customer_order_nums = [n for n in _remake_customer_order_nums if n]
+if _remake_customer_order_nums:
+    _remake_customer_cur.execute("""
 SELECT o.order_no, COALESCE(NULLIF(co.company_name, ''), NULLIF(BTRIM(CONCAT_WS(' ', c.first_name, c.last_name)), ''), '(unknown)'), o.customer_reference_no
 FROM orders o
 LEFT JOIN customers c ON c.id = o.customer_id
 LEFT JOIN companies co ON co.id = c.company_id
-WHERE o.order_type_symbol IN ('R', 'Ri') AND o.deleted_at IS NULL
-""")
-_remake_customer_by_order = {str(r[0]).replace('#', '').strip(): {'customer': str(r[1] or '(unknown)'), 'customer_ref': str(r[2] or '')} for r in _remake_customer_cur.fetchall()}
+WHERE o.order_no = ANY(%s) AND o.deleted_at IS NULL
+""", (_remake_customer_order_nums,))
+    _remake_customer_by_order = {str(r[0]).replace('#', '').strip(): {'customer': str(r[1] or '(unknown)'), 'customer_ref': str(r[2] or '')} for r in _remake_customer_cur.fetchall()}
+else:
+    _remake_customer_by_order = {}
 _remake_customer_cur.close()
 for _r in REMAKE_MGMT:
     _cust = _remake_customer_by_order.get(str(_r.get('order') or '').replace('#', '').strip(), {})
