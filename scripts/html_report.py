@@ -302,6 +302,7 @@ report_data = {
     'monthlyVolume': [r['volume'] for r in monthly_rows],
     'monthlyOrders': [total_monthly.get(m, {}).get('orders', 0) for m in months],
     'monthlyDefects': [r['defects'] for r in monthly_rows],
+    'monthlyAffectedQty': [r['defects'] for r in monthly_rows],
     'monthlyDefectOrders': [defect_order_count.get(m, 0) for m in months],
     'monthlyRemakeOrders': [remake_by_month.get(m, {}).get('orders', 0) for m in months],
     'monthlyRemakeQty': [remake_by_month.get(m, {}).get('qty', 0) for m in months],
@@ -309,6 +310,7 @@ report_data = {
     'totalVolume': total_volume,
     'totalOrders': total_orders,
     'totalDefects': total_defects,
+    'totalAffectedQty': total_defects,
     'totalDefectOrders': total_defect_orders,
     'totalRemakeOrders': sum(remake_by_month.get(m, {}).get('orders', 0) for m in months),
     'totalRemakeQty': sum(remake_by_month.get(m, {}).get('qty', 0) for m in months),
@@ -345,15 +347,15 @@ for f in factories:
     # Recalculate using only 2026 months
     fd = next((fd for fd in factory_monthly_data if fd['name'] == fname), None)
     if fd:
-        ytd_def = sum(fd['defects'][i] for i, m in enumerate(all_months_sorted) if m.startswith("2026") and i < len(fd['defects']))
-        ytd_vol = sum(fd['volumes'][i] for i, m in enumerate(all_months_sorted) if m.startswith("2026") and i < len(fd['volumes']))
+        ytd_def = sum(fd.get('affected_qty', fd.get('defects', []))[i] for i, m in enumerate(all_months_sorted) if m.startswith("2026") and i < len(fd.get('affected_qty', fd.get('defects', []))))
+        ytd_vol = sum(fd.get('volumes', [])[i] for i, m in enumerate(all_months_sorted) if m.startswith("2026") and i < len(fd.get('volumes', [])))
         ytd_orders_f = sum(fd.get('orders', [])[i] for i, m in enumerate(all_months_sorted) if m.startswith("2026") and i < len(fd.get('orders', [])))
         ytd_defect_orders_f = sum(fd.get('defect_orders', [])[i] for i, m in enumerate(all_months_sorted) if m.startswith("2026") and i < len(fd.get('defect_orders', [])))
         ytd_remake_orders_f = sum(fd.get('remake_orders', [])[i] for i, m in enumerate(all_months_sorted) if m.startswith("2026") and i < len(fd.get('remake_orders', [])))
         ytd_remake_qty_f = sum(fd.get('remake_qty', [])[i] for i, m in enumerate(all_months_sorted) if m.startswith("2026") and i < len(fd.get('remake_qty', [])))
         ytd_rate_f = round(ytd_def / ytd_vol * 100, 2) if ytd_vol > 0 else 0
         ytd_order_rate_f = round(ytd_defect_orders_f / ytd_orders_f * 100, 2) if ytd_orders_f > 0 else 0
-        ytd_factories.append({'name': fname, 'volume': ytd_vol, 'orders': ytd_orders_f, 'defects': ytd_def, 'defect_orders': ytd_defect_orders_f, 'remake_orders': ytd_remake_orders_f, 'remake_qty': ytd_remake_qty_f, 'rate': ytd_rate_f, 'order_rate': ytd_order_rate_f, 'qarma': ytd_qarma_stats.get(fname, {'sample_qty': 0, 'defects': 0, 'rate': 0, 'inspections': 0, 'orders_checked': 0})})
+        ytd_factories.append({'name': fname, 'volume': ytd_vol, 'orders': ytd_orders_f, 'defects': ytd_def, 'affected_qty': ytd_def, 'defect_orders': ytd_defect_orders_f, 'remake_orders': ytd_remake_orders_f, 'remake_qty': ytd_remake_qty_f, 'rate': ytd_rate_f, 'order_rate': ytd_order_rate_f, 'qarma': ytd_qarma_stats.get(fname, {'sample_qty': 0, 'defects': 0, 'rate': 0, 'inspections': 0, 'orders_checked': 0})})
 ytd_factories.sort(key=lambda x: -x['rate'])
 
 
@@ -389,6 +391,7 @@ YTD_DATA_JSON = json.dumps({
     'monthlyRemakeOrders': [remake_by_month.get(m, {}).get('orders', 0) for m in ytd_months],
     'monthlyRemakeQty': [remake_by_month.get(m, {}).get('qty', 0) for m in ytd_months],
     'monthlyDefects': [monthly_defects.get(m, 0) for m in ytd_months],
+    'monthlyAffectedQty': [monthly_defects.get(m, 0) for m in ytd_months],
     'monthlyDefectOrders': [defect_order_count.get(m, 0) for m in ytd_months],
     'volume': ytd_volume,
     'orders': ytd_orders,
@@ -904,6 +907,7 @@ def finalize_groups(groups):
             'volume': vol,
             'orders': orders_count,
             'defects': g['defects'],
+            'affected_qty': g['defects'],
             'defect_orders': defect_orders_count,
             'remake_orders': remake_orders_count,
             'remake_qty': remake_orders_qty,
@@ -1168,7 +1172,7 @@ def factory_rows_for_months(month_keys):
         if vol == 0 and defect == 0:
             continue
         rows.append({
-            'name': fd['name'], 'volume': vol, 'orders': ords, 'defects': defect,
+            'name': fd['name'], 'volume': vol, 'orders': ords, 'defects': defect, 'affected_qty': defect,
             'defect_orders': defect_orders,
             'remake_orders': remake_orders_total,
             'remake_orders_checked_by_qarma': sum(remake_checked),
@@ -1408,6 +1412,8 @@ PERIODS_JSON = json.dumps(PERIODS, cls=factory_data.DecimalEncoder)
 PERIODS_JSON_SAFE = PERIODS_JSON.replace('<', '\\\\u003C').replace('>', '\\\\u003E')
 
 # ── Remake Management data ──
+# Affected QTY is sourced only from FU failure-update order details; it is not backend remake QTY.
+FU_AFFECTED_BY_ORDER = {str(d.get('order') or '').replace('#', '').strip(): d.get('affected') for d in order_details if d.get('order') and d.get('affected') is not None}
 # Primary source: exported by-admin remake report from iCloud Desktop, committed as JSON
 # so GitHub Actions/Fly deploys do not depend on local iCloud files.
 remake_json_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'remake_report_by_admin.json')
@@ -1524,6 +1530,8 @@ REMAKE_MGMT = [r for r in REMAKE_MGMT if not _remake_factory_is_excluded(r.get('
 
 for _r in REMAKE_MGMT:
     _order = str(_r.get('order') or '').replace('#', '').strip()
+    if _order in FU_AFFECTED_BY_ORDER:
+        _r['affected_qty'] = FU_AFFECTED_BY_ORDER[_order]
     _note = remake_backend_actions.admin_action_note(_order)
     if not _note:
         continue
@@ -2023,7 +2031,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       </div>
       <div class="remake-mgmt-scroll">
         <table class="remake-table"><thead>
-          <tr><th>#</th><th>Order</th><th>Original Order</th><th class="right">QTY</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th>Source</th><th>Verification</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
+          <tr><th>#</th><th>Order</th><th>Original Order</th><th class="right">QTY</th><th class="right">Affected QTY (FU)</th><th>Customer</th><th>Admin</th><th>Factory</th><th>Month</th><th>Source</th><th>Verification</th><th style="min-width:180px">Category</th><th style="min-width:180px">Culprit</th><th style="min-width:320px">Comment</th></tr>
         </thead><tbody id="remakeMgmtBody"></tbody></table>
       </div>
     </div>
@@ -2257,6 +2265,7 @@ function aggregateFactories(list) {{
     acc.remake_orders += f.remake_orders || 0;
     acc.remake_orders_checked_by_qarma += f.remake_orders_checked_by_qarma || 0;
     acc.remake_orders_not_checked_by_qarma += f.remake_orders_not_checked_by_qarma || 0;
+    acc.affected_qty += f.affected_qty || f.defects || 0;
     acc.remake_qty += f.remake_qty || 0;
     acc.qarma.sample_qty += q.sample_qty || 0;
     acc.qarma.defects += q.defects || 0;
@@ -2265,7 +2274,7 @@ function aggregateFactories(list) {{
     acc.qarma.orders_with_reinspection += q.orders_with_reinspection || 0;
     acc.qarma.rejected_orders += q.rejected_orders || 0;
     return acc;
-  }}, {{volume:0, orders:0, remake_orders:0, remake_orders_checked_by_qarma:0, remake_orders_not_checked_by_qarma:0, remake_qty:0, qarma:{{sample_qty:0, defects:0, inspections:0, orders_checked:0, orders_with_reinspection:0, rejected_orders:0}}}});
+  }}, {{volume:0, orders:0, remake_orders:0, remake_orders_checked_by_qarma:0, remake_orders_not_checked_by_qarma:0, affected_qty:0, remake_qty:0, qarma:{{sample_qty:0, defects:0, inspections:0, orders_checked:0, orders_with_reinspection:0, rejected_orders:0}}}});
 }}
 function valWithDelta(html) {{ return html; }}
 function qarmaRate(q, totalOrderQty) {{ return (totalOrderQty || 0) > 0 ? (q.defects || 0) / totalOrderQty * 100 : 0; }}
@@ -2365,6 +2374,7 @@ function measureCells(f, q) {{
   }}
   // qty mode
   return '<td class="right" title="' + escapeAttr(qtyRulesTooltip()) + '">' + (f.volume || 0).toLocaleString() + '</td>'
+    + '<td class="right" title="' + escapeAttr(measureTooltip('Affected QTY', 'Sum of affected quantity from the FU failure-update source only; this is not the full backend order quantity.')) + '">' + (f.affected_qty || f.defects || 0).toLocaleString() + '</td>'
     + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + (q.sample_qty || 0).toLocaleString() + '</td>'
     + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + (q.orders_with_reinspection || 0).toLocaleString() + '</td>'
     + '<td class="right" title="' + escapeAttr(qarmaRulesTooltip()) + '">' + ((f.volume || 0) > 0 ? (((q.sample_qty || 0) / f.volume * 100).toFixed(1) + '%') : '—') + '</td>'
@@ -2388,6 +2398,7 @@ function measureHeaders() {{
       + '<th class="right">Remake Orders Err%</th>';
   }}
   return '<th class="right">Total Order QTY</th>'
+    + '<th class="right">Affected QTY</th>'
     + '<th class="right">Qarma QTY Checked</th>'
     + '<th class="right">Orders with Reinspection</th>'
     + '<th class="right">Qarma QC Coverage%</th>'
@@ -2808,6 +2819,7 @@ function renderRemakeMgmt(filterAdmin, filterFactory, filterMonth) {{
       + '<td class="order-num">#' + esc(order) + '</td>'
       + '<td><input class="remake-edit remake-original-order" aria-label="Original order number for remake ' + escapeAttr(order) + '" value="' + escapeAttr(r.original_order || '') + '" placeholder="Original order"></td>'
       + '<td class="right">' + (r.qty || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (r.affected_qty == null ? '—' : Number(r.affected_qty).toLocaleString()) + '</td>'
       + '<td>' + esc(r.customer || '(unknown)') + '</td>'
       + '<td>' + esc(r.admin || '') + '</td>'
       + '<td>' + esc(r.factory || '') + '</td>'
@@ -2818,7 +2830,7 @@ function renderRemakeMgmt(filterAdmin, filterFactory, filterMonth) {{
       + '<td><select class="remake-edit remake-culprit" aria-label="Culprit for order ' + escapeAttr(order) + '">' + remakeCulpritOptions(r.culprit || '') + '</select>' + renderCustimooSubcategory(r, order) + '</td>'
       + '<td><input class="remake-edit remake-comment" aria-label="Comment for order ' + escapeAttr(order) + '" value="' + escapeAttr(r.comment || '') + '" placeholder="Comment"></td>'
       + '</tr>';
-  }}).join('') || '<tr><td colspan="13">No remakes match the filters.</td></tr>';
+  }}).join('') || '<tr><td colspan="14">No remakes match the filters.</td></tr>';
   const grossQty = rows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);
   const netRows = rows.filter(function(r) {{ return !remakeIsExcluded(r); }});
   const netQty = netRows.reduce(function(s,r) {{ return s + (r.qty || 0); }}, 0);

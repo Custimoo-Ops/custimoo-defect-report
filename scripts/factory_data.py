@@ -485,6 +485,7 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
             'volume': total_vol,
             'orders': total_ords,
             'defects': factory_defects[f],
+            'affected_qty': factory_defects[f],
             'defect_orders': len(factory_orders_set[f]),
             'remake_orders': total_remake_ords,
             'remake_orders_checked_by_qarma': remake_checked_orders,
@@ -499,7 +500,7 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
 
     factory_monthly_data = []
     for f in ['Mavic Sports', 'Selberian Sports Wear', 'Silver-Star Group', 'Karrizo', 'Rajco']:
-        fdata = {'name': f, 'defects': [], 'volumes': [], 'orders': [], 'defect_orders': [], 'remake_orders': [], 'remake_orders_checked_by_qarma': [], 'remake_orders_not_checked_by_qarma': [], 'remake_qty': []}
+        fdata = {'name': f, 'defects': [], 'affected_qty': [], 'volumes': [], 'orders': [], 'defect_orders': [], 'remake_orders': [], 'remake_orders_checked_by_qarma': [], 'remake_orders_not_checked_by_qarma': [], 'remake_qty': []}
         for m in all_months:
             d = monthly_factory_defects[f].get(m, 0)
             pv = factory_month_pipe[f].get(m, {}).get('qty', 0)
@@ -510,6 +511,7 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
             rq = factory_month_pipe[f].get(m, {}).get('remake_qty', 0)
             do = len(monthly_factory_defect_orders[f].get(m, set()))
             fdata['defects'].append(d)
+            fdata['affected_qty'].append(d)
             fdata['volumes'].append(pv)
             fdata['orders'].append(po)
             fdata['defect_orders'].append(do)
