@@ -1786,6 +1786,12 @@ html = f"""<!DOCTYPE html>
   th, td {{ padding: 11px 10px; border-bottom: 1px solid var(--border); text-align: left; }}
   th {{ font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: #fafbff; }}
   .wrap:has(#remake-mgmt.active) {{ max-width: 2400px; }}
+  .wrap:has(#summary.active) {{ max-width: 2800px; }}
+  .wrap:has(#summary.active) #factoryTable {{ min-width: 2600px; table-layout: fixed; }}
+  .wrap:has(#summary.active) #factoryTable th, .wrap:has(#summary.active) #factoryTable td {{ min-width: 135px; padding-left: 14px; padding-right: 14px; }}
+  .wrap:has(#summary.active) #factoryTable th:first-child, .wrap:has(#summary.active) #factoryTable td:first-child {{ min-width: 220px; width: 220px; }}
+  .wrap:has(#summary.active) #factoryTable th:last-child, .wrap:has(#summary.active) #factoryTable td:last-child {{ min-width: 230px; width: 230px; }}
+  .wrap:has(#summary.active) .card:has(#factoryTable) {{ overflow-x: auto; }}
   .wrap:has(#factory-share-page.active) {{ max-width: none; width: 100%; padding-left: 20px; padding-right: 20px; }}
   .factory-share-orders-scroll {{ overflow: visible; max-height: none; width: 100%; }}
   .factory-share-orders-scroll table {{ width: 100%; min-width: 0; table-layout: fixed; font-size: 12px; }}
