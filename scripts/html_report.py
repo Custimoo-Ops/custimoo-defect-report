@@ -2904,7 +2904,8 @@ function renderForensics(factoryFilter, periodKey) {{
   const shareLists = factoryFilter ? [FACTORY_SHARE_ORDERS[factoryFilter] || []] : Object.keys(FACTORY_SHARE_ORDERS || {{}}).map(function(k) {{ return FACTORY_SHARE_ORDERS[k] || []; }});
   const authoritativeRemakes = new Set();
   shareLists.forEach(function(list) {{ list.forEach(function(r) {{ const rowMonth=String(r.actual_shipping_date||r.completed_date||r.created_date||'').slice(0,7); if (r.remake && ((periodKey || 'ytd') === 'all' || (rowMonth && periodMonths.has(rowMonth)))) authoritativeRemakes.add(String(r.order||'').replace(/^#/,'').trim()); }}); }});
-  (QARMA_SCOPE || []).forEach(function(x) {{ const orderKey=String(x[0]||'').replace(/^#/,'').trim(), scopeFactory=String(x[1]||'').trim(), scopeMonth=String(x[2]||'').slice(0,7); if (REMAKE_ORDER_NUMBERS.has(orderKey) && (!factoryFilter || scopeFactory === factoryFilter) && ((periodKey || 'ytd') === 'all' || (scopeMonth && periodMonths.has(scopeMonth)))) authoritativeRemakes.add(orderKey); }});
+  function sameFactory(a, b) {{ const norm=function(v) {{ const s=String(v||'').trim().toLowerCase(); if (s.indexOf('mavic') >= 0) return 'mavic sports'; if (s.indexOf('selberian') >= 0) return 'selberian sports wear'; if (s.indexOf('silver-star') >= 0 || s.indexOf('silver star') >= 0) return 'silver-star group'; return s; }}; return !b || norm(a) === norm(b); }}
+  (QARMA_SCOPE || []).forEach(function(x) {{ const orderKey=String(x[0]||'').replace(/^#/,'').trim(), scopeFactory=String(x[1]||'').trim(), scopeMonth=String(x[2]||'').slice(0,7); if (REMAKE_ORDER_NUMBERS.has(orderKey) && sameFactory(scopeFactory, factoryFilter) && ((periodKey || 'ytd') === 'all' || (scopeMonth && periodMonths.has(scopeMonth)))) authoritativeRemakes.add(orderKey); }});
   const authoritativeRows = [];
   authoritativeRemakes.forEach(function(orderKey) {{
     if (remakeRows.some(function(r) {{ return remakeOrderKey(r) === orderKey; }})) return;
