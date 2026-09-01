@@ -1031,8 +1031,9 @@ JOIN order_items oi ON oi.order_id=o.id AND oi.deleted_at IS NULL
 LEFT JOIN order_item_activities a ON a.order_item_id=oi.id
 LEFT JOIN customers c ON c.id=o.customer_id
 LEFT JOIN companies co ON co.id=c.company_id
-WHERE o.deleted_at IS NULL AND oi.status::text='completed'
+WHERE o.deleted_at IS NULL
 GROUP BY o.order_no,o.created_at,o.price_info,co.company_name,c.first_name,c.last_name,o.customer_reference_no,o.order_type_symbol
+HAVING bool_and(oi.status::text <> 'order_cancel')
 """)
 FACTORY_SHARE_ORDERS = {}
 _factory_qarma_details = {}
