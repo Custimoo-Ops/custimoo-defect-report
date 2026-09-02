@@ -1904,14 +1904,14 @@ html = f"""<!DOCTYPE html>
   .category-picker-option {{ display:flex; align-items:center; gap:8px; padding:6px 4px; white-space:nowrap; cursor:pointer; }}
   .category-picker-option:hover {{ background:rgba(128,128,128,.12); }}
   .category-picker-option input {{ width:16px; height:16px; }}
-  .filter-stack {{ display:flex; flex-direction:column; gap:0; min-width:320px; width:min(100%, 620px); border:1px solid var(--border); border-radius:6px; overflow:visible; }}
+  .filter-stack {{ display:flex; flex-direction:column; gap:0; width:100%; max-width:none; border:1px solid var(--border); border-radius:6px; overflow:visible; }}
   .filter-row {{ display:grid; grid-template-columns:120px minmax(0,1fr); align-items:center; gap:10px; min-height:42px; padding:4px 10px; border-bottom:1px solid var(--border); }}
   .filter-row:last-child {{ border-bottom:0; }}
   .filter-row > .muted {{ font-weight:700; }}
   .filter-row .filter-select, .filter-row .category-picker {{ width:100%; max-width:none; box-sizing:border-box; }}
   #summary .section-head, #ytd .section-head {{ justify-content:flex-start; flex-direction:column; align-items:flex-start; }}
   #summary .filter-stack, #ytd .filter-stack {{ margin-left:0; margin-right:auto; }}
-  .choice-list {{ display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; }}
+  .choice-list {{ display:flex; flex-wrap:wrap; gap:10px 24px; align-items:center; width:100%; }}
   .choice-list label {{ display:inline-flex; align-items:center; gap:5px; white-space:nowrap; cursor:pointer; font-size:13px; }}
   .choice-list input {{ width:16px; height:16px; margin:0; }}
   .internal-filter {{ display:none !important; }}
