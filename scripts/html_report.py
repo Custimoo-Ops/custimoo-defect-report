@@ -1797,10 +1797,11 @@ html = f"""<!DOCTYPE html>
   th {{ font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); background: #fafbff; }}
   .wrap:has(#remake-mgmt.active) {{ max-width: 2400px; }}
   .wrap:has(#summary.active) {{ max-width: 2800px; }}
-  .wrap:has(#summary.active) #factoryTable {{ min-width: 2600px; table-layout: fixed; }}
-  .wrap:has(#summary.active) #factoryTable th, .wrap:has(#summary.active) #factoryTable td {{ min-width: 135px; padding-left: 14px; padding-right: 14px; }}
-  .wrap:has(#summary.active) #factoryTable th:first-child, .wrap:has(#summary.active) #factoryTable td:first-child {{ min-width: 220px; width: 220px; }}
-  .wrap:has(#summary.active) #factoryTable th:last-child, .wrap:has(#summary.active) #factoryTable td:last-child {{ min-width: 230px; width: 230px; }}
+  .wrap:has(#summary.active) #factoryTable {{ min-width: 1800px; table-layout: fixed; }}
+  .wrap:has(#summary.active) #factoryTable th, .wrap:has(#summary.active) #factoryTable td {{ min-width: 105px; padding-left: 8px; padding-right: 8px; }}
+  .wrap:has(#summary.active) #factoryTable th {{ white-space: normal; overflow-wrap: anywhere; line-height: 1.15; }}
+  .wrap:has(#summary.active) #factoryTable th:first-child, .wrap:has(#summary.active) #factoryTable td:first-child {{ min-width: 170px; width: 170px; }}
+  .wrap:has(#summary.active) #factoryTable th:last-child, .wrap:has(#summary.active) #factoryTable td:last-child {{ min-width: 170px; width: 170px; }}
   .wrap:has(#summary.active) .card:has(#factoryTable) {{ overflow-x: auto; }}
   .wrap:has(#factory-share-page.active) {{ max-width: none; width: 100%; padding-left: 20px; padding-right: 20px; }}
   .factory-share-orders-scroll {{ overflow: visible; max-height: none; width: 100%; }}
