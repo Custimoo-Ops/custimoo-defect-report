@@ -2179,6 +2179,7 @@ function applyForceMajourToReport() {{
   const targets=[DATA].concat(Object.keys(PERIODS).map(function(k) {{ return PERIODS[k]; }}));
   targets.forEach(function(p) {{ const keys=p.monthKeys||MONTH_KEYS; rows.forEach(function(r) {{ const month=String(r.month||'').slice(0,7), idx=keys.indexOf(month); if (idx < 0) return; const names=String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}); names.forEach(function(name) {{ const f=(p.factories||[]).find(function(x) {{ return x.name === name; }}); if (!f) return; f.remake_orders=Math.max(0,(f.remake_orders||0)-1); f.remake_qty=Math.max(0,(f.remake_qty||0)-Number(r.qty||0)); if (f.monthly) {{ f.monthly.remake_orders[idx]=Math.max(0,(f.monthly.remake_orders[idx]||0)-1); f.monthly.remake_qty[idx]=Math.max(0,(f.monthly.remake_qty[idx]||0)-Number(r.qty||0)); }} }}); if (p.monthlyRemakeOrders) p.monthlyRemakeOrders[idx]=Math.max(0,(p.monthlyRemakeOrders[idx]||0)-1); if (p.monthlyRemakeQty) p.monthlyRemakeQty[idx]=Math.max(0,(p.monthlyRemakeQty[idx]||0)-Number(r.qty||0)); }}); }});
 }}
+const REMAKE_CATEGORIES = ['Color Mismatch','CSM Miscommunication','Customer Change','Damaged / Soiled','Fabric / Material','Force Majour','Logo / Design','No Record Found','NOT A REMAKE','Other','Panel mismatch','Print / Sublimation','Quantity Short / Missing','Sizing / Fit','Stitching / Construction','Uncategorized','Wrong Product / SKU'];
 let visibleRemakeCategories = new Set();
 function syncCategoryFilters() {{
   ['summary','ytd'].forEach(function(prefix) {{
@@ -2847,7 +2848,6 @@ var remakeData = {{}};
 var remakeSaveTimer = null;
 var remakeDirtyFields = new Map();
 var remakeRows = REMAKES.slice();
-const REMAKE_CATEGORIES = ['Color Mismatch','CSM Miscommunication','Customer Change','Damaged / Soiled','Fabric / Material','Force Majour','Logo / Design','No Record Found','NOT A REMAKE','Other','Panel mismatch','Print / Sublimation','Quantity Short / Missing','Sizing / Fit','Stitching / Construction','Uncategorized','Wrong Product / SKU'];
 const REMAKE_CULPRITS = ['Factory','Customer','Merchant','Shipping courier','Custimoo'];
 const CUSTIMOO_SUBCATEGORIES = ['Design','Administrative','Shipping','External'];
 function remakeCulpritOptions(selected) {{
