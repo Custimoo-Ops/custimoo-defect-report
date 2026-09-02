@@ -1936,7 +1936,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     </div>
     <div class="card metric"><div class="label" id="goalRateLabel">2026 Goal — Remake QTY Error Rate</div><div class="value" id="goalRate">0.50%</div><div class="sub" id="goalSub">Goal for 2026: ≤0.50% remake-qty error rate.</div></div>
     <div class="card">
-      <div class="section-head"><h3 class="section-title" id="breakdownTitle">Remake / Qarma Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="summaryCategoryFilter" class="muted">Categories: <select id="summaryCategoryFilter" class="filter-select" multiple size="1" title="Select categories to include"></select></label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
+      <div class="section-head"><h3 class="section-title" id="breakdownTitle">Remake / Qarma Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="summaryCategoryFilter" class="muted">Categories: <select id="summaryCategoryFilter" class="filter-select" multiple size="1" style="min-width:220px;width:220px;height:34px" title="Select categories to include"></select></label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
       <div class="hint" id="breakdownHint">Factory view combines backend remake data with Qarma physical QC catch data from the live daily CSV export.</div>
       <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">Qarma QTY Checked</th><th class="right">Qarma QC Coverage%</th><th class="right">Qarma Defects QTY</th><th class="right">Remake QTY</th><th class="right">Remake QTY Err%</th><th class="right">Qarma Err%</th><th class="right">Qarma QC to 0.5% / 0.2%</th></tr></thead><tbody id="factoryBody"></tbody></table>
     </div>
@@ -1978,7 +1978,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <div class="card metric"><div class="label" id="periodKpiLabel">YTD 2026 Remakes</div><div class="value" id="periodKpiValue"></div><div class="sub" id="periodKpiSub"></div></div>
     </div>
     <div class="card">
-      <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="ytdFactoryFilter" class="muted" style="font-size:13px;font-weight:700">Factory:</label><select id="ytdFactoryFilter" class="filter-select"><option value="">All factories</option></select><label for="ytdCategoryFilter" class="muted">Categories: <select id="ytdCategoryFilter" class="filter-select" multiple size="1" title="Select categories to include"></select></label><select id="ytdMeasureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div></div>
+      <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="ytdFactoryFilter" class="muted" style="font-size:13px;font-weight:700">Factory:</label><select id="ytdFactoryFilter" class="filter-select"><option value="">All factories</option></select><label for="ytdCategoryFilter" class="muted">Categories: <select id="ytdCategoryFilter" class="filter-select" multiple size="1" style="min-width:220px;width:220px;height:34px" title="Select categories to include"></select></label><select id="ytdMeasureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div></div>
       <div class="chart-wrap"><canvas id="ytdChart"></canvas></div>
       <div class="footnote">Blue bars show accumulated volume/orders. Red line shows accumulated remake percentage for the selected measure.</div>
     </div>
@@ -2810,7 +2810,7 @@ const ytdMeasureFilter = document.getElementById('ytdMeasureFilter');
 const summaryCategoryFilter = document.getElementById('summaryCategoryFilter');
 const ytdCategoryFilter = document.getElementById('ytdCategoryFilter');
 [summaryCategoryFilter, ytdCategoryFilter].filter(Boolean).forEach(function(el) {{ el.addEventListener('change', function() {{ applyCategorySelection(selectedCategoriesFromControls(el)); }}); }});
-syncCategoryFilters();
+// Category filters are initialized after REMAKE_CATEGORIES is declared.
 if (ytdMeasureFilter) {{ ytdMeasureFilter.value = YTD_MEASURE; ytdMeasureFilter.addEventListener('change', applyYtdMeasure); }}
 ytdCumulativeTable();
 renderYtdFactoryTable();
@@ -2986,6 +2986,7 @@ function exportFilteredRemakesCsv() {{
 
 // Init Remake Analysis factory filter
 (function() {{
+  syncCategoryFilters();
   const select=document.getElementById('remakeAnalysisFactoryFilter');
   if (!select) return;
   const factories=[...new Set(remakeRows.flatMap(function(r) {{ return String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).filter(Boolean); }}))].sort();
