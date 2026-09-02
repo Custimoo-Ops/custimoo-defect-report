@@ -2063,7 +2063,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     </div>
   </section>
   <section id="remake-analysis" class="page">
-    <div class="card"><div class="section-head"><h3 class="section-title">Remake Forensics — Categories and Culprits</h3><label class="muted">Factory <select id="remakeAnalysisFactoryFilter" class="filter-select"><option value="">All factories</option></select></label><label class="muted">Period <select id="remakeAnalysisPeriodFilter" class="filter-select"><option value="all">All</option><option value="ytd" selected>YTD 2026</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="quarter">Quarter</option></select></label></div><div class="hint">Reviewed means Category and Culprit are assigned, any required Custimoo subcategory is set, and the team has added a comment or verification status. A Category alone is not complete.</div><div id="remakeAnalysisKpis" class="exec-grid"></div></div>
+    <div class="card"><div class="section-head"><h3 class="section-title">Remake Forensics — Categories and Culprits</h3><label class="muted">Factory <select id="remakeAnalysisFactoryFilter" class="filter-select"><option value="">All factories</option></select></label><label class="muted">Period <select id="remakeAnalysisPeriodFilter" class="filter-select"><option value="all">All</option><option value="ytd" selected>YTD 2026</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="quarter">Quarter</option></select></label><label class="muted"><input type="checkbox" id="remakeAnalysisExcludeForceMajour"> Exclude Force Majour</label></div><div class="hint">Reviewed means Category and Culprit are assigned, any required Custimoo subcategory is set, and the team has added a comment or verification status. A Category alone is not complete.</div><div id="remakeAnalysisKpis" class="exec-grid"></div></div>
     <div class="card"><h3 class="section-title">Reviewed Remake Orders — Team Analysis Completed</h3><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Customer</th><th>QTY</th><th>% of subtotal</th><th>Factory</th><th>Category</th><th>Culprit</th><th>Subcategory</th><th>Verification</th><th>Comment</th></tr></thead><tbody id="remakeReviewedBody"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Largest Unreviewed Remake Orders</h3><div class="hint">Outstanding orders sorted by QTY, largest first.</div><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Customer</th><th>QTY</th><th>% of subtotal</th><th>Factory</th><th>Admin</th><th>Month</th></tr></thead><tbody id="remakeLargeUnreviewedBody"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">By Category</h3><table><thead><tr><th>Category</th><th class="right">Orders</th><th class="right">QTY</th><th class="right">% of subtotal</th></tr></thead><tbody id="remakeCategoryBody"></tbody></table></div>
@@ -2907,6 +2907,7 @@ function mergeSavedRemakes(saved) {{
 function forensicsRows(rows, fields) {{ return rows.filter(function(r) {{ return fields.every(function(f) {{ return !String(r[f] || '').trim(); }}); }}); }}
 var remakeAnalysisCategoryFilter = '';
 var remakeAnalysisCulpritFilter = '';
+var remakeAnalysisExcludeForceMajour = false;
 function renderForensics(factoryFilter, periodKey) {{
   const period = PERIODS[periodKey || 'ytd'] || DATA;
   const periodMonths = new Set(period.monthKeys || MONTH_KEYS);
@@ -2930,7 +2931,7 @@ function renderForensics(factoryFilter, periodKey) {{
   const filteredRemakes = factoryRemakes.filter(function(r) {{
     const category = String(r.category || '').trim() || 'Uncategorized';
     const culprit = String(r.culprit || '').trim() || 'Unassigned';
-    return (!remakeAnalysisCategoryFilter || category === remakeAnalysisCategoryFilter) && (!remakeAnalysisCulpritFilter || culprit === remakeAnalysisCulpritFilter);
+    return (!remakeAnalysisExcludeForceMajour || category !== 'Force Majour') && (!remakeAnalysisCategoryFilter || category === remakeAnalysisCategoryFilter) && (!remakeAnalysisCulpritFilter || culprit === remakeAnalysisCulpritFilter);
   }});
   const remakeReviewComplete = function(r) {{ const category=String(r.category||'').trim(); const culprit=String(r.culprit||'').trim(); const sub=String(r.culprit_subcategory||'').trim(); const notes=String(r.comment||'').trim(); const verified=String(r.verification_status||'').trim(); return Boolean(category && culprit && (culprit !== 'Custimoo' || sub) && (notes || verified)); }};
   const remUn = filteredRemakes.filter(function(r) {{ return !remakeReviewComplete(r); }});
@@ -2960,6 +2961,8 @@ function renderForensics(factoryFilter, periodKey) {{
   const factories=[...new Set(remakeRows.flatMap(function(r) {{ return String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).filter(Boolean); }}))].sort();
   factories.forEach(function(name) {{ const opt=document.createElement('option'); opt.value=name; opt.textContent=name; select.appendChild(opt); }});
   const periodSelect=document.getElementById('remakeAnalysisPeriodFilter');
+  const excludeForceMajour=document.getElementById('remakeAnalysisExcludeForceMajour');
+  if (excludeForceMajour) excludeForceMajour.addEventListener('change', function() {{ remakeAnalysisExcludeForceMajour=excludeForceMajour.checked; renderForensics(select.value, periodSelect.value); }});
   const rerender=function() {{ renderForensics(select.value, periodSelect.value); }};
   select.addEventListener('change', rerender);
   periodSelect.addEventListener('change', rerender);
