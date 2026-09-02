@@ -1909,6 +1909,8 @@ html = f"""<!DOCTYPE html>
   .filter-row:last-child {{ border-bottom:0; }}
   .filter-row > .muted {{ font-weight:700; }}
   .filter-row .filter-select, .filter-row .category-picker {{ width:100%; max-width:none; box-sizing:border-box; }}
+  #summary .section-head, #ytd .section-head {{ justify-content:flex-start; flex-direction:column; align-items:flex-start; }}
+  #summary .filter-stack, #ytd .filter-stack {{ margin-left:0; margin-right:auto; }}
   .choice-list {{ display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; }}
   .choice-list label {{ display:inline-flex; align-items:center; gap:5px; white-space:nowrap; cursor:pointer; font-size:13px; }}
   .choice-list input {{ width:16px; height:16px; margin:0; }}
@@ -2202,7 +2204,7 @@ function syncCategoryFilters() {{
   }});
 }}
 function syncCulpritFilters() {{
-  const values=[...new Set(REMAKES.map(function(r) {{ return String(r.culprit||'').trim() || 'Unassigned'; }}))].sort();
+  const values=[...new Set(['Factory','Customer','Merchant','Shipping courier','Custimoo','Unassigned'].concat(REMAKES.map(function(r) {{ return String(r.culprit||'').trim(); }}).filter(Boolean)))].sort();
   ['summaryCulpritChoices','ytdCulpritChoices'].forEach(function(id) {{ const el=document.getElementById(id); if (!el) return; el.innerHTML=''; [['','All culprits']].concat(values.map(function(v) {{ return [v,v]; }})).forEach(function(pair) {{ const label=document.createElement('label'); const input=document.createElement('input'); input.type='checkbox'; input.value=pair[0]; input.checked=pair[0]===visibleRemakeCulprit; input.addEventListener('change', function() {{ if (!input.checked) {{ input.checked=true; return; }} el.querySelectorAll('input').forEach(function(other) {{ if (other!==input) other.checked=false; }}); applyCulpritSelection(input.value); }}); label.appendChild(input); label.appendChild(document.createTextNode(' '+pair[1])); el.appendChild(label); }}); }});
 }}
 function wireChoiceGroups() {{ document.querySelectorAll('.choice-list input[data-select]').forEach(function(input) {{ input.addEventListener('change', function() {{ if (!input.checked) {{ input.checked=true; return; }} const group=input.closest('.choice-list'); group.querySelectorAll('input[data-select="'+input.dataset.select+'"]').forEach(function(other) {{ if (other!==input) other.checked=false; }}); const sel=document.getElementById(input.dataset.select); if (sel) {{ sel.value=input.value; sel.dispatchEvent(new Event('change')); }} }}); }}); }}
