@@ -2178,12 +2178,13 @@ const REMAKES = {REMAKE_MGMT_JSON};
 const BASE_DATA_SNAPSHOT = JSON.parse(JSON.stringify(DATA));
 const BASE_PERIODS_SNAPSHOT = JSON.parse(JSON.stringify(PERIODS));
 let excludeForceMajourGlobal = false;
-function forceMajourRows() {{ return REMAKES.filter(function(r) {{ return String(r.category||'').trim() === 'Force Majour'; }}); }}
+function remakeFilterRows() {{ return (typeof remakeRows !== 'undefined' && remakeRows.length) ? remakeRows : REMAKES; }}
+function forceMajourRows() {{ return remakeFilterRows().filter(function(r) {{ return String(r.category||'').trim() === 'Force Majour'; }}); }}
 function restoreReportSnapshots() {{ Object.assign(DATA, JSON.parse(JSON.stringify(BASE_DATA_SNAPSHOT))); Object.keys(BASE_PERIODS_SNAPSHOT).forEach(function(k) {{ PERIODS[k] = JSON.parse(JSON.stringify(BASE_PERIODS_SNAPSHOT[k])); }}); }}
 function applyForceMajourToReport() {{
   restoreReportSnapshots();
   if (!excludeForceMajourGlobal && !visibleRemakeCulprit) return;
-  const rows=REMAKES.filter(function(r) {{ const c=String(r.category||'').trim(); const culprit=String(r.culprit||'').trim() || 'Unassigned'; return visibleRemakeCategories.size > 0 && !visibleRemakeCategories.has(c) || (visibleRemakeCulprit && culprit !== visibleRemakeCulprit); }});
+  const rows=remakeFilterRows().filter(function(r) {{ const c=String(r.category||'').trim(); const culprit=String(r.culprit||'').trim() || 'Unassigned'; return visibleRemakeCategories.size > 0 && !visibleRemakeCategories.has(c) || (visibleRemakeCulprit && culprit !== visibleRemakeCulprit); }});
   const targets=[DATA].concat(Object.keys(PERIODS).map(function(k) {{ return PERIODS[k]; }}));
   targets.forEach(function(p) {{ const keys=p.monthKeys||MONTH_KEYS; rows.forEach(function(r) {{ const month=String(r.month||'').slice(0,7), idx=keys.indexOf(month); if (idx < 0) return; const names=String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}); names.forEach(function(name) {{ const f=(p.factories||[]).find(function(x) {{ return x.name === name; }}); if (!f) return; f.remake_orders=Math.max(0,(f.remake_orders||0)-1); f.remake_qty=Math.max(0,(f.remake_qty||0)-Number(r.qty||0)); if (f.monthly) {{ f.monthly.remake_orders[idx]=Math.max(0,(f.monthly.remake_orders[idx]||0)-1); f.monthly.remake_qty[idx]=Math.max(0,(f.monthly.remake_qty[idx]||0)-Number(r.qty||0)); }} }}); if (p.monthlyRemakeOrders) p.monthlyRemakeOrders[idx]=Math.max(0,(p.monthlyRemakeOrders[idx]||0)-1); if (p.monthlyRemakeQty) p.monthlyRemakeQty[idx]=Math.max(0,(p.monthlyRemakeQty[idx]||0)-Number(r.qty||0)); }}); }});
 }}
@@ -2204,7 +2205,7 @@ function syncCategoryFilters() {{
   }});
 }}
 function syncCulpritFilters() {{
-  const values=[...new Set(['Factory','Customer','Merchant','Shipping courier','Custimoo','Unassigned'].concat(REMAKES.map(function(r) {{ return String(r.culprit||'').trim(); }}).filter(Boolean)))].sort();
+  const values=[...new Set(['Factory','Customer','Merchant','Shipping courier','Custimoo','Unassigned'].concat(remakeFilterRows().map(function(r) {{ return String(r.culprit||'').trim(); }}).filter(Boolean)))].sort();
   ['summaryCulpritChoices','ytdCulpritChoices'].forEach(function(id) {{ const el=document.getElementById(id); if (!el) return; el.innerHTML=''; [['','All culprits']].concat(values.map(function(v) {{ return [v,v]; }})).forEach(function(pair) {{ const label=document.createElement('label'); const input=document.createElement('input'); input.type='checkbox'; input.value=pair[0]; input.checked=pair[0]===visibleRemakeCulprit; input.addEventListener('change', function() {{ if (!input.checked) {{ input.checked=true; return; }} el.querySelectorAll('input').forEach(function(other) {{ if (other!==input) other.checked=false; }}); applyCulpritSelection(input.value); }}); label.appendChild(input); label.appendChild(document.createTextNode(' '+pair[1])); el.appendChild(label); }}); }});
 }}
 function wireChoiceGroups() {{ document.querySelectorAll('.choice-list input[data-select]').forEach(function(input) {{ input.addEventListener('change', function() {{ if (!input.checked) {{ input.checked=true; return; }} const group=input.closest('.choice-list'); group.querySelectorAll('input[data-select="'+input.dataset.select+'"]').forEach(function(other) {{ if (other!==input) other.checked=false; }}); const sel=document.getElementById(input.dataset.select); if (sel) {{ sel.value=input.value; sel.dispatchEvent(new Event('change')); }} }}); }}); }}
@@ -3083,7 +3084,7 @@ function exportFilteredRemakesCsv() {{
   rerender();
   fetch(REMAKE_DATA_URL + '?v=' + Date.now())
     .then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }})
-    .then(function(saved) {{ mergeSavedRemakes(saved); rerender(); renderForensics((document.getElementById('remakeAnalysisFactoryFilter') || {{value:''}}).value, (document.getElementById('remakeAnalysisPeriodFilter') || {{value:'ytd'}}).value); setRemakeSaveStatus('Loaded saved annotations'); }})
+    .then(function(saved) {{ mergeSavedRemakes(saved); syncCulpritFilters(); rerender(); renderForensics((document.getElementById('remakeAnalysisFactoryFilter') || {{value:''}}).value, (document.getElementById('remakeAnalysisPeriodFilter') || {{value:'ytd'}}).value); setRemakeSaveStatus('Loaded saved annotations'); }})
     .catch(function() {{ setRemakeSaveStatus(REMAKE_SAVE_URL ? 'Using embedded annotations' : 'Local only — save endpoint unavailable'); }});
 }})();
 
