@@ -1936,7 +1936,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     </div>
     <div class="card metric"><div class="label" id="goalRateLabel">2026 Goal — Remake QTY Error Rate</div><div class="value" id="goalRate">0.50%</div><div class="sub" id="goalSub">Goal for 2026: ≤0.50% remake-qty error rate.</div></div>
     <div class="card">
-      <div class="section-head"><h3 class="section-title" id="breakdownTitle">Remake / Qarma Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="breakdownFilter" class="muted" style="font-size:13px;font-weight:700">Filter:</label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
+      <div class="section-head"><h3 class="section-title" id="breakdownTitle">Remake / Qarma Breakdown — Factories</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="periodFilter" class="muted" style="font-size:13px;font-weight:700">Period:</label><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select><label for="measureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select><label for="summaryExcludeForceMajour" class="muted"><input type="checkbox" id="summaryExcludeForceMajour"> Exclude Force Majour</label><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div>
       <div class="hint" id="breakdownHint">Factory view combines backend remake data with Qarma physical QC catch data from the live daily CSV export.</div>
       <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">Qarma QTY Checked</th><th class="right">Qarma QC Coverage%</th><th class="right">Qarma Defects QTY</th><th class="right">Remake QTY</th><th class="right">Remake QTY Err%</th><th class="right">Qarma Err%</th><th class="right">Qarma QC to 0.5% / 0.2%</th></tr></thead><tbody id="factoryBody"></tbody></table>
     </div>
@@ -1978,7 +1978,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <div class="card metric"><div class="label" id="periodKpiLabel">YTD 2026 Remakes</div><div class="value" id="periodKpiValue"></div><div class="sub" id="periodKpiSub"></div></div>
     </div>
     <div class="card">
-      <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="ytdFactoryFilter" class="muted" style="font-size:13px;font-weight:700">Factory:</label><select id="ytdFactoryFilter" class="filter-select"><option value="">All factories</option></select><label for="ytdMeasureFilter" class="muted" style="font-size:13px;font-weight:700">Measure:</label><select id="ytdMeasureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div></div>
+      <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div style="display:flex;align-items:center;gap:8px;margin:0"><label for="ytdFactoryFilter" class="muted" style="font-size:13px;font-weight:700">Factory:</label><select id="ytdFactoryFilter" class="filter-select"><option value="">All factories</option></select><label for="ytdExcludeForceMajour" class="muted"><input type="checkbox" id="ytdExcludeForceMajour"> Exclude Force Majour</label><select id="ytdMeasureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div></div>
       <div class="chart-wrap"><canvas id="ytdChart"></canvas></div>
       <div class="footnote">Blue bars show accumulated volume/orders. Red line shows accumulated remake percentage for the selected measure.</div>
     </div>
@@ -2160,6 +2160,20 @@ const PERIODS = {PERIODS_JSON_SAFE};
 Object.assign(YTD, PERIODS.ytd || {{}});
 const YTD_VIEW = PERIODS.ytd || YTD;
 const REMAKES = {REMAKE_MGMT_JSON};
+const BASE_DATA_SNAPSHOT = JSON.parse(JSON.stringify(DATA));
+const BASE_PERIODS_SNAPSHOT = JSON.parse(JSON.stringify(PERIODS));
+let excludeForceMajourGlobal = false;
+function forceMajourRows() {{ return REMAKES.filter(function(r) {{ return String(r.category||'').trim() === 'Force Majour'; }}); }}
+function restoreReportSnapshots() {{ Object.assign(DATA, JSON.parse(JSON.stringify(BASE_DATA_SNAPSHOT))); Object.keys(BASE_PERIODS_SNAPSHOT).forEach(function(k) {{ PERIODS[k] = JSON.parse(JSON.stringify(BASE_PERIODS_SNAPSHOT[k])); }}); }}
+function applyForceMajourToReport() {{
+  restoreReportSnapshots();
+  if (!excludeForceMajourGlobal) return;
+  const rows=forceMajourRows();
+  const targets=[DATA].concat(Object.keys(PERIODS).map(function(k) {{ return PERIODS[k]; }}));
+  targets.forEach(function(p) {{ const keys=p.monthKeys||MONTH_KEYS; rows.forEach(function(r) {{ const month=String(r.month||'').slice(0,7), idx=keys.indexOf(month); if (idx < 0) return; const names=String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}); names.forEach(function(name) {{ const f=(p.factories||[]).find(function(x) {{ return x.name === name; }}); if (!f) return; f.remake_orders=Math.max(0,(f.remake_orders||0)-1); f.remake_qty=Math.max(0,(f.remake_qty||0)-Number(r.qty||0)); if (f.monthly) {{ f.monthly.remake_orders[idx]=Math.max(0,(f.monthly.remake_orders[idx]||0)-1); f.monthly.remake_qty[idx]=Math.max(0,(f.monthly.remake_qty[idx]||0)-Number(r.qty||0)); }} }}); if (p.monthlyRemakeOrders) p.monthlyRemakeOrders[idx]=Math.max(0,(p.monthlyRemakeOrders[idx]||0)-1); if (p.monthlyRemakeQty) p.monthlyRemakeQty[idx]=Math.max(0,(p.monthlyRemakeQty[idx]||0)-Number(r.qty||0)); }}); }});
+}}
+function syncForceMajourToggles() {{ ['summaryExcludeForceMajour','ytdExcludeForceMajour','remakeAnalysisExcludeForceMajour'].forEach(function(id) {{ const el=document.getElementById(id); if (el) el.checked=excludeForceMajourGlobal; }}); }}
+function setForceMajourGlobal(enabled) {{ excludeForceMajourGlobal=Boolean(enabled); remakeAnalysisExcludeForceMajour=excludeForceMajourGlobal; applyForceMajourToReport(); syncForceMajourToggles(); updateSummaryStats(); applyPeriod(ACTIVE_PERIOD); ytdCumulativeTable(); renderYtdFactoryTable(); renderYtdChart(); renderDetails(); renderGroupingTable((document.getElementById('breakdownFilter')||{{value:'factory'}}).value); renderTrendChart(currentTrendFactory); }}
 const REMAKE_SAVE_URL = '{REMAKE_SAS_URL}';
 const REMAKE_DATA_URL = 'https://custimoolivedata.z13.web.core.windows.net/remake-mgmt-data.json';
 const QC_REJECTIONS = {QC_REJECTIONS_JSON};
@@ -2790,6 +2804,10 @@ if (ytdFactoryFilter) {{
   ytdFactoryFilter.addEventListener('change', function() {{ YTD_FACTORY_FILTER = ytdFactoryFilter.value; ytdCumulativeTable(); renderYtdChart(); }});
 }}
 const ytdMeasureFilter = document.getElementById('ytdMeasureFilter');
+const summaryForceMajourFilter = document.getElementById('summaryExcludeForceMajour');
+const ytdForceMajourFilter = document.getElementById('ytdExcludeForceMajour');
+if (summaryForceMajourFilter) summaryForceMajourFilter.addEventListener('change', function() {{ setForceMajourGlobal(summaryForceMajourFilter.checked); }});
+if (ytdForceMajourFilter) ytdForceMajourFilter.addEventListener('change', function() {{ setForceMajourGlobal(ytdForceMajourFilter.checked); }});
 if (ytdMeasureFilter) {{ ytdMeasureFilter.value = YTD_MEASURE; ytdMeasureFilter.addEventListener('change', applyYtdMeasure); }}
 ytdCumulativeTable();
 renderYtdFactoryTable();
@@ -2962,7 +2980,7 @@ function renderForensics(factoryFilter, periodKey) {{
   factories.forEach(function(name) {{ const opt=document.createElement('option'); opt.value=name; opt.textContent=name; select.appendChild(opt); }});
   const periodSelect=document.getElementById('remakeAnalysisPeriodFilter');
   const excludeForceMajour=document.getElementById('remakeAnalysisExcludeForceMajour');
-  if (excludeForceMajour) excludeForceMajour.addEventListener('change', function() {{ remakeAnalysisExcludeForceMajour=excludeForceMajour.checked; renderForensics(select.value, periodSelect.value); }});
+  if (excludeForceMajour) excludeForceMajour.addEventListener('change', function() {{ setForceMajourGlobal(excludeForceMajour.checked); }});
   const rerender=function() {{ renderForensics(select.value, periodSelect.value); }};
   select.addEventListener('change', rerender);
   periodSelect.addEventListener('change', rerender);
