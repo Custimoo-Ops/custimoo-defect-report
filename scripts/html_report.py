@@ -1901,10 +1901,6 @@ html = f"""<!DOCTYPE html>
   .drill-table .order-num {{ font-weight: 600; color: var(--accent); }}
   .drill-snippet {{ font-size: 11px; color: var(--muted); line-height: 1.4; max-height: 40px; overflow: hidden; }}
   @media (max-width: 700px) {{ .exec-grid {{ grid-template-columns: 1fr; }} .wrap {{ padding: 16px; }} .metric .value {{ font-size: 38px; }} }}
-  .category-picker {{ position:relative; display:inline-block; }}
-  .category-picker-toggle {{ min-width:220px; width:220px; height:34px; text-align:left; cursor:pointer; white-space:nowrap; overflow:hidden; }}
-  .category-picker-menu {{ position:absolute; z-index:20; top:calc(100% + 4px); left:0; min-width:260px; max-height:280px; overflow:auto; padding:8px; border:1px solid var(--border); border-radius:6px; background:var(--card); box-shadow:0 6px 18px rgba(0,0,0,.18); }}
-  .category-picker-menu[hidden] {{ display:none; }}
   .category-picker-option {{ display:flex; align-items:center; gap:8px; padding:6px 4px; white-space:nowrap; cursor:pointer; }}
   .category-picker-option:hover {{ background:rgba(128,128,128,.12); }}
   .category-picker-option input {{ width:16px; height:16px; }}
@@ -1912,8 +1908,11 @@ html = f"""<!DOCTYPE html>
   .filter-row {{ display:grid; grid-template-columns:120px minmax(0,1fr); align-items:center; gap:10px; min-height:42px; padding:4px 10px; border-bottom:1px solid var(--border); }}
   .filter-row:last-child {{ border-bottom:0; }}
   .filter-row > .muted {{ font-weight:700; }}
-  .filter-row .filter-select, .filter-row .category-picker, .filter-row .category-picker-toggle {{ width:100%; max-width:none; box-sizing:border-box; }}
-  .filter-row .category-picker-toggle {{ min-width:0; }}
+  .filter-row .filter-select, .filter-row .category-picker {{ width:100%; max-width:none; box-sizing:border-box; }}
+  .choice-list {{ display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; }}
+  .choice-list label {{ display:inline-flex; align-items:center; gap:5px; white-space:nowrap; cursor:pointer; font-size:13px; }}
+  .choice-list input {{ width:16px; height:16px; margin:0; }}
+  .internal-filter {{ display:none !important; }}
   @media (max-width:700px) {{ .filter-row {{ grid-template-columns:105px minmax(0,1fr); }} .filter-stack {{ min-width:100%; }} }}
 </style>
 </head>
@@ -1950,7 +1949,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     </div>
     <div class="card metric"><div class="label" id="goalRateLabel">2026 Goal — Remake QTY Error Rate</div><div class="value" id="goalRate">0.50%</div><div class="sub" id="goalSub">Goal for 2026: ≤0.50% remake-qty error rate.</div></div>
     <div class="card">
-      <div class="section-head"><h3 class="section-title" id="breakdownTitle">Remake / Qarma Breakdown — Factories</h3><div class="filter-stack"><div class="filter-row"><span class="muted">Period:</span><select id="periodFilter" class="filter-select"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd">YTD</option><option value="quarter">Quarter</option></select></div><div class="filter-row"><span class="muted">Measure:</span><select id="measureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders">No of Orders</option></select></div><div class="filter-row"><span class="muted">Categories:</span><div class="category-picker"><button type="button" class="filter-select category-picker-toggle" id="summaryCategoryFilterToggle" aria-haspopup="true" aria-expanded="false">Select categories ▼</button><div class="category-picker-menu" id="summaryCategoryFilterMenu" hidden></div></div></div><div class="filter-row"><span class="muted">Culprit:</span><select id="summaryCulpritFilter" class="filter-select"><option value="">All culprits</option></select></div><div class="filter-row"><span class="muted">Group by:</span><select id="breakdownFilter" class="filter-select"><option value="all">All</option><option value="factory">Factories</option><option value="sku">SKU</option><option value="sport">Sports</option><option value="category">Category</option><option value="admin">Order Admin</option></select></div></div></div>
+      <div class="section-head"><h3 class="section-title" id="breakdownTitle">Remake / Qarma Breakdown — Factories</h3><div class="filter-stack"><div class="filter-row"><span class="muted">Measure:</span><div class="choice-list" id="summaryMeasureChoices"><label><input type="checkbox" data-select="measureFilter" value="orders" checked> No of Orders (default)</label><label><input type="checkbox" data-select="measureFilter" value="qty"> Qty</label></div><select id="measureFilter" class="internal-filter"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div><div class="filter-row"><span class="muted">Period:</span><div class="choice-list" id="summaryPeriodChoices"><label><input type="checkbox" data-select="periodFilter" value="ytd" checked> YTD (default)</label><label><input type="checkbox" data-select="periodFilter" value="mtd"> MTD</label><label><input type="checkbox" data-select="periodFilter" value="last_month"> Last Month</label><label><input type="checkbox" data-select="periodFilter" value="last_3"> Last 3 months</label><label><input type="checkbox" data-select="periodFilter" value="last_6"> Last 6 months</label><label><input type="checkbox" data-select="periodFilter" value="all"> All</label></div><select id="periodFilter" class="internal-filter"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd" selected>YTD</option><option value="quarter">Quarter</option></select></div><div class="filter-row"><span class="muted">Category:</span><div class="choice-list" id="summaryCategoryFilterMenu"></div></div><div class="filter-row"><span class="muted">Culprit:</span><div class="choice-list" id="summaryCulpritChoices"></div></div><div class="filter-row"><span class="muted">Group by:</span><div class="choice-list" id="summaryGroupChoices"><label><input type="checkbox" data-select="breakdownFilter" value="factory" checked> Factories (default)</label><label><input type="checkbox" data-select="breakdownFilter" value="sku"> SKU</label><label><input type="checkbox" data-select="breakdownFilter" value="category"> Categories</label><label><input type="checkbox" data-select="breakdownFilter" value="admin"> Order Admin</label></div><select id="breakdownFilter" class="internal-filter"><option value="factory" selected>Factories</option><option value="sku">SKU</option><option value="category">Categories</option><option value="admin">Order Admin</option></select></div></div></div>
       <div class="hint" id="breakdownHint">Factory view combines backend remake data with Qarma physical QC catch data from the live daily CSV export.</div>
       <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">Qarma QTY Checked</th><th class="right">Qarma QC Coverage%</th><th class="right">Qarma Defects QTY</th><th class="right">Remake QTY</th><th class="right">Remake QTY Err%</th><th class="right">Qarma Err%</th><th class="right">Qarma QC to 0.5% / 0.2%</th></tr></thead><tbody id="factoryBody"></tbody></table>
     </div>
@@ -1992,7 +1991,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
       <div class="card metric"><div class="label" id="periodKpiLabel">YTD 2026 Remakes</div><div class="value" id="periodKpiValue"></div><div class="sub" id="periodKpiSub"></div></div>
     </div>
     <div class="card">
-      <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div class="filter-stack"><div class="filter-row"><span class="muted">Factory:</span><select id="ytdFactoryFilter" class="filter-select"><option value="">All factories</option></select></div><div class="filter-row"><span class="muted">Categories:</span><div class="category-picker"><button type="button" class="filter-select category-picker-toggle" id="ytdCategoryFilterToggle" aria-haspopup="true" aria-expanded="false">Select categories ▼</button><div class="category-picker-menu" id="ytdCategoryFilterMenu" hidden></div></div></div><div class="filter-row"><span class="muted">Culprit:</span><select id="ytdCulpritFilter" class="filter-select"><option value="">All culprits</option></select></div><div class="filter-row"><span class="muted">Measure:</span><select id="ytdMeasureFilter" class="filter-select"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div></div></div>
+      <div class="section-head"><h3 class="section-title" id="ytdChartTitle">YTD Cumulative Total Order QTY</h3><div class="filter-stack"><div class="filter-row"><span class="muted">Factory:</span><div class="choice-list" id="ytdFactoryChoices"></div><select id="ytdFactoryFilter" class="internal-filter"><option value="">All factories</option></select></div><div class="filter-row"><span class="muted">Category:</span><div class="choice-list" id="ytdCategoryFilterMenu"></div></div><div class="filter-row"><span class="muted">Culprit:</span><div class="choice-list" id="ytdCulpritChoices"></div></div><div class="filter-row"><span class="muted">Measure:</span><div class="choice-list" id="ytdMeasureChoices"><label><input type="checkbox" data-select="ytdMeasureFilter" value="orders" checked> No of Orders (default)</label><label><input type="checkbox" data-select="ytdMeasureFilter" value="qty"> Qty</label></div><select id="ytdMeasureFilter" class="internal-filter"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div></div></div>
       <div class="chart-wrap"><canvas id="ytdChart"></canvas></div>
       <div class="footnote">Blue bars show accumulated volume/orders. Red line shows accumulated remake percentage for the selected measure.</div>
     </div>
@@ -2191,25 +2190,25 @@ let visibleRemakeCulprit = '';
 let visibleRemakeCategories = new Set();
 function syncCategoryFilters() {{
   ['summary','ytd'].forEach(function(prefix) {{
-    const menu=document.getElementById(prefix+'CategoryFilterMenu'), toggle=document.getElementById(prefix+'CategoryFilterToggle');
-    if (!menu || !toggle) return;
+    const menu=document.getElementById(prefix+'CategoryFilterMenu');
+    if (!menu) return;
     if (!menu.children.length) REMAKE_CATEGORIES.forEach(function(c) {{
       const label=document.createElement('label'); label.className='category-picker-option';
-      const input=document.createElement('input'); input.type='checkbox'; input.value=c; input.addEventListener('change', function() {{ applyCategorySelection(selectedCategoriesFromControls(menu)); }});
+      const input=document.createElement('input'); input.type='checkbox'; input.value=c; input.checked=true; input.addEventListener('change', function() {{ applyCategorySelection(selectedCategoriesFromControls(menu)); }});
       const span=document.createElement('span'); span.textContent=c; label.appendChild(input); label.appendChild(span); menu.appendChild(label);
     }});
     const all=visibleRemakeCategories.size===0;
     menu.querySelectorAll('input').forEach(function(input) {{ input.checked=all || visibleRemakeCategories.has(input.value); }});
-    const selected=all ? [] : Array.from(visibleRemakeCategories);
-    toggle.textContent=all ? 'Select categories ▼' : (selected.length===1 ? selected[0]+' ▼' : selected.length+' categories selected ▼');
   }});
 }}
-function selectedCategoriesFromControls(menu) {{ return menu ? new Set(Array.from(menu.querySelectorAll('input:checked')).map(function(i) {{ return i.value; }})) : new Set(); }}
 function syncCulpritFilters() {{
   const values=[...new Set(REMAKES.map(function(r) {{ return String(r.culprit||'').trim() || 'Unassigned'; }}))].sort();
-  ['summaryCulpritFilter','ytdCulpritFilter'].forEach(function(id) {{ const el=document.getElementById(id); if (!el) return; while (el.options.length>1) el.remove(1); values.forEach(function(v) {{ const o=document.createElement('option'); o.value=v; o.textContent=v; el.appendChild(o); }}); el.value=visibleRemakeCulprit; }});
+  ['summaryCulpritChoices','ytdCulpritChoices'].forEach(function(id) {{ const el=document.getElementById(id); if (!el) return; el.innerHTML=''; [['','All culprits']].concat(values.map(function(v) {{ return [v,v]; }})).forEach(function(pair) {{ const label=document.createElement('label'); const input=document.createElement('input'); input.type='checkbox'; input.value=pair[0]; input.checked=pair[0]===visibleRemakeCulprit; input.addEventListener('change', function() {{ if (!input.checked) {{ input.checked=true; return; }} el.querySelectorAll('input').forEach(function(other) {{ if (other!==input) other.checked=false; }}); applyCulpritSelection(input.value); }}); label.appendChild(input); label.appendChild(document.createTextNode(' '+pair[1])); el.appendChild(label); }}); }});
 }}
-function applyCulpritSelection(value) {{ visibleRemakeCulprit=value||''; applyCategorySelection(visibleRemakeCategories); }}
+function wireChoiceGroups() {{ document.querySelectorAll('.choice-list input[data-select]').forEach(function(input) {{ input.addEventListener('change', function() {{ if (!input.checked) {{ input.checked=true; return; }} const group=input.closest('.choice-list'); group.querySelectorAll('input[data-select="'+input.dataset.select+'"]').forEach(function(other) {{ if (other!==input) other.checked=false; }}); const sel=document.getElementById(input.dataset.select); if (sel) {{ sel.value=input.value; sel.dispatchEvent(new Event('change')); }} }}); }}); }}
+function syncChoiceGroups() {{ document.querySelectorAll('.choice-list input[data-select]').forEach(function(input) {{ const sel=document.getElementById(input.dataset.select); if (sel) input.checked=sel.value===input.value; }}); }}
+function populateDynamicChoiceGroup(selectId, groupId, allLabel) {{ const sel=document.getElementById(selectId), group=document.getElementById(groupId); if (!sel || !group) return; group.innerHTML=''; Array.from(sel.options).forEach(function(opt) {{ const label=document.createElement('label'); const input=document.createElement('input'); input.type='checkbox'; input.value=opt.value; input.checked=opt.value===sel.value; input.dataset.select=selectId; input.addEventListener('change', function() {{ if (!input.checked) {{ input.checked=true; return; }} group.querySelectorAll('input').forEach(function(other) {{ if (other!==input) other.checked=false; }}); sel.value=input.value; sel.dispatchEvent(new Event('change')); }}); label.appendChild(input); label.appendChild(document.createTextNode(' '+(opt.value ? opt.textContent : allLabel))); group.appendChild(label); }}); }}
+function selectedCategoriesFromControls(menu) {{ return menu ? new Set(Array.from(menu.querySelectorAll('input:checked')).map(function(i) {{ return i.value; }})) : new Set(); }}
 function applyCategorySelection(set) {{ visibleRemakeCategories=new Set(set||[]); excludeForceMajourGlobal=visibleRemakeCategories.size>0 && !visibleRemakeCategories.has('Force Majour'); remakeAnalysisExcludeForceMajour=false; applyForceMajourToReport(); syncCategoryFilters(); updateSummaryStats(); applyPeriod(ACTIVE_PERIOD); ytdCumulativeTable(); renderYtdFactoryTable(); renderYtdChart(); renderDetails(); renderGroupingTable((document.getElementById('breakdownFilter')||{{value:'factory'}}).value); }}
 function setForceMajourGlobal(enabled) {{ applyCategorySelection(enabled ? new Set(REMAKE_CATEGORIES.filter(function(c) {{ return c !== 'Force Majour'; }})) : new Set()); }}
 const REMAKE_SAVE_URL = '{REMAKE_SAS_URL}';
@@ -2842,19 +2841,13 @@ if (ytdFactoryFilter) {{
   ytdFactoryFilter.addEventListener('change', function() {{ YTD_FACTORY_FILTER = ytdFactoryFilter.value; ytdCumulativeTable(); renderYtdChart(); }});
 }}
 const ytdMeasureFilter = document.getElementById('ytdMeasureFilter');
-const summaryCategoryFilterToggle = document.getElementById('summaryCategoryFilterToggle');
-const ytdCategoryFilterToggle = document.getElementById('ytdCategoryFilterToggle');
-[['summary',summaryCategoryFilterToggle],['ytd',ytdCategoryFilterToggle]].forEach(function(pair) {{
-  const prefix=pair[0], toggle=pair[1], menu=document.getElementById(prefix+'CategoryFilterMenu');
-  if (!toggle || !menu) return;
-  toggle.addEventListener('click', function(ev) {{ ev.stopPropagation(); const open=menu.hidden; document.querySelectorAll('.category-picker-menu').forEach(function(m) {{ m.hidden=true; }}); document.querySelectorAll('.category-picker-toggle').forEach(function(b) {{ b.setAttribute('aria-expanded','false'); }}); menu.hidden=!open; toggle.setAttribute('aria-expanded',String(open)); }});
-}});
-document.addEventListener('click', function() {{ document.querySelectorAll('.category-picker-menu').forEach(function(m) {{ m.hidden=true; }}); document.querySelectorAll('.category-picker-toggle').forEach(function(b) {{ b.setAttribute('aria-expanded','false'); }}); }});
-// Category filters are initialized after REMAKE_CATEGORIES is declared.
+wireChoiceGroups();
+syncChoiceGroups();
+populateDynamicChoiceGroup('ytdFactoryFilter','ytdFactoryChoices','All factories');
+// Category and culprit choices are initialized from the report data.
 syncCategoryFilters();
 syncCulpritFilters();
-['summaryCulpritFilter','ytdCulpritFilter'].forEach(function(id) {{ const el=document.getElementById(id); if (el) el.addEventListener('change', function() {{ applyCulpritSelection(el.value); }}); }});
-if (ytdMeasureFilter) {{ ytdMeasureFilter.value = YTD_MEASURE; ytdMeasureFilter.addEventListener('change', applyYtdMeasure); }}
+if (ytdMeasureFilter) {{ ytdMeasureFilter.value = YTD_MEASURE; ytdMeasureFilter.addEventListener('change', function() {{ syncChoiceGroups(); applyYtdMeasure(); }}); }}
 ytdCumulativeTable();
 renderYtdFactoryTable();
 
