@@ -2191,9 +2191,21 @@ function remakeRowMatchesSelections(r) {{
 function applyForceMajourToReport() {{
   restoreReportSnapshots();
   if (!excludeForceMajourGlobal && visibleRemakeCulprits.size === 0 && visibleRemakeCategories.size === 0) return;
-  const rows=remakeFilterRows().filter(function(r) {{ return !remakeRowMatchesSelections(r); }});
+  const selectedRows=remakeFilterRows().filter(remakeRowMatchesSelections);
   const targets=[DATA].concat(Object.keys(PERIODS).map(function(k) {{ return PERIODS[k]; }}));
-  targets.forEach(function(p) {{ const keys=p.monthKeys||MONTH_KEYS; rows.forEach(function(r) {{ const month=String(r.month||'').slice(0,7), idx=keys.indexOf(month); if (idx < 0) return; const names=String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}); names.forEach(function(name) {{ const f=(p.factories||[]).find(function(x) {{ return x.name === name; }}); if (!f) return; f.remake_orders=Math.max(0,(f.remake_orders||0)-1); f.remake_qty=Math.max(0,(f.remake_qty||0)-Number(r.qty||0)); if (f.monthly) {{ f.monthly.remake_orders[idx]=Math.max(0,(f.monthly.remake_orders[idx]||0)-1); f.monthly.remake_qty[idx]=Math.max(0,(f.monthly.remake_qty[idx]||0)-Number(r.qty||0)); }} }}); if (p.monthlyRemakeOrders) p.monthlyRemakeOrders[idx]=Math.max(0,(p.monthlyRemakeOrders[idx]||0)-1); if (p.monthlyRemakeQty) p.monthlyRemakeQty[idx]=Math.max(0,(p.monthlyRemakeQty[idx]||0)-Number(r.qty||0)); }}); }});
+  targets.forEach(function(p) {{
+    const keys=p.monthKeys||MONTH_KEYS, allowed=new Set(keys), periodRows=selectedRows.filter(function(r) {{ return allowed.has(String(r.month||r.created_date||r.date||'').slice(0,7)); }});
+    const periodOrders=new Set(periodRows.map(remakeOrderKey));
+    p.totalRemakeOrders=periodOrders.size;
+    p.totalRemakeQty=periodRows.filter(function(r,i,a) {{ return a.findIndex(function(x) {{ return remakeOrderKey(x)===remakeOrderKey(r); }})===i; }}).reduce(function(sum,r) {{ return sum+(Number(r.qty)||0); }},0);
+    (p.factories||[]).forEach(function(f) {{
+      const factoryRows=periodRows.filter(function(r) {{ return String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(f.name)>=0; }}), unique=new Map();
+      factoryRows.forEach(function(r) {{ unique.set(remakeOrderKey(r),r); }});
+      f.remake_orders=unique.size; f.remake_qty=[...unique.values()].reduce(function(sum,r) {{ return sum+(Number(r.qty)||0); }},0);
+      if (f.monthly) keys.forEach(function(month,idx) {{ const monthly=new Map(); factoryRows.filter(function(r) {{ return String(r.month||r.created_date||r.date||'').slice(0,7)===month; }}).forEach(function(r) {{ monthly.set(remakeOrderKey(r),r); }}); f.monthly.remake_orders[idx]=monthly.size; f.monthly.remake_qty[idx]=[...monthly.values()].reduce(function(sum,r) {{ return sum+(Number(r.qty)||0); }},0); }});
+    }});
+    if (p.monthlyRemakeOrders) keys.forEach(function(month,idx) {{ const monthly=new Map(); periodRows.filter(function(r) {{ return String(r.month||r.created_date||r.date||'').slice(0,7)===month; }}).forEach(function(r) {{ monthly.set(remakeOrderKey(r),r); }}); p.monthlyRemakeOrders[idx]=monthly.size; p.monthlyRemakeQty[idx]=[...monthly.values()].reduce(function(sum,r) {{ return sum+(Number(r.qty)||0); }},0); }});
+  }});
 }}
 const REMAKE_CATEGORIES = ['Color Mismatch','CSM Miscommunication','Customer Change','Damaged / Soiled','Fabric / Material','Force Majour','Logo / Design','No Record Found','NOT A REMAKE','Other','Panel mismatch','Print / Sublimation','Quantity Short / Missing','Sizing / Fit','Stitching / Construction','Uncategorized','Wrong Product / SKU'];
 let visibleRemakeCulprits = new Set();
