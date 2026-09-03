@@ -2183,10 +2183,15 @@ let excludeForceMajourGlobal = false;
 function remakeFilterRows() {{ return (typeof remakeRows !== 'undefined' && remakeRows.length) ? remakeRows : REMAKES; }}
 function forceMajourRows() {{ return remakeFilterRows().filter(function(r) {{ return String(r.category||'').trim() === 'Force Majour'; }}); }}
 function restoreReportSnapshots() {{ Object.assign(DATA, JSON.parse(JSON.stringify(BASE_DATA_SNAPSHOT))); Object.keys(BASE_PERIODS_SNAPSHOT).forEach(function(k) {{ PERIODS[k] = JSON.parse(JSON.stringify(BASE_PERIODS_SNAPSHOT[k])); }}); }}
+function remakeRowMatchesSelections(r) {{
+  const category=String(r.category||'').trim()||'Uncategorized';
+  const culprit=String(r.culprit||'').trim()||'Unassigned';
+  return (visibleRemakeCategories.size===0 || visibleRemakeCategories.has(category)) && (visibleRemakeCulprits.size===0 || visibleRemakeCulprits.has(culprit));
+}}
 function applyForceMajourToReport() {{
   restoreReportSnapshots();
   if (!excludeForceMajourGlobal && visibleRemakeCulprits.size === 0 && visibleRemakeCategories.size === 0) return;
-  const rows=remakeFilterRows().filter(function(r) {{ const c=String(r.category||'').trim(); const culprit=String(r.culprit||'').trim() || 'Unassigned'; return (visibleRemakeCategories.size > 0 && !visibleRemakeCategories.has(c)) || (visibleRemakeCulprits.size > 0 && !visibleRemakeCulprits.has(culprit)); }});
+  const rows=remakeFilterRows().filter(function(r) {{ return !remakeRowMatchesSelections(r); }});
   const targets=[DATA].concat(Object.keys(PERIODS).map(function(k) {{ return PERIODS[k]; }}));
   targets.forEach(function(p) {{ const keys=p.monthKeys||MONTH_KEYS; rows.forEach(function(r) {{ const month=String(r.month||'').slice(0,7), idx=keys.indexOf(month); if (idx < 0) return; const names=String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}); names.forEach(function(name) {{ const f=(p.factories||[]).find(function(x) {{ return x.name === name; }}); if (!f) return; f.remake_orders=Math.max(0,(f.remake_orders||0)-1); f.remake_qty=Math.max(0,(f.remake_qty||0)-Number(r.qty||0)); if (f.monthly) {{ f.monthly.remake_orders[idx]=Math.max(0,(f.monthly.remake_orders[idx]||0)-1); f.monthly.remake_qty[idx]=Math.max(0,(f.monthly.remake_qty[idx]||0)-Number(r.qty||0)); }} }}); if (p.monthlyRemakeOrders) p.monthlyRemakeOrders[idx]=Math.max(0,(p.monthlyRemakeOrders[idx]||0)-1); if (p.monthlyRemakeQty) p.monthlyRemakeQty[idx]=Math.max(0,(p.monthlyRemakeQty[idx]||0)-Number(r.qty||0)); }}); }});
 }}
@@ -3006,7 +3011,7 @@ function renderForensics(factoryFilter, periodKey) {{
   const filteredRemakes = factoryRemakes.filter(function(r) {{
     const category = String(r.category || '').trim() || 'Uncategorized';
     const culprit = String(r.culprit || '').trim() || 'Unassigned';
-    return (visibleRemakeCategories.size === 0 || visibleRemakeCategories.has(category)) && (!remakeAnalysisCategoryFilter || category === remakeAnalysisCategoryFilter) && (!remakeAnalysisCulpritFilter || culprit === remakeAnalysisCulpritFilter);
+    return remakeRowMatchesSelections(r) && (!remakeAnalysisCategoryFilter || category === remakeAnalysisCategoryFilter) && (!remakeAnalysisCulpritFilter || culprit === remakeAnalysisCulpritFilter);
   }});
   const remakeReviewComplete = function(r) {{ const category=String(r.category||'').trim(); const culprit=String(r.culprit||'').trim(); const sub=String(r.culprit_subcategory||'').trim(); const notes=String(r.comment||'').trim(); const verified=String(r.verification_status||'').trim(); return Boolean(category && culprit && (culprit !== 'Custimoo' || sub) && (notes || verified)); }};
   const remUn = filteredRemakes.filter(function(r) {{ return !remakeReviewComplete(r); }});
