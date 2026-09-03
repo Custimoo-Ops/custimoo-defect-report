@@ -2209,7 +2209,7 @@ function applyForceMajourToReport() {{
     if (p.monthlyRemakeOrders) keys.forEach(function(month,idx) {{ const monthly=new Map(); periodRows.filter(function(r) {{ return String(r.month||r.created_date||r.date||'').slice(0,7)===month; }}).forEach(function(r) {{ monthly.set(remakeOrderKey(r),r); }}); p.monthlyRemakeOrders[idx]=monthly.size; p.monthlyRemakeQty[idx]=[...monthly.values()].reduce(function(sum,r) {{ return sum+(Number(r.qty)||0); }},0); }});
   }});
 }}
-const REMAKE_CATEGORIES = ['Color Mismatch','CSM Miscommunication','Customer Change','Damaged / Soiled','Fabric / Material','Force Majour','Logo / Design','No Record Found','NOT A REMAKE','Other','Panel mismatch','Print / Sublimation','Quantity Short / Missing','Sizing / Fit','Stitching / Construction','Uncategorized','Wrong Product / SKU'];
+const REMAKE_CATEGORIES = ['Color Mismatch','CSM Miscommunication','Customer Change','Damaged / Soiled','Fabric / Material','Force Majour','Logo / Design','No Record Found','Other','Panel mismatch','Print / Sublimation','Quantity Short / Missing','Sizing / Fit','Stitching / Construction','Uncategorized','Wrong Product / SKU'];
 let visibleRemakeCulprits = new Set();
 let visibleRemakeCategories = new Set();
 function syncCategoryFilters() {{
