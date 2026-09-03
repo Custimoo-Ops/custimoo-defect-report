@@ -1786,6 +1786,7 @@ html = f"""<!DOCTYPE html>
   .section-head {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }}
   .section-head h3 {{ margin: 0; }}
   .reset-btn {{ background: #f3f4f6; color: var(--muted); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; display: none; }}
+  .filter-all-btn, .reset-default-btn {{ display: inline-block; white-space: nowrap; }}
   .reset-btn:hover {{ background: #e9ecf2; color: var(--text); }}
   .reset-btn.show {{ display: inline-block; }}
   .delta {{ font-size: 10px; margin-left: 4px; vertical-align: 1px; }}
