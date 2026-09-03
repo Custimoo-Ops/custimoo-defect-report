@@ -2194,7 +2194,7 @@ function applyForceMajourToReport() {{
   const selectedRows=remakeFilterRows().filter(remakeRowMatchesSelections);
   const targets=[DATA].concat(Object.keys(PERIODS).map(function(k) {{ return PERIODS[k]; }}));
   targets.forEach(function(p) {{
-    const keys=p.monthKeys||MONTH_KEYS, allowed=new Set(keys), periodRows=selectedRows.filter(function(r) {{ return allowed.has(String(r.month||r.created_date||r.date||'').slice(0,7)); }});
+    const keys=p.monthKeys||MONTH_KEYS, allowed=new Set(keys), periodRows=selectedRows.filter(function(r) {{ const m=String(r.month||r.created_date||r.date||'').slice(0,7); return !m || allowed.has(m); }});
     const periodOrders=new Set(periodRows.map(remakeOrderKey));
     p.totalRemakeOrders=periodOrders.size;
     p.totalRemakeQty=periodRows.filter(function(r,i,a) {{ return a.findIndex(function(x) {{ return remakeOrderKey(x)===remakeOrderKey(r); }})===i; }}).reduce(function(sum,r) {{ return sum+(Number(r.qty)||0); }},0);
@@ -3116,7 +3116,7 @@ function exportFilteredRemakesCsv() {{
   rerender();
   fetch(REMAKE_DATA_URL + '?v=' + Date.now())
     .then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }})
-    .then(function(saved) {{ mergeSavedRemakes(saved); syncCulpritFilters(); rerender(); renderForensics((document.getElementById('remakeAnalysisFactoryFilter') || {{value:''}}).value, (document.getElementById('remakeAnalysisPeriodFilter') || {{value:'ytd'}}).value); setRemakeSaveStatus('Loaded saved annotations'); }})
+    .then(function(saved) {{ mergeSavedRemakes(saved); syncCulpritFilters(); applyForceMajourToReport(); rerender(); renderForensics((document.getElementById('remakeAnalysisFactoryFilter') || {{value:''}}).value, (document.getElementById('remakeAnalysisPeriodFilter') || {{value:'ytd'}}).value); setRemakeSaveStatus('Loaded saved annotations'); }})
     .catch(function() {{ setRemakeSaveStatus(REMAKE_SAVE_URL ? 'Using embedded annotations' : 'Local only — save endpoint unavailable'); }});
 }})();
 
