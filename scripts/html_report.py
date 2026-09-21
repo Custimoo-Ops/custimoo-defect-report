@@ -1823,7 +1823,7 @@ html = f"""<!DOCTYPE html>
   .remake-filter-row:hover, .remake-filter-row:focus {{ font-weight: 700; outline: 1px solid var(--border); outline-offset: -1px; }}
   .remake-filter-row.active {{ font-weight: 700; }}
   .remake-mgmt-scroll {{ overflow-x: auto; overflow-y: auto; max-height: 70vh; width: 100%; }}
-  .remake-mgmt-scroll .remake-table {{ min-width: 2340px; table-layout: fixed; }}
+  .remake-mgmt-scroll .remake-table {{ min-width: 2660px; table-layout: fixed; }}
   .remake-mgmt-scroll .remake-table th:nth-child(1) {{ width: 55px; }}
   .remake-mgmt-scroll .remake-table th:nth-child(2) {{ width: 100px; }}
   .remake-mgmt-scroll .remake-table th:nth-child(3) {{ width: 150px; }}
@@ -1837,8 +1837,9 @@ html = f"""<!DOCTYPE html>
   .remake-mgmt-scroll .remake-table th:nth-child(11) {{ width: 180px; }}
   .remake-mgmt-scroll .remake-table th:nth-child(12) {{ width: 190px; }}
   .remake-mgmt-scroll .remake-table th:nth-child(13) {{ width: 220px; }}
-  .remake-mgmt-scroll .remake-table th:nth-child(14) {{ width: 420px; }}
+  .remake-mgmt-scroll .remake-table th:nth-child(15) {{ width: 520px; }}
   .remake-mgmt-scroll .remake-table th, .remake-mgmt-scroll .remake-table td {{ vertical-align: top; }}
+  .remake-mgmt-scroll .remake-table td:nth-child(15) {{ white-space: normal; }}
   .remake-mgmt-scroll .remake-table td:nth-child(14) {{ white-space: normal; }}
   .remake-mgmt-scroll .remake-edit {{ width: 100%; min-width: 0; box-sizing: border-box; }}
   .wrap:has(#qc-rejections.active) {{ max-width: 1800px; }}
