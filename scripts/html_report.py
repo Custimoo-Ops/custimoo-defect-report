@@ -2546,7 +2546,23 @@ function actionPlanTooltip(f) {{
 function measureTooltip(label, formula) {{ return label + ' — applies to No of Orders and QTY\\n\\n' + formula; }}
 function qtyRulesTooltip() {{ return measureTooltip('Total Order QTY', 'orders.deleted_at IS NULL; order_items.status is not order_cancel; period uses actual shipped activity date, falling back to completed activity date and then created date; quantity is summed from factory_products → prices → sizes → quantity; price_info.total_quantity is fallback only; excluded factories are excluded from factory detail rows.'); }}
 function qarmaRulesTooltip() {{ return measureTooltip('Qarma measures', 'eligible original final inspections only; Status = Report; Inspection type = Final; Conclusion = Approved or Rejected; Supplier QC ≠ true; inspector email ends @custimoo.com; reinspection rows excluded from checked-QTY totals; duplicate rows deduplicated by report ID; order must match Bronze scope; checked QTY capped at matched Bronze order QTY.'); }}
+let ACTIVE_GROUPING_MODE = 'factory';
 function measureCells(f, q) {{
+  if (ACTIVE_GROUPING_MODE === 'culprit') {{
+    const total = Number(f._culprit_total || 0);
+    if (ACTIVE_MEASURE === 'orders') {{
+      return '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
+        + '<td class="right">' + (total > 0 ? ((f.remake_orders || 0) / total * 100).toFixed(1) + '%' : '—') + '</td>'
+        + '<td class="right">—</td>'
+        + '<td class="right">—</td>'
+        + '<td class="right">—</td>';
+    }}
+    return '<td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td>'
+      + '<td class="right">' + (total > 0 ? ((f.remake_qty || 0) / total * 100).toFixed(1) + '%' : '—') + '</td>'
+      + '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
+      + '<td class="right">—</td>'
+      + '<td class="right">—</td>';
+  }}
   const qarmaErrPct = ACTIVE_MEASURE === 'orders' ? qarmaOrderRate(q, f.orders) : qarmaRate(q, f.volume);
   if (ACTIVE_MEASURE === 'orders') {{
     return '<td class="right" title="' + escapeAttr(measureTooltip('Total Orders', 'Distinct orders with orders.deleted_at IS NULL and order_items.status not equal to order_cancel, bucketed by actual shipped activity date with completed/created fallback.')) + '">' + (f.orders || 0).toLocaleString() + '</td>'
@@ -2573,6 +2589,10 @@ function measureCells(f, q) {{
     + '<td class="right" title="' + escapeAttr(measureTooltip('Remake QTY Err%', 'Remake QTY divided by Total Order QTY.')) + '">' + pctPill((f.volume || 0) > 0 ? (f.remake_qty || 0) / f.volume * 100 : 0) + '</td>';
 }}
 function measureHeaders() {{
+  if (ACTIVE_GROUPING_MODE === 'culprit') {{
+    if (ACTIVE_MEASURE === 'orders') return '<th class="right">Remake Orders</th><th class="right">% of Remake Orders</th><th class="right">Remake QTY</th><th class="right">Qarma-attributable values</th><th class="right">Population-wide values</th>';
+    return '<th class="right">Remake QTY</th><th class="right">% of Remake QTY</th><th class="right">Remake Orders</th><th class="right">Qarma-attributable values</th><th class="right">Population-wide values</th>';
+  }}
   if (ACTIVE_MEASURE === 'orders') {{
     return '<th class="right">Total Number of Orders</th>'
       + '<th class="right">Qarma Number of Orders</th>'
@@ -2611,13 +2631,14 @@ function factoryRow(f, opts) {{
   return row + '</tr>';
 }}
 function setBreakdownHeader(mode) {{
+  ACTIVE_GROUPING_MODE = mode;
   const thead = document.querySelector('#factoryTable thead tr');
   const first = mode === 'all' ? 'All' : (mode === 'factory' ? 'Factory' : (mode === 'sku' ? 'SKU / Series' : (mode === 'sport' ? 'Sport' : (mode === 'category' ? 'Category' : (mode === 'culprit' ? 'Culprit' : 'Order Admin')))));
   thead.innerHTML = '<th>' + first + '</th>' + measureHeaders() + '<th class="right">Qarma QC to 0.5% / 0.2%</th>';
   document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Remake / Qarma Breakdown — All' : (mode === 'factory' ? 'Remake / Qarma Breakdown — Factories' : (mode === 'sku' ? 'Remake / Qarma Breakdown — SKU' : (mode === 'sport' ? 'Remake / Qarma Breakdown — Sports' : (mode === 'category' ? 'Remake / Qarma Breakdown — Category' : (mode === 'culprit' ? 'Remake / Qarma Breakdown — Culprit' : 'Remake / Qarma Breakdown — Order Admin')))));
   const qsrc = DATA.qarmaSource || {{}};
   const qnote = qsrc.ok ? (' Qarma source: live CSV · ' + (qsrc.filtered_rows || 0).toLocaleString() + ' included rows / ' + (qsrc.rows || 0).toLocaleString() + ' raw rows; Qarma export refreshes roughly hourly.') : (' Qarma source unavailable: ' + (qsrc.error || 'unknown error'));
-  document.getElementById('breakdownHint').textContent = mode === 'culprit' ? 'Culprit view groups remake orders by the saved culprit attribution. Total order and Qarma values are the annotated-remake population, not the full factory denominator.' : ((mode === 'factory' ? 'Factory view combines backend remake data with Qarma physical QC catch data.' : 'Selected grouping combines backend remake data with Qarma measures where order matching is available.') + qnote);
+  document.getElementById('breakdownHint').textContent = mode === 'culprit' ? 'Culprit view supports remake-attributable measures: Remake Orders, Remake QTY, and their shares. Total-order population and Qarma measures cannot be assigned to a culprit unless every order has a culprit attribution; unavailable values are shown as —.' : ((mode === 'factory' ? 'Factory view combines backend remake data with Qarma physical QC catch data.' : 'Selected grouping combines backend remake data with Qarma measures where order matching is available.') + qnote);
 }}
 function renderFactoryTable(tbodyId, list, clickable, opts) {{
   const sortedList = (list || []).slice().sort(function(a,b) {{ return Number(b.volume||0)-Number(a.volume||0) || String(a.name||'').localeCompare(String(b.name||'')); }});
@@ -2672,7 +2693,12 @@ function renderGroupingTable(mode) {{
   if (mode === 'factory') {{ renderFactoryTable('factoryBody', ACTIVE_DATA.factories || [], true, {{}}); renderActionPlanDiagnostics(mode); return; }}
   if (mode === 'all') {{ const total = aggregateFactories(ACTIVE_DATA.factories || []); total.name = 'All'; document.getElementById('factoryBody').innerHTML = factoryRow(total, {{cls:'total-row'}}); renderActionPlanDiagnostics(mode); return; }}
   const rows = (mode === 'culprit' ? culpritGroupingRows() : (((ACTIVE_GROUPINGS || {{}})[mode] || []).slice())).sort(function(a,b) {{ return Number(b.volume||0)-Number(a.volume||0) || String(a.name||'').localeCompare(String(b.name||'')); }});
+  if (mode === 'culprit') {{
+    const culpritTotal = rows.reduce(function(sum, r) {{ return sum + Number(r.remake_orders || 0); }}, 0);
+    rows.forEach(function(r) {{ r._culprit_total = culpritTotal; }});
+  }}
   const total = aggregateFactories(rows); total.name = 'Total';
+  if (mode === 'culprit') total._culprit_total = rows.reduce(function(sum, r) {{ return sum + Number(r.remake_orders || 0); }}, 0);
   document.getElementById('factoryBody').innerHTML = rows.map(function(r) {{ return factoryRow(r, {{}}); }}).join('') + factoryRow(total, {{cls:'total-row'}});
   renderActionPlanDiagnostics(mode);
 }}
