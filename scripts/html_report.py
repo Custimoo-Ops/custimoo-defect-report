@@ -2653,7 +2653,7 @@ function culpritGroupingRows() {{
     const order = remakeOrderKey(r);
     if (!order || seen.has(order)) return;
     const month = String(r.month || r.created_date || r.date || '').slice(0, 7);
-    if (month && !allowed.has(month)) return;
+    if (!month || !allowed.has(month)) return;
     seen.add(order);
     const name = normalizeRemakeCulprit(r.culprit);
     const g = groups[name] || (groups[name] = {{name:name, volume:0, orders:0, defects:0, affected_qty:0, defect_orders:0, remake_orders:0, remake_qty:0, remake_orders_checked_by_qarma:0, remake_orders_not_checked_by_qarma:0, qarma:{{sample_qty:0, defects:0, orders_checked:0, rejected_orders:0, orders_with_reinspection:0}}, rate:0, order_rate:0}});
