@@ -2553,7 +2553,7 @@ function measureCells(f, q) {{
     if (ACTIVE_MEASURE === 'orders') {{
       return '<td class="right">' + (f.remake_orders || 0).toLocaleString() + '</td>'
         + '<td class="right">' + (total > 0 ? ((f.remake_orders || 0) / total * 100).toFixed(1) + '%' : '—') + '</td>'
-        + '<td class="right">—</td>'
+        + '<td class="right">' + (f.remake_qty || 0).toLocaleString() + '</td>'
         + '<td class="right">—</td>'
         + '<td class="right">—</td>';
     }}
@@ -2627,14 +2627,14 @@ function factoryRow(f, opts) {{
   const label = share ? '<a href="' + escapeAttr(shareHref) + '" style="color:#2563eb;text-decoration:underline"><strong>' + esc(f.name) + '</strong></a>' : '<strong>' + esc(f.name) + '</strong>';
   let row = '<tr class="' + (cls + clickable).trim() + '"' + dataFactory + '><td>' + label + '</td>'
     + measureCells(f, q)
-    + '<td class="right" title="' + escapeAttr(actionPlanTooltip(f)) + '"><strong>' + actionPlanText(f) + '</strong></td>';
+    + '<td class="right" title="' + escapeAttr(actionPlanTooltip(f)) + '"><strong>' + (ACTIVE_GROUPING_MODE === 'culprit' ? '—' : actionPlanText(f)) + '</strong></td>';
   return row + '</tr>';
 }}
 function setBreakdownHeader(mode) {{
   ACTIVE_GROUPING_MODE = mode;
   const thead = document.querySelector('#factoryTable thead tr');
   const first = mode === 'all' ? 'All' : (mode === 'factory' ? 'Factory' : (mode === 'sku' ? 'SKU / Series' : (mode === 'sport' ? 'Sport' : (mode === 'category' ? 'Category' : (mode === 'culprit' ? 'Culprit' : 'Order Admin')))));
-  thead.innerHTML = '<th>' + first + '</th>' + measureHeaders() + '<th class="right">Qarma QC to 0.5% / 0.2%</th>';
+  thead.innerHTML = '<th>' + first + '</th>' + measureHeaders() + (mode === 'culprit' ? '<th class="right">Not applicable</th>' : '<th class="right">Qarma QC to 0.5% / 0.2%</th>');
   document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Remake / Qarma Breakdown — All' : (mode === 'factory' ? 'Remake / Qarma Breakdown — Factories' : (mode === 'sku' ? 'Remake / Qarma Breakdown — SKU' : (mode === 'sport' ? 'Remake / Qarma Breakdown — Sports' : (mode === 'category' ? 'Remake / Qarma Breakdown — Category' : (mode === 'culprit' ? 'Remake / Qarma Breakdown — Culprit' : 'Remake / Qarma Breakdown — Order Admin')))));
   const qsrc = DATA.qarmaSource || {{}};
   const qnote = qsrc.ok ? (' Qarma source: live CSV · ' + (qsrc.filtered_rows || 0).toLocaleString() + ' included rows / ' + (qsrc.rows || 0).toLocaleString() + ' raw rows; Qarma export refreshes roughly hourly.') : (' Qarma source unavailable: ' + (qsrc.error || 'unknown error'));
