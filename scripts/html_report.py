@@ -2652,6 +2652,7 @@ function culpritGroupingRows() {{
   remakeFilterRows().filter(remakeRowMatchesSelections).forEach(function(r) {{
     const order = remakeOrderKey(r);
     if (!order || seen.has(order)) return;
+    if (typeof REMAKE_ORDER_NUMBERS !== 'undefined' && !REMAKE_ORDER_NUMBERS.has(order)) return;
     const month = String(r.month || r.created_date || r.date || '').slice(0, 7);
     if (!month || !allowed.has(month)) return;
     seen.add(order);
