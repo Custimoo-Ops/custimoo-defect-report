@@ -1568,16 +1568,16 @@ def build_culprit_groups_for_months(month_keys):
     month_set = set(month_keys)
     groups = defaultdict(empty_group)
     qstats = load_qarma_order_stats(month_keys)
-    seen = set()
-    for row in REMAKE_MGMT:
-        ono = str(row.get('order') or '').replace('#', '').strip()
-        if not ono or (ono in seen):
-            continue
+    annotation_by_order = {
+        str(row.get('order') or '').replace('#', '').strip(): row
+        for row in REMAKE_MGMT
+    }
+    for ono in sorted(REMAKE_ORDERS):
+        row = annotation_by_order.get(ono, {})
         meta = all_order_meta.get(ono, {})
         month = str(meta.get('month') or row.get('month') or '')[:7]
         if month not in month_set:
             continue
-        seen.add(ono)
         culprit = normalize_report_culprit(row.get('culprit'))
         qty = int(meta.get('qty') or row.get('qty') or 0)
         g = groups[culprit]
@@ -2668,7 +2668,7 @@ function renderGroupingTable(mode) {{
   var filter = document.getElementById('breakdownFilter'); if (filter && filter.value !== mode) filter.value = mode;
   if (mode === 'factory') {{ renderFactoryTable('factoryBody', ACTIVE_DATA.factories || [], true, {{}}); renderActionPlanDiagnostics(mode); return; }}
   if (mode === 'all') {{ const total = aggregateFactories(ACTIVE_DATA.factories || []); total.name = 'All'; document.getElementById('factoryBody').innerHTML = factoryRow(total, {{cls:'total-row'}}); renderActionPlanDiagnostics(mode); return; }}
-  const rows = (mode === 'culprit' ? culpritGroupingRows() : (((ACTIVE_GROUPINGS || {{}})[mode] || []).slice())).sort(function(a,b) {{ return Number(b.volume||0)-Number(a.volume||0) || String(a.name||'').localeCompare(String(b.name||'')); }});
+  const rows = (mode === 'culprit' ? (((ACTIVE_GROUPINGS || {{}}).culprit || []).slice()) : (((ACTIVE_GROUPINGS || {{}})[mode] || []).slice())).sort(function(a,b) {{ return Number(b.volume||0)-Number(a.volume||0) || String(a.name||'').localeCompare(String(b.name||'')); }});
   const total = aggregateFactories(rows); total.name = 'Total';
   document.getElementById('factoryBody').innerHTML = rows.map(function(r) {{ return factoryRow(r, {{}}); }}).join('') + factoryRow(total, {{cls:'total-row'}});
   renderActionPlanDiagnostics(mode);
