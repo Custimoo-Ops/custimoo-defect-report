@@ -1010,6 +1010,7 @@ GROUPING_JSON = json.dumps({
     'sport': finalize_groups(sport_groups),
     'admin': finalize_groups(admin_groups),
     'category': finalize_groups(category_groups),
+    'culprit': [],
 }, default=str)
 GROUPING_JSON_SAFE = GROUPING_JSON.replace('<', '\\u003C').replace('>', '\\u003E')
 
@@ -1555,6 +1556,49 @@ for _r in REMAKE_MGMT:
         _r['flag'] = 'Not remake'
     elif _order in remake_backend_actions.ADMIN_CHANGES:
         _r['flag'] = 'Admin changed'
+def normalize_report_culprit(value):
+    culprit = str(value or '').strip()
+    if not culprit:
+        return 'Unassigned'
+    return 'Custimoo' if culprit.upper() == 'OA' else culprit
+
+
+def build_culprit_groups_for_months(month_keys):
+    """Build a remake-attributed grouping dimension from saved culprit annotations."""
+    month_set = set(month_keys)
+    groups = defaultdict(empty_group)
+    qstats = load_qarma_order_stats(month_keys)
+    seen = set()
+    for row in REMAKE_MGMT:
+        ono = str(row.get('order') or '').replace('#', '').strip()
+        if not ono or (ono in seen):
+            continue
+        meta = all_order_meta.get(ono, {})
+        month = str(meta.get('month') or row.get('month') or '')[:7]
+        if month not in month_set:
+            continue
+        seen.add(ono)
+        culprit = normalize_report_culprit(row.get('culprit'))
+        qty = int(meta.get('qty') or row.get('qty') or 0)
+        g = groups[culprit]
+        g['volume'] += qty
+        g['orders_set'].add(ono)
+        g['remake_orders_set'].add(ono)
+        g['remake_qty_total'] += qty
+        detail = order_lookup.get(ono)
+        if detail:
+            g['defects'] += int(detail.get('affected') or 0)
+            g['defect_orders_set'].add(ono)
+        q = qstats.get(ono)
+        if q:
+            g['qarma']['sample_qty'] += int(q.get('sample_qty') or 0)
+            g['qarma']['defects'] += int(q.get('defects') or 0)
+            g['qarma']['rejected_orders'] += int(q.get('rejected_orders') or 0)
+            g['qarma']['inspections'] += int(q.get('inspections') or 0)
+            g['qarma_order_set'].add(ono)
+    return finalize_groups(groups)
+
+
 # ── QC rejection work queue ──
 # One row per eligible rejected order; repeated item/report rows are aggregated.
 _qc_rejection_groups = {}
@@ -1691,6 +1735,20 @@ REINSPECTION_SUMMARY = {
     'approved_events': sum(1 for v in _qc_reinspection_details.values() for result in v['results'] if result == 'Approved'),
     'rejected_events': sum(1 for v in _qc_reinspection_details.values() for result in v['results'] if result == 'Rejected'),
 }
+# Culprit is a remake-attribution dimension. Rebuild the serialized grouping payloads
+# after annotations are loaded so Summary and YTD expose the same dimension.
+for _period_key, _period_payload in PERIODS.items():
+    _period_payload.setdefault('groupings', {})['culprit'] = build_culprit_groups_for_months(_period_payload.get('monthKeys', []))
+GROUPING_JSON = json.dumps({
+    'sku': finalize_groups(sku_groups),
+    'sport': finalize_groups(sport_groups),
+    'admin': finalize_groups(admin_groups),
+    'category': finalize_groups(category_groups),
+    'culprit': build_culprit_groups_for_months(all_months_sorted),
+}, default=str)
+GROUPING_JSON_SAFE = GROUPING_JSON.replace('<', '\\u003C').replace('>', '\\u003E')
+PERIODS_JSON = json.dumps(PERIODS, cls=factory_data.DecimalEncoder)
+PERIODS_JSON_SAFE = PERIODS_JSON.replace('<', '\\\\u003C').replace('>', '\\\\u003E')
 REINSPECTION_SUMMARY_JSON = json.dumps(REINSPECTION_SUMMARY)
 QC_REJECTIONS_JSON = json.dumps(QC_REJECTIONS, cls=factory_data.DecimalEncoder).replace('<', '\\\\u003C').replace('>', '\\\\u003E')
 
@@ -1954,7 +2012,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     </div>
     <div class="card metric"><div class="label" id="goalRateLabel">2026 Goal — Remake QTY Error Rate</div><div class="value" id="goalRate">0.50%</div><div class="sub" id="goalSub">Goal for 2026: ≤0.50% remake-qty error rate.</div></div>
     <div class="card">
-      <div class="section-head"><h3 class="section-title" id="breakdownTitle">Remake / Qarma Breakdown — Factories</h3><div class="filter-stack"><div class="filter-row"><span class="muted">Measure:</span><div class="choice-list" id="summaryMeasureChoices"><label><input type="checkbox" data-select="measureFilter" value="orders" checked> No of Orders (default)</label><label><input type="checkbox" data-select="measureFilter" value="qty"> Qty</label></div><select id="measureFilter" class="internal-filter"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div><div class="filter-row"><span class="muted">Period:</span><div class="choice-list" id="summaryPeriodChoices"><label><input type="checkbox" data-select="periodFilter" value="ytd" checked> YTD (default)</label><label><input type="checkbox" data-select="periodFilter" value="mtd"> MTD</label><label><input type="checkbox" data-select="periodFilter" value="last_month"> Last Month</label><label><input type="checkbox" data-select="periodFilter" value="last_3"> Last 3 months</label><label><input type="checkbox" data-select="periodFilter" value="last_6"> Last 6 months</label><label><input type="checkbox" data-select="periodFilter" value="all"> All</label></div><select id="periodFilter" class="internal-filter"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd" selected>YTD</option><option value="quarter">Quarter</option></select></div><div class="filter-row"><span class="muted">Category:</span><div class="choice-list" id="summaryCategoryFilterMenu"></div><button type="button" class="reset-btn filter-all-btn" data-filter-group="category">Deselect all</button></div><div class="filter-row"><span class="muted">Culprit:</span><div class="choice-list" id="summaryCulpritChoices"></div><button type="button" class="reset-btn filter-all-btn" data-filter-group="culprit">Deselect all</button></div><button type="button" class="reset-btn reset-default-btn">Reset to Default</button><div class="filter-row"><span class="muted">Group by:</span><div class="choice-list" id="summaryGroupChoices"><label><input type="checkbox" data-select="breakdownFilter" value="factory" checked> Factories (default)</label><label><input type="checkbox" data-select="breakdownFilter" value="sku"> SKU</label><label><input type="checkbox" data-select="breakdownFilter" value="category"> Categories</label><label><input type="checkbox" data-select="breakdownFilter" value="admin"> Order Admin</label></div><select id="breakdownFilter" class="internal-filter"><option value="factory" selected>Factories</option><option value="sku">SKU</option><option value="category">Categories</option><option value="admin">Order Admin</option></select></div></div></div>
+      <div class="section-head"><h3 class="section-title" id="breakdownTitle">Remake / Qarma Breakdown — Factories</h3><div class="filter-stack"><div class="filter-row"><span class="muted">Measure:</span><div class="choice-list" id="summaryMeasureChoices"><label><input type="checkbox" data-select="measureFilter" value="orders" checked> No of Orders (default)</label><label><input type="checkbox" data-select="measureFilter" value="qty"> Qty</label></div><select id="measureFilter" class="internal-filter"><option value="qty">Qty</option><option value="orders" selected>No of Orders</option></select></div><div class="filter-row"><span class="muted">Period:</span><div class="choice-list" id="summaryPeriodChoices"><label><input type="checkbox" data-select="periodFilter" value="ytd" checked> YTD (default)</label><label><input type="checkbox" data-select="periodFilter" value="mtd"> MTD</label><label><input type="checkbox" data-select="periodFilter" value="last_month"> Last Month</label><label><input type="checkbox" data-select="periodFilter" value="last_3"> Last 3 months</label><label><input type="checkbox" data-select="periodFilter" value="last_6"> Last 6 months</label><label><input type="checkbox" data-select="periodFilter" value="all"> All</label></div><select id="periodFilter" class="internal-filter"><option value="all">All</option><option value="last_3">Last 3 months</option><option value="last_6">Last 6 months</option><option value="last_month">Last month</option><option value="mtd">MTD</option><option value="ytd" selected>YTD</option><option value="quarter">Quarter</option></select></div><div class="filter-row"><span class="muted">Category:</span><div class="choice-list" id="summaryCategoryFilterMenu"></div><button type="button" class="reset-btn filter-all-btn" data-filter-group="category">Deselect all</button></div><div class="filter-row"><span class="muted">Culprit:</span><div class="choice-list" id="summaryCulpritChoices"></div><button type="button" class="reset-btn filter-all-btn" data-filter-group="culprit">Deselect all</button></div><button type="button" class="reset-btn reset-default-btn">Reset to Default</button><div class="filter-row"><span class="muted">Group by:</span><div class="choice-list" id="summaryGroupChoices"><label><input type="checkbox" data-select="breakdownFilter" value="factory" checked> Factories (default)</label><label><input type="checkbox" data-select="breakdownFilter" value="sku"> SKU</label><label><input type="checkbox" data-select="breakdownFilter" value="category"> Categories</label><label><input type="checkbox" data-select="breakdownFilter" value="admin"> Order Admin</label><label><input type="checkbox" data-select="breakdownFilter" value="culprit"> Culprit</label></div><select id="breakdownFilter" class="internal-filter"><option value="factory" selected>Factories</option><option value="sku">SKU</option><option value="category">Categories</option><option value="admin">Order Admin</option><option value="culprit">Culprit</option></select></div></div></div>
       <div class="hint" id="breakdownHint">Factory view combines backend remake data with Qarma physical QC catch data from the live daily CSV export.</div>
       <table id="factoryTable"><thead><tr><th>Factory</th><th class="right">Total Order QTY</th><th class="right">Qarma QTY Checked</th><th class="right">Qarma QC Coverage%</th><th class="right">Qarma Defects QTY</th><th class="right">Remake QTY</th><th class="right">Remake QTY Err%</th><th class="right">Qarma Err%</th><th class="right">Qarma QC to 0.5% / 0.2%</th></tr></thead><tbody id="factoryBody"></tbody></table>
     </div>
@@ -2548,9 +2606,9 @@ function factoryRow(f, opts) {{
 }}
 function setBreakdownHeader(mode) {{
   const thead = document.querySelector('#factoryTable thead tr');
-  const first = mode === 'all' ? 'All' : (mode === 'factory' ? 'Factory' : (mode === 'sku' ? 'SKU / Series' : (mode === 'sport' ? 'Sport' : (mode === 'category' ? 'Category' : 'Order Admin'))));
+  const first = mode === 'all' ? 'All' : (mode === 'factory' ? 'Factory' : (mode === 'sku' ? 'SKU / Series' : (mode === 'sport' ? 'Sport' : (mode === 'category' ? 'Category' : (mode === 'culprit' ? 'Culprit' : 'Order Admin')))));
   thead.innerHTML = '<th>' + first + '</th>' + measureHeaders() + '<th class="right">Qarma QC to 0.5% / 0.2%</th>';
-  document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Remake / Qarma Breakdown — All' : (mode === 'factory' ? 'Remake / Qarma Breakdown — Factories' : (mode === 'sku' ? 'Remake / Qarma Breakdown — SKU' : (mode === 'sport' ? 'Remake / Qarma Breakdown — Sports' : (mode === 'category' ? 'Remake / Qarma Breakdown — Category' : 'Remake / Qarma Breakdown — Order Admin'))));
+  document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Remake / Qarma Breakdown — All' : (mode === 'factory' ? 'Remake / Qarma Breakdown — Factories' : (mode === 'sku' ? 'Remake / Qarma Breakdown — SKU' : (mode === 'sport' ? 'Remake / Qarma Breakdown — Sports' : (mode === 'category' ? 'Remake / Qarma Breakdown — Category' : (mode === 'culprit' ? 'Remake / Qarma Breakdown — Culprit' : 'Remake / Qarma Breakdown — Order Admin')))));
   const qsrc = DATA.qarmaSource || {{}};
   const qnote = qsrc.ok ? (' Qarma source: live CSV · ' + (qsrc.filtered_rows || 0).toLocaleString() + ' included rows / ' + (qsrc.rows || 0).toLocaleString() + ' raw rows; Qarma export refreshes roughly hourly.') : (' Qarma source unavailable: ' + (qsrc.error || 'unknown error'));
   document.getElementById('breakdownHint').textContent = (mode === 'factory' ? 'Factory view combines backend remake data with Qarma physical QC catch data.' : 'Selected grouping combines backend remake data with Qarma measures where order matching is available.') + qnote;
