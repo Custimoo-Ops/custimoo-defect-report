@@ -394,6 +394,90 @@
       "order": "23834",
       "qty": 0,
       "reason": "Customer feedback about stripe appearance; not a remake."
+    },
+    {
+      "order": "21708",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "22773",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "20893",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "21879",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "20889",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "24507",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "26384",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "27262",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "27287",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "19882",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "26011",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "25822",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "21677",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "21491",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "19816",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "22475",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "22558",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "22608",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "22220",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "25550",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
+    },
+    {
+      "order": "21369",
+      "reason": "Team feedback: explicitly NOT A REMAKE."
     }
   ],
   "missing_in_backend": [
@@ -408,6 +492,178 @@
       "qty": 0,
       "month": "2025-12",
       "note": "Unable to find this order in the system"
+    }
+  ],
+  "non_quality": [
+    {
+      "order": "23093",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    },
+    {
+      "order": "23124",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    },
+    {
+      "order": "23183",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    },
+    {
+      "order": "20919",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    },
+    {
+      "order": "23110",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    },
+    {
+      "order": "23126",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    },
+    {
+      "order": "23094",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    },
+    {
+      "order": "22075",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    },
+    {
+      "order": "23099",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    },
+    {
+      "order": "23091",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    },
+    {
+      "order": "23090",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    },
+    {
+      "order": "23095",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; produced or reshipped after loss in transit, not a quality remake."
+    }
+  ],
+  "external_disruption": [
+    {
+      "order": "23182",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23184",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23143",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23154",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23129",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "22513",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23131",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23127",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23138",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23130",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23139",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23134",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23137",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23135",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23133",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23140",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23136",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23132",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23093",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23124",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23183",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "20919",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23110",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23126",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23094",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "22075",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23099",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23091",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23090",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
+    },
+    {
+      "order": "23095",
+      "reason": "Team feedback: Iran–USA / Middle East war disruption; not a quality remake."
     }
   ]
 }

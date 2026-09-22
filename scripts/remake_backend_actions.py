@@ -26,7 +26,9 @@ def _load() -> dict:
 ACTIONS = _load()
 CANCELLED = {str(r.get("order")) for r in ACTIONS.get("cancelled", []) if r.get("order")}
 NOT_REMAKE = {str(r.get("order")) for r in ACTIONS.get("not_remake", []) if r.get("order")}
-EXCLUDED_REMAKE_ORDERS = CANCELLED | NOT_REMAKE
+NON_QUALITY = {str(r.get("order")) for r in ACTIONS.get("non_quality", []) if r.get("order")}
+EXTERNAL_DISRUPTION = {str(r.get("order")) for r in ACTIONS.get("external_disruption", []) if r.get("order")}
+EXCLUDED_REMAKE_ORDERS = CANCELLED | NOT_REMAKE | NON_QUALITY | EXTERNAL_DISRUPTION
 
 # order -> list[{qty, to_admin, ...}]
 ADMIN_CHANGES = defaultdict(list)
