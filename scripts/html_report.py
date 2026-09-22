@@ -1754,6 +1754,11 @@ QC_REJECTIONS_JSON = json.dumps(QC_REJECTIONS, cls=factory_data.DecimalEncoder).
 
 REMAKE_MGMT_JSON = json.dumps(REMAKE_MGMT, cls=factory_data.DecimalEncoder)
 REMAKE_MGMT_JSON = REMAKE_MGMT_JSON.replace('<', '\\u003C').replace('>', '\\u003E')
+CULPRIT_BASE_ROWS = json.dumps([
+    {'order': ono, 'qty': int((all_order_meta.get(ono) or {}).get('qty') or 0), 'month': str((all_order_meta.get(ono) or {}).get('month') or '')[:7]}
+    for ono in sorted(REMAKE_ORDERS)
+])
+CULPRIT_BASE_ROWS = CULPRIT_BASE_ROWS.replace('<', '\\u003C').replace('>', '\\u003E')
 conn.close()
 
 # ── Remake Mgmt SAS token for universal save ──
@@ -2241,6 +2246,7 @@ const PERIODS = {PERIODS_JSON_SAFE};
 Object.assign(YTD, PERIODS.ytd || {{}});
 const YTD_VIEW = PERIODS.ytd || YTD;
 const REMAKES = {REMAKE_MGMT_JSON};
+const CULPRIT_BASE_ROWS = {CULPRIT_BASE_ROWS};
 const BASE_DATA_SNAPSHOT = JSON.parse(JSON.stringify(DATA));
 const BASE_PERIODS_SNAPSHOT = JSON.parse(JSON.stringify(PERIODS));
 let excludeForceMajourGlobal = false;
@@ -2647,18 +2653,15 @@ function renderActionPlanDiagnostics(mode) {{
 }}
 function culpritGroupingRows() {{
   const allowed = new Set((ACTIVE_DATA && ACTIVE_DATA.monthKeys) || MONTH_KEYS);
+  const annotations = new Map(remakeFilterRows().map(function(r) {{ return [remakeOrderKey(r), r]; }}));
   const groups = {{}};
-  const seen = new Set();
-  remakeFilterRows().filter(remakeRowMatchesSelections).forEach(function(r) {{
-    const order = remakeOrderKey(r);
-    if (!order || seen.has(order)) return;
-    if (typeof REMAKE_ORDER_NUMBERS !== 'undefined' && !REMAKE_ORDER_NUMBERS.has(order)) return;
-    const month = String(r.month || r.created_date || r.date || '').slice(0, 7);
-    if (!month || !allowed.has(month)) return;
-    seen.add(order);
+  (CULPRIT_BASE_ROWS || []).forEach(function(base) {{
+    const order = String(base.order || '').replace(/^#/, '').trim();
+    const r = annotations.get(order) || base;
+    if (!order || !allowed.has(String(base.month || '').slice(0, 7)) || !remakeRowMatchesSelections(r)) return;
     const name = normalizeRemakeCulprit(r.culprit);
     const g = groups[name] || (groups[name] = {{name:name, volume:0, orders:0, defects:0, affected_qty:0, defect_orders:0, remake_orders:0, remake_qty:0, remake_orders_checked_by_qarma:0, remake_orders_not_checked_by_qarma:0, qarma:{{sample_qty:0, defects:0, orders_checked:0, rejected_orders:0, orders_with_reinspection:0}}, rate:0, order_rate:0}});
-    const qty = Number(r.qty || r.total_qty || 0);
+    const qty = Number(base.qty || r.qty || 0);
     g.volume += qty; g.orders += 1; g.remake_orders += 1; g.remake_qty += qty;
   }});
   return Object.keys(groups).map(function(k) {{ const g=groups[k]; g.rate=g.volume>0 ? g.remake_qty/g.volume*100 : 0; g.order_rate=g.orders>0 ? g.remake_orders/g.orders*100 : 0; return g; }});
@@ -2668,7 +2671,7 @@ function renderGroupingTable(mode) {{
   var filter = document.getElementById('breakdownFilter'); if (filter && filter.value !== mode) filter.value = mode;
   if (mode === 'factory') {{ renderFactoryTable('factoryBody', ACTIVE_DATA.factories || [], true, {{}}); renderActionPlanDiagnostics(mode); return; }}
   if (mode === 'all') {{ const total = aggregateFactories(ACTIVE_DATA.factories || []); total.name = 'All'; document.getElementById('factoryBody').innerHTML = factoryRow(total, {{cls:'total-row'}}); renderActionPlanDiagnostics(mode); return; }}
-  const rows = (mode === 'culprit' ? (((ACTIVE_GROUPINGS || {{}}).culprit || []).slice()) : (((ACTIVE_GROUPINGS || {{}})[mode] || []).slice())).sort(function(a,b) {{ return Number(b.volume||0)-Number(a.volume||0) || String(a.name||'').localeCompare(String(b.name||'')); }});
+  const rows = (mode === 'culprit' ? culpritGroupingRows() : (((ACTIVE_GROUPINGS || {{}})[mode] || []).slice())).sort(function(a,b) {{ return Number(b.volume||0)-Number(a.volume||0) || String(a.name||'').localeCompare(String(b.name||'')); }});
   const total = aggregateFactories(rows); total.name = 'Total';
   document.getElementById('factoryBody').innerHTML = rows.map(function(r) {{ return factoryRow(r, {{}}); }}).join('') + factoryRow(total, {{cls:'total-row'}});
   renderActionPlanDiagnostics(mode);
