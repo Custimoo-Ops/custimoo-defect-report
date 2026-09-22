@@ -2611,7 +2611,7 @@ function setBreakdownHeader(mode) {{
   document.getElementById('breakdownTitle').textContent = mode === 'all' ? 'Remake / Qarma Breakdown — All' : (mode === 'factory' ? 'Remake / Qarma Breakdown — Factories' : (mode === 'sku' ? 'Remake / Qarma Breakdown — SKU' : (mode === 'sport' ? 'Remake / Qarma Breakdown — Sports' : (mode === 'category' ? 'Remake / Qarma Breakdown — Category' : (mode === 'culprit' ? 'Remake / Qarma Breakdown — Culprit' : 'Remake / Qarma Breakdown — Order Admin')))));
   const qsrc = DATA.qarmaSource || {{}};
   const qnote = qsrc.ok ? (' Qarma source: live CSV · ' + (qsrc.filtered_rows || 0).toLocaleString() + ' included rows / ' + (qsrc.rows || 0).toLocaleString() + ' raw rows; Qarma export refreshes roughly hourly.') : (' Qarma source unavailable: ' + (qsrc.error || 'unknown error'));
-  document.getElementById('breakdownHint').textContent = (mode === 'factory' ? 'Factory view combines backend remake data with Qarma physical QC catch data.' : 'Selected grouping combines backend remake data with Qarma measures where order matching is available.') + qnote;
+  document.getElementById('breakdownHint').textContent = mode === 'culprit' ? 'Culprit view groups remake orders by the saved culprit attribution. Total order and Qarma values are the annotated-remake population, not the full factory denominator.' : ((mode === 'factory' ? 'Factory view combines backend remake data with Qarma physical QC catch data.' : 'Selected grouping combines backend remake data with Qarma measures where order matching is available.') + qnote);
 }}
 function renderFactoryTable(tbodyId, list, clickable, opts) {{
   const sortedList = (list || []).slice().sort(function(a,b) {{ return Number(b.volume||0)-Number(a.volume||0) || String(a.name||'').localeCompare(String(b.name||'')); }});
@@ -2645,12 +2645,29 @@ function renderActionPlanDiagnostics(mode) {{
     return '<tr><td><strong>' + esc(f.name) + '</strong></td><td class="right">' + qRate.toFixed(2) + '%</td><td class="right">' + unchecked.toLocaleString() + '</td><td class="right">' + (implied === null ? '—' : implied.toFixed(2) + '%') + '</td><td class="right">' + (ratio === null ? '—' : ratio.toFixed(1) + 'x') + '</td><td>' + interp + '</td></tr>';
   }}).join('');
 }}
+function culpritGroupingRows() {{
+  const allowed = new Set((ACTIVE_DATA && ACTIVE_DATA.monthKeys) || MONTH_KEYS);
+  const groups = {{}};
+  const seen = new Set();
+  remakeFilterRows().filter(remakeRowMatchesSelections).forEach(function(r) {{
+    const order = remakeOrderKey(r);
+    if (!order || seen.has(order)) return;
+    const month = String(r.month || r.created_date || r.date || '').slice(0, 7);
+    if (month && !allowed.has(month)) return;
+    seen.add(order);
+    const name = normalizeRemakeCulprit(r.culprit);
+    const g = groups[name] || (groups[name] = {{name:name, volume:0, orders:0, defects:0, affected_qty:0, defect_orders:0, remake_orders:0, remake_qty:0, remake_orders_checked_by_qarma:0, remake_orders_not_checked_by_qarma:0, qarma:{{sample_qty:0, defects:0, orders_checked:0, rejected_orders:0, orders_with_reinspection:0}}, rate:0, order_rate:0}});
+    const qty = Number(r.qty || r.total_qty || 0);
+    g.volume += qty; g.orders += 1; g.remake_orders += 1; g.remake_qty += qty;
+  }});
+  return Object.keys(groups).map(function(k) {{ const g=groups[k]; g.rate=g.volume>0 ? g.remake_qty/g.volume*100 : 0; g.order_rate=g.orders>0 ? g.remake_orders/g.orders*100 : 0; return g; }});
+}}
 function renderGroupingTable(mode) {{
   setBreakdownHeader(mode);
   var filter = document.getElementById('breakdownFilter'); if (filter && filter.value !== mode) filter.value = mode;
   if (mode === 'factory') {{ renderFactoryTable('factoryBody', ACTIVE_DATA.factories || [], true, {{}}); renderActionPlanDiagnostics(mode); return; }}
   if (mode === 'all') {{ const total = aggregateFactories(ACTIVE_DATA.factories || []); total.name = 'All'; document.getElementById('factoryBody').innerHTML = factoryRow(total, {{cls:'total-row'}}); renderActionPlanDiagnostics(mode); return; }}
-  const rows = (((ACTIVE_GROUPINGS || {{}})[mode] || []).slice().sort(function(a,b) {{ return Number(b.volume||0)-Number(a.volume||0) || String(a.name||'').localeCompare(String(b.name||'')); }}));
+  const rows = (mode === 'culprit' ? culpritGroupingRows() : (((ACTIVE_GROUPINGS || {{}})[mode] || []).slice())).sort(function(a,b) {{ return Number(b.volume||0)-Number(a.volume||0) || String(a.name||'').localeCompare(String(b.name||'')); }});
   const total = aggregateFactories(rows); total.name = 'Total';
   document.getElementById('factoryBody').innerHTML = rows.map(function(r) {{ return factoryRow(r, {{}}); }}).join('') + factoryRow(total, {{cls:'total-row'}});
   renderActionPlanDiagnostics(mode);
@@ -3193,7 +3210,7 @@ function exportFilteredRemakesCsv() {{
   rerender();
   fetch(REMAKE_DATA_URL + '?v=' + Date.now())
     .then(function(resp) {{ if (!resp.ok) throw new Error('HTTP ' + resp.status); return resp.json(); }})
-    .then(function(saved) {{ mergeSavedRemakes(saved); syncCulpritFilters(); applyForceMajourToReport(); rerender(); renderForensics((document.getElementById('remakeAnalysisFactoryFilter') || {{value:''}}).value, (document.getElementById('remakeAnalysisPeriodFilter') || {{value:'ytd'}}).value); setRemakeSaveStatus('Loaded saved annotations'); }})
+    .then(function(saved) {{ mergeSavedRemakes(saved); syncCulpritFilters(); applyForceMajourToReport(); rerender(); renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value); renderForensics((document.getElementById('remakeAnalysisFactoryFilter') || {{value:''}}).value, (document.getElementById('remakeAnalysisPeriodFilter') || {{value:'ytd'}}).value); setRemakeSaveStatus('Loaded saved annotations'); }})
     .catch(function() {{ setRemakeSaveStatus(REMAKE_SAVE_URL ? 'Using embedded annotations' : 'Local only — save endpoint unavailable'); }});
 }})();
 
