@@ -2066,6 +2066,10 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         <select id="remakeFactoryFilter" class="filter-select" style="max-width:220px">
           <option value="">All factories</option>
         </select>
+        <label class="muted" style="font-size:13px;font-weight:700">Filter by customer:</label>
+        <select id="remakeCustomerFilter" class="filter-select" style="max-width:240px">
+          <option value="">All customers</option>
+        </select>
         <label class="muted" style="font-size:13px;font-weight:700">Filter by month:</label>
         <select id="remakeMonthFilter" class="filter-select" style="max-width:140px">
           <option value="">All months</option>
@@ -2919,10 +2923,11 @@ function remakeIsHandled(r) {{
   return Boolean(String(r.category || '').trim() || String(r.culprit || '').trim() || String(r.comment || '').trim());
 }}
 function remakeOrderKey(r) {{ return String(r.order || '').replace(/^#/, '').trim(); }}
-function renderRemakeMgmt(filterAdmin, filterFactory, filterMonth) {{
+function renderRemakeMgmt(filterAdmin, filterFactory, filterCustomer, filterMonth) {{
   let rows = remakeRows;
   if (filterAdmin) rows = rows.filter(function(r) {{ return r.admin === filterAdmin; }});
   if (filterFactory) rows = rows.filter(function(r) {{ return String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).indexOf(filterFactory) >= 0; }});
+  if (filterCustomer) rows = rows.filter(function(r) {{ return String(r.customer||'').trim() === filterCustomer; }});
   if (filterMonth) rows = rows.filter(function(r) {{ return r.month === filterMonth; }});
   rows = rows.slice().sort(function(a,b) {{
     const qtyCmp = Number(b.qty || 0) - Number(a.qty || 0);
@@ -3091,17 +3096,21 @@ function exportFilteredRemakesCsv() {{
 (function() {{
   if (!document.getElementById('remakeMgmtBody')) return;
   const admins = [...new Set(remakeRows.map(function(r){{return r.admin || '(unknown)';}}))].sort();
+  const customers = [...new Set(remakeRows.map(function(r){{return String(r.customer || '(unknown)').trim() || '(unknown)';}}))].sort();
   const months = [...new Set(remakeRows.map(function(r){{return r.month || '?';}}))].sort();
   var af = document.getElementById('remakeAdminFilter');
   var ff = document.getElementById('remakeFactoryFilter');
+  var cf = document.getElementById('remakeCustomerFilter');
   const factories = [...new Set(remakeRows.flatMap(function(r) {{ return String(r.factory||'').split(',').map(function(x) {{ return x.trim(); }}).filter(Boolean); }}))].sort();
   factories.forEach(function(f){{var opt=document.createElement('option');opt.value=f;opt.textContent=f;ff.appendChild(opt);}});
   admins.forEach(function(a){{var opt=document.createElement('option');opt.value=a;opt.textContent=a;af.appendChild(opt);}});
+  customers.forEach(function(c){{var opt=document.createElement('option');opt.value=c;opt.textContent=c;cf.appendChild(opt);}});
   var mf = document.getElementById('remakeMonthFilter');
   months.forEach(function(m){{var opt=document.createElement('option');opt.value=m;opt.textContent=m;mf.appendChild(opt);}});
-  function rerender() {{ renderRemakeMgmt(af.value, ff.value, mf.value); }}
+  function rerender() {{ renderRemakeMgmt(af.value, ff.value, cf.value, mf.value); }}
   af.addEventListener('change', rerender);
   ff.addEventListener('change', rerender);
+  cf.addEventListener('change', rerender);
   mf.addEventListener('change', rerender);
   document.getElementById('remakeMgmtBody').addEventListener('change', function(ev) {{
     const input = ev.target;
