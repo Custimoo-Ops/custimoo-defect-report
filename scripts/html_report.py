@@ -862,7 +862,7 @@ WHERE COALESCE(ship.shipped_at, oi.status_updated_at) >= %s
   AND oi.deleted_at IS NULL
   AND oi.status::text = 'completed'
 """, (factory_data.REPORT_START, factory_data.REPORT_END))
-all_order_meta = defaultdict(lambda: {'qty': 0, 'admin': '(unknown)', 'designers': set(), 'texts': [], 'month': '?'})
+all_order_meta = defaultdict(lambda: {'qty': 0, 'admin': '(unknown)', 'factories': set(), 'designers': set(), 'texts': [], 'month': '?'})
 for ono, qty, shipping_date, admin_name, admin_email, raw_factory, factory_products, order_line in cur.fetchall():
     if factory_data.norm_factory(raw_factory) in getattr(factory_data, 'EXCLUDED_FACTORIES', set()):
         continue
@@ -870,6 +870,7 @@ for ono, qty, shipping_date, admin_name, admin_email, raw_factory, factory_produ
     all_order_meta[ono]['qty'] = max(all_order_meta[ono]['qty'], int(qty or 0))
     all_order_meta[ono]['admin'] = admin_name or '(unknown)'
     all_order_meta[ono]['month'] = str(shipping_date)[:7] if shipping_date else '?'
+    all_order_meta[ono]['factories'].add(factory_data.norm_factory(raw_factory))
     for raw in (factory_products, order_line):
         if not raw:
             continue
@@ -1744,6 +1745,33 @@ REINSPECTION_SUMMARY = {
 # after annotations are loaded so Summary and YTD expose the same dimension.
 for _period_key, _period_payload in PERIODS.items():
     _period_payload.setdefault('groupings', {})['culprit'] = build_culprit_groups_for_months(_period_payload.get('monthKeys', []))
+SUCCESS_STORIES = []
+for _ono, _meta in all_order_meta.items():
+    _order = str(_ono)
+    if _order in REMAKE_ORDERS or _order in _qc_rejection_groups:
+        continue
+    _qty = int(_meta.get('qty') or 0)
+    if _qty <= 0:
+        continue
+    _qarma_approved = _order in _qc_final_approved_orders
+    _qarma_detail = _factory_qarma_details.get(_order, {})
+    SUCCESS_STORIES.append({
+        'order': _order,
+        'qty': _qty,
+        'factory': ', '.join(sorted(_meta.get('factories') or _qarma_detail.get('factories') or [])) or '(unknown)',
+        'admin': _meta.get('admin') or '(unknown)',
+        'month': str(_meta.get('month') or '?')[:7],
+        'evidence': 'Qarma approved — no remake' if _qarma_approved else 'Completed with no remake or recorded Qarma rejection',
+        'qarma_approved': _qarma_approved,
+    })
+SUCCESS_STORIES.sort(key=lambda r: (bool(r['qarma_approved']), int(r['qty'])), reverse=True)
+SUCCESS_STORIES_JSON = json.dumps({
+    'total': len(SUCCESS_STORIES),
+    'total_qty': sum(int(r['qty']) for r in SUCCESS_STORIES),
+    'qarma_approved': [r for r in SUCCESS_STORIES if r['qarma_approved']][:50],
+    'largest_no_remake': sorted(SUCCESS_STORIES, key=lambda r: int(r['qty']), reverse=True)[:50],
+}, cls=factory_data.DecimalEncoder).replace('<', '\\\\u003C').replace('>', '\\\\u003E')
+
 GROUPING_JSON = json.dumps({
     'sku': finalize_groups(sku_groups),
     'sport': finalize_groups(sport_groups),
@@ -2011,6 +2039,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <button class="tab" data-target="methodology">Methodology</button>
     <button class="tab" data-target="remake-mgmt">Remake Mgmt</button>
     <button class="tab" data-target="remake-analysis">Remake Analysis</button>
+    <button class="tab" data-target="success-stories">Success Stories</button>
     <button class="tab" data-target="qc-rejections">QC Rejections</button>
     <button class="tab" data-target="qc-analysis">QC Analysis</button>
     <button class="tab" data-target="dqc-usage">DQC Usage</button>
@@ -2161,6 +2190,11 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <div class="card"><div class="section-head"><h3 class="section-title">Filtered Remake Orders</h3><button class="reset-btn" id="exportFilteredRemakesCsv">Export CSV</button></div><div class="hint">All orders matching the selected Factory, Category, and Culprit filters.</div><div style="overflow:auto;max-height:65vh"><table><thead><tr><th>Order</th><th>Customer</th><th class="right">QTY</th><th>Factory</th><th>Category</th><th>Culprit</th><th>Subcategory</th><th>Verification</th><th>Comment</th></tr></thead><tbody id="remakeFilteredOrdersBody"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Filtered Out — Wrong Order Type / NOT A REMAKE</h3><div class="hint">Orders explicitly categorized as NOT A REMAKE are excluded from remake statistics but retained here for audit.</div><div style="overflow:auto;max-height:45vh"><table><thead><tr><th>Order</th><th>Customer</th><th class="right">QTY</th><th>Factory</th><th>Month</th><th>Comment</th></tr></thead><tbody id="remakeWrongTypeBody"></tbody></table></div></div>
   </section>
+  <section id="success-stories" class="page">
+    <div class="card"><h3 class="section-title">Success Stories — Orders Completed Well</h3><div class="hint">Positive outcomes based on completed backend orders with no remake and no recorded Qarma rejection. Qarma-approved orders are shown separately as the strongest evidence.</div><div id="successStoriesKpis" class="exec-grid"></div></div>
+    <div class="card"><h3 class="section-title">Qarma Approved — No Remake</h3><div class="hint">Completed Final inspections approved by Qarma, with no backend remake order.</div><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th class="right">Order QTY</th><th>Factory</th><th>Admin</th><th>Month</th><th>Evidence</th></tr></thead><tbody id="successQarmaBody"></tbody></table></div></div>
+    <div class="card"><h3 class="section-title">Largest Completed Orders Without Remake</h3><div class="hint">Largest completed orders with no backend remake and no recorded Qarma rejection.</div><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th class="right">Order QTY</th><th>Factory</th><th>Admin</th><th>Month</th><th>Evidence</th></tr></thead><tbody id="successLargestBody"></tbody></table></div></div>
+  </section>
   <section id="qc-analysis" class="page">
     <div class="card"><h3 class="section-title">QC Rejection Forensics — Error Types and Prevention</h3><div class="hint">Orders are grouped from the shared QC Rejections annotations. <strong>Not yet forensically reviewed</strong> means Error Type, How to Avoid, and Work Notes are all empty.</div><div id="qcAnalysisKpis" class="exec-grid"></div></div>
     <div class="card"><h3 class="section-title">Unreviewed QC Rejections</h3><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Factory</th><th>Order QTY</th><th>% of subtotal</th><th>Defect QTY</th><th>QC Date</th></tr></thead><tbody id="qcUnreviewedBody"></tbody></table></div></div>
@@ -2250,6 +2284,7 @@ const GROUPINGS = {GROUPING_JSON_SAFE};
 const PERIODS = {PERIODS_JSON_SAFE};
 Object.assign(YTD, PERIODS.ytd || {{}});
 const YTD_VIEW = PERIODS.ytd || YTD;
+const SUCCESS_STORIES = {SUCCESS_STORIES_JSON};
 const REMAKES = {REMAKE_MGMT_JSON};
 const CULPRIT_BASE_ROWS = {CULPRIT_BASE_ROWS};
 const BASE_DATA_SNAPSHOT = JSON.parse(JSON.stringify(DATA));
@@ -2712,6 +2747,20 @@ function renderLeaderRows(rows, emptyLabel) {{
   if (!rows || !rows.length) return '<tr><td colspan="5">No qualifying ' + emptyLabel + ' in selected period</td></tr>';
   return rows.map(function(r, i) {{ return '<tr><td><strong>' + leaderRank(i) + '</strong></td><td>' + esc(r.name) + '</td><td class="right"><strong>' + (r.rate || 0).toFixed(2) + '%</strong></td><td class="right">' + (r.remake_orders || 0).toLocaleString() + '</td><td class="right">' + (r.orders || 0).toLocaleString() + '</td></tr>'; }}).join('');
 }}
+function renderSuccessStories() {{
+  const d = SUCCESS_STORIES || {{total:0,total_qty:0,qarma_approved:[],largest_no_remake:[]}};
+  const approved = d.qarma_approved || [];
+  const largest = d.largest_no_remake || [];
+  document.getElementById('successStoriesKpis').innerHTML = [
+    ['Successful orders', (d.total || 0).toLocaleString(), 'Completed, no remake, no recorded Qarma rejection'],
+    ['Successful QTY', (d.total_qty || 0).toLocaleString(), 'Backend order QTY in the success population'],
+    ['Qarma approved', approved.length.toLocaleString(), 'Approved Final inspections with no remake'],
+    ['Qarma-approved QTY', approved.reduce(function(sum,r) {{ return sum + Number(r.qty || 0); }}, 0).toLocaleString(), 'Order QTY in the approved-Qarma subset']
+  ].map(function(x) {{ return '<div class="card metric"><div class="label">'+esc(x[0])+'</div><div class="value">'+esc(x[1])+'</div><div class="sub">'+esc(x[2])+'</div></div>'; }}).join('');
+  function rows(list) {{ return list.length ? list.map(function(r) {{ return '<tr><td>#'+esc(r.order)+'</td><td class="right">'+Number(r.qty||0).toLocaleString()+'</td><td>'+esc(r.factory||'—')+'</td><td>'+esc(r.admin||'—')+'</td><td>'+esc(r.month||'—')+'</td><td>'+esc(r.evidence||'—')+'</td></tr>'; }}).join('') : '<tr><td colspan="6">No qualifying success stories in the current report window.</td></tr>'; }}
+  document.getElementById('successQarmaBody').innerHTML = rows(approved);
+  document.getElementById('successLargestBody').innerHTML = rows(largest);
+}}
 function renderExceptionLeaders() {{
   const d = ACTIVE_DATA || {{}};
   const leaders = d.exceptionLeaders || {{admin: []}};
@@ -2762,6 +2811,7 @@ function applyPeriod(key) {{
   updateSummaryStats();
   updatePeriodKpis();
   renderExceptionLeaders();
+  renderSuccessStories();
   renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value);
   renderTrendChart(null);
   renderDetails();
