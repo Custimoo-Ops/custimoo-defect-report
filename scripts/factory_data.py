@@ -50,6 +50,22 @@ def norm_factory(name):
 QARMA_SOURCE_URL = os.environ.get('QARMA_INSPECTIONS_URL', '')
 _QARMA_ROWS_CACHE = None
 
+QARMA_ORDER_ALIASES = {
+    # Team-confirmed Qarma order number -> backend order number mappings.
+    '26036': '27432',
+    '21706': '22572',
+    '20855': '27520',
+    '22296': '24160',
+    '22763': '23943',
+    '20893': '21601',
+    '20030': '20033',
+}
+
+def backend_order_for_qarma(value):
+    order = str(value or '').strip().lstrip('#')
+    return QARMA_ORDER_ALIASES.get(order, order)
+
+
 def safe_int(v):
     try:
         if v is None or v == '':
@@ -107,7 +123,7 @@ def load_qarma_shipment_rows(month_filter=None):
     for row in load_qarma_rows():
         if not is_qarma_physical_qc_row(row):
             continue
-        order_no = str(row.get('Order number') or '').strip()
+        order_no = backend_order_for_qarma(row.get('Order number'))
         if not order_no:
             continue
         month = dt_to_month(row.get('Scheduled inspection date') or row.get('Inspection end time'))

@@ -55,6 +55,11 @@ QARMA_ORDER_STATS_CACHE = {}
 QARMA_SOURCE_URL = os.environ.get('QARMA_INSPECTIONS_URL', '')
 QARMA_SOURCE_META = {'ok': False, 'rows': 0, 'filtered_rows': 0, 'source': '[REDACTED]', 'error': ''}
 QARMA_ROWS_CACHE = None
+QARMA_ORDER_ALIASES = getattr(factory_data, 'QARMA_ORDER_ALIASES', {})
+
+def backend_order_for_qarma(value):
+    order = str(value or '').strip().lstrip('#')
+    return QARMA_ORDER_ALIASES.get(order, order)
 
 def dt_to_month(v):
     import datetime
@@ -134,14 +139,14 @@ def load_qarma_stats(month_filter=None):
         if not is_qarma_final_candidate(raw_row) or not str(raw_row.get('Reinspection of') or '').strip():
             continue
         raw_month = dt_to_month(raw_row.get('Scheduled inspection date') or raw_row.get('Inspection end time'))
-        raw_order = str(raw_row.get('Order number') or '').strip()
+        raw_order = backend_order_for_qarma(raw_row.get('Order number'))
         if raw_month in months_allowed and raw_order:
             stats[norm_qarma_supplier(raw_row.get('Supplier name'))]['reinspection_orders'].add(raw_order)
     seen_report_sample = set()
     for row, month in iter_qarma_rows(month_filter):
         f = norm_qarma_supplier(row.get('Supplier name'))
         report_id = str(row.get('Report inspection id') or row.get('Inspection id') or '')
-        order_no = str(row.get('Order number') or '').strip()
+        order_no = backend_order_for_qarma(row.get('Order number'))
         sample_qty = safe_int(row.get('Actual sample quantity'))
         defects = safe_int(row.get('Minor defects pieces affected')) + safe_int(row.get('Major defects pieces affected')) + safe_int(row.get('Critical defects pieces affected'))
         is_rejected = str(row.get('Conclusion') or '').strip() == 'Rejected'
@@ -182,7 +187,7 @@ def load_qarma_order_stats(month_filter=None):
     stats = defaultdict(lambda: {'sample_qty': 0, 'defects': 0, 'reports': set()})
     seen_report_sample = set()
     for row, month in iter_qarma_rows(month_filter):
-        order_no = str(row.get('Order number') or '').strip()
+        order_no = backend_order_for_qarma(row.get('Order number'))
         if not order_no:
             continue
         report_id = str(row.get('Report inspection id') or row.get('Inspection id') or '')
@@ -225,7 +230,7 @@ def load_qarma_stats_scoped(month_filter=None):
     seen = set()
     order_samples = defaultdict(lambda: defaultdict(int))
     for raw in load_qarma_rows():
-        order = str(raw.get('Order number') or '').strip()
+        order = backend_order_for_qarma(raw.get('Order number'))
         factory = norm_qarma_supplier(raw.get('Supplier name'))
         if not order or (order, factory) not in allowed or not is_qarma_final_candidate(raw): continue
         if str(raw.get('Reinspection of') or '').strip():
@@ -1039,7 +1044,7 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
 FACTORY_SHARE_ORDERS = {}
 _factory_qarma_details = {}
 for _qr in load_qarma_rows():
-    _qo = str(_qr.get('Order number') or '').strip()
+    _qo = backend_order_for_qarma(_qr.get('Order number'))
     if not _qo or not is_qarma_final_candidate(_qr): continue
     _qm = dt_to_month(_qr.get('Scheduled inspection date') or _qr.get('Inspection end time'))
     _qd = _factory_qarma_details.setdefault(_qo, {'rejected': False, 'reinspected': False, 'comments': [], 'links': [], 'months': set(), 'factories': set(), 'reinspection_ids': set()})
@@ -1606,7 +1611,7 @@ _qc_final_approved_orders = set()
 _qc_final_approval_details = {}
 _qc_reinspection_details = {}
 for _row in load_qarma_rows():
-    _row_order = str(_row.get('Order number') or '').strip()
+    _row_order = backend_order_for_qarma(_row.get('Order number'))
     if is_qarma_final_candidate(_row):
         if _row_order and str(_row.get('Reinspection of') or '').strip():
             _reinspect_id = str(_row.get('Report inspection id') or _row.get('Inspection id') or _row.get('Link to report') or '').strip()
