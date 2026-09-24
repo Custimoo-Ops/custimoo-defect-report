@@ -4,7 +4,7 @@ import sys, os, json
 from collections import defaultdict
 from decimal import Decimal
 from datetime import datetime, timezone
-import csv, gzip, io, urllib.request
+import csv, gzip, io, urllib.request, subprocess
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import factory_data
@@ -18,6 +18,20 @@ except Exception:
     FACTORY_SHARE_TOKENS = {}
 FACTORY_SHARE_BUILD = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
 FACTORY_SHARE_LINKS_JSON = json.dumps({slug: '/factory/' + slug + '?token=' + str(token) + '&v=' + FACTORY_SHARE_BUILD for slug, token in FACTORY_SHARE_TOKENS.items()})
+REPORT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+def git_output(args):
+    try:
+        return subprocess.check_output(['git', '-C', REPORT_ROOT] + args, text=True, stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return ''
+REPORT_COMMIT = git_output(['rev-parse', 'HEAD']) or 'unknown'
+REPORT_COMMIT_SHORT = REPORT_COMMIT[:12] if REPORT_COMMIT != 'unknown' else REPORT_COMMIT
+REPORT_VERSION_HISTORY = []
+for _line in git_output(['log', '-25', '--date=iso-strict', '--pretty=format:%H%x1f%ad%x1f%s']).splitlines():
+    _parts = _line.split('\x1f', 2)
+    if len(_parts) == 3:
+        REPORT_VERSION_HISTORY.append({'commit': _parts[0], 'date': _parts[1], 'message': _parts[2]})
+REPORT_VERSION_HISTORY_JSON = json.dumps({'current': REPORT_COMMIT, 'current_short': REPORT_COMMIT_SHORT, 'history': REPORT_VERSION_HISTORY}).replace('<', '\\u003C').replace('>', '\\u003E')
 data = factory_data.generate()
 QARMA_SCOPE = {tuple(x) for x in data.get('qarma_scope', [])}
 hummel_account_data = factory_data.generate(customer_company='Hummel Pro NA')
@@ -2043,6 +2057,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <button class="tab" data-target="qc-rejections">QC Rejections</button>
     <button class="tab" data-target="qc-analysis">QC Analysis</button>
     <button class="tab" data-target="dqc-usage">DQC Usage</button>
+    <button class="tab" data-target="versions">Versions</button>
   </div>
   <section id="summary" class="page active">
     <div class="exec-grid">
@@ -2195,6 +2210,14 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
     <div class="card"><h3 class="section-title">Qarma Approved — No Remake</h3><div class="hint">Completed Final inspections approved by Qarma, with no backend remake order.</div><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th class="right">Order QTY</th><th>Factory</th><th>Admin</th><th>Month</th><th>Evidence</th></tr></thead><tbody id="successQarmaBody"></tbody></table></div></div>
     <div class="card"><h3 class="section-title">Largest Completed Orders Without Remake</h3><div class="hint">Largest completed orders with no backend remake and no recorded Qarma rejection.</div><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th class="right">Order QTY</th><th>Factory</th><th>Admin</th><th>Month</th><th>Evidence</th></tr></thead><tbody id="successLargestBody"></tbody></table></div></div>
   </section>
+  <section id="versions" class="page">
+    <div class="card">
+      <h3 class="section-title">Report Versions</h3>
+      <div class="hint">Build history from the report repository. The current build is highlighted so changes can be traced to the exact source version.</div>
+      <div id="versionsCurrent" class="card metric" style="margin:12px 0"></div>
+      <div style="overflow:auto;max-height:65vh"><table><thead><tr><th>Version</th><th>Date</th><th>Change</th><th>Status</th></tr></thead><tbody id="versionsBody"></tbody></table></div>
+    </div>
+  </section>
   <section id="qc-analysis" class="page">
     <div class="card"><h3 class="section-title">QC Rejection Forensics — Error Types and Prevention</h3><div class="hint">Orders are grouped from the shared QC Rejections annotations. <strong>Not yet forensically reviewed</strong> means Error Type, How to Avoid, and Work Notes are all empty.</div><div id="qcAnalysisKpis" class="exec-grid"></div></div>
     <div class="card"><h3 class="section-title">Unreviewed QC Rejections</h3><div style="overflow:auto;max-height:55vh"><table><thead><tr><th>Order</th><th>Factory</th><th>Order QTY</th><th>% of subtotal</th><th>Defect QTY</th><th>QC Date</th></tr></thead><tbody id="qcUnreviewedBody"></tbody></table></div></div>
@@ -2285,6 +2308,7 @@ const PERIODS = {PERIODS_JSON_SAFE};
 Object.assign(YTD, PERIODS.ytd || {{}});
 const YTD_VIEW = PERIODS.ytd || YTD;
 const SUCCESS_STORIES = {SUCCESS_STORIES_JSON};
+const VERSION_HISTORY = {REPORT_VERSION_HISTORY_JSON};
 const REMAKES = {REMAKE_MGMT_JSON};
 const CULPRIT_BASE_ROWS = {CULPRIT_BASE_ROWS};
 const BASE_DATA_SNAPSHOT = JSON.parse(JSON.stringify(DATA));
@@ -2761,6 +2785,13 @@ function renderSuccessStories() {{
   document.getElementById('successQarmaBody').innerHTML = rows(approved);
   document.getElementById('successLargestBody').innerHTML = rows(largest);
 }}
+function renderVersions() {{
+  const history = (VERSION_HISTORY && VERSION_HISTORY.history) || [];
+  const current = String((VERSION_HISTORY && VERSION_HISTORY.current) || 'unknown');
+  const short = String((VERSION_HISTORY && VERSION_HISTORY.current_short) || current.slice(0,12));
+  document.getElementById('versionsCurrent').innerHTML = '<div class="label">Current report version</div><div class="value">'+esc(short)+'</div><div class="sub">Commit '+esc(current)+'</div>';
+  document.getElementById('versionsBody').innerHTML = history.map(function(v, i) {{ const full=String(v.commit||''); return '<tr'+(i===0 ? ' class="total-row"' : '')+'><td><code>'+esc(full.slice(0,12))+'</code></td><td>'+esc(v.date||'')+'</td><td>'+esc(v.message||'')+'</td><td>'+(i===0 ? '<strong>Current build</strong>' : 'Built from history')+'</td></tr>'; }}).join('') || '<tr><td colspan="4">No Git history available in this build.</td></tr>';
+}}
 function renderExceptionLeaders() {{
   const d = ACTIVE_DATA || {{}};
   const leaders = d.exceptionLeaders || {{admin: []}};
@@ -2812,6 +2843,7 @@ function applyPeriod(key) {{
   updatePeriodKpis();
   renderExceptionLeaders();
   renderSuccessStories();
+  renderVersions();
   renderGroupingTable((document.getElementById('breakdownFilter') || {{value:'factory'}}).value);
   renderTrendChart(null);
   renderDetails();
