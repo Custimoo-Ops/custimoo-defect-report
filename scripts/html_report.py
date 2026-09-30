@@ -1767,19 +1767,29 @@ for _row in load_qarma_rows():
     # must not double the order.
     _line_totals = {}
     _line_defects = {}
+    _report_samples = {}
     for (_slice_report, _slice_line), _slice in _g['inspection_quantities'].items():
         _line_totals[_slice_line] = max(_line_totals.get(_slice_line, 0), _slice['total_qty'])
         _line_defects[_slice_line] = _line_defects.get(_slice_line, 0) + _slice['defects_qty']
+        _report_samples[_slice_report] = max(_report_samples.get(_slice_report, 0), _slice['sample_qty'])
     _g['total_qty'] = sum(_line_totals.values())
     # QTY Checked stays cumulative inspection effort, so it can exceed Order QTY on a
-    # re-inspected order. That is real and the `inspections` count explains it.
-    _g['sample_qty'] = sum(x['sample_qty'] for x in _g['inspection_quantities'].values())
+    # re-inspected order. That is real and the `inspections` count explains it. But
+    # 'Actual sample quantity' is a report-level figure Qarma repeats on every order line,
+    # so summing the (report, line) slices multiplied it by the line count: a 22-line order
+    # of 22 pcs published 484 checked. Collapse the lines of one report back to a single
+    # figure first, then sum across reports.
+    _g['sample_qty'] = sum(_report_samples.values())
     # Affected pieces are capped per line, not per order: a line inspected twice cannot
     # have more pieces affected than it has, and one line's cap must not eat another's.
+    # A line whose 'Original total quantity' is blank has a per-line cap of 0, which lets
+    # its defects through uncapped, so clamp the order total as a backstop.
     _g['defects_qty'] = sum(
         min(_qty, _line_totals[_line]) if _line_totals[_line] > 0 else _qty
         for _line, _qty in _line_defects.items()
     )
+    if _g['total_qty'] > 0:
+        _g['defects_qty'] = min(_g['defects_qty'], _g['total_qty'])
     if _row.get('Inspector comment'):
         _g['comments'].append(str(_row['Inspector comment']).strip())
 
