@@ -1749,13 +1749,37 @@ for _row in load_qarma_rows():
         _g['inspections'].add(str(_row.get('Report inspection id') or _row.get('Inspection id')))
     _inspection_id = str(_row.get('Report inspection id') or _row.get('Inspection id') or _row.get('Link to report') or (_order + '|' + str(_date))).strip()
     _row_defects_qty = sum(safe_int(_row.get(k)) for k in ('Minor defects pieces affected', 'Major defects pieces affected', 'Critical defects pieces affected'))
-    _inspection_qty = _g['inspection_quantities'].setdefault(_inspection_id, {'total_qty': 0, 'sample_qty': 0, 'defects_qty': 0})
+    # Qarma repeats one row per order line inside a single inspection report, so the
+    # quantity slice is (report, order line) — the same unit
+    # factory_data.load_qarma_shipment_rows dedupes on. Keying only on the report
+    # collapsed every line of an order into one bucket and took `max` of it, so a
+    # five-line order reported the largest line as both its order quantity and its
+    # defect count. Slice per order line, then roll up on the axis each figure
+    # actually belongs to.
+    _line_id = str(_row.get('Order line id') or _row.get('Item name') or '').strip()
+    _inspection_qty = _g['inspection_quantities'].setdefault(
+        (_inspection_id, _line_id), {'total_qty': 0, 'sample_qty': 0, 'defects_qty': 0})
     _inspection_qty['total_qty'] = max(_inspection_qty['total_qty'], safe_int(_row.get('Original total quantity')))
     _inspection_qty['sample_qty'] = max(_inspection_qty['sample_qty'], safe_int(_row.get('Actual sample quantity')))
     _inspection_qty['defects_qty'] = max(_inspection_qty['defects_qty'], _row_defects_qty)
-    _g['total_qty'] = max(_g['total_qty'], _inspection_qty['total_qty'])
+    # Order QTY is a property of the order, not of how often it was inspected: take each
+    # line once (largest figure across reports) and sum the lines. Re-inspecting a line
+    # must not double the order.
+    _line_totals = {}
+    _line_defects = {}
+    for (_slice_report, _slice_line), _slice in _g['inspection_quantities'].items():
+        _line_totals[_slice_line] = max(_line_totals.get(_slice_line, 0), _slice['total_qty'])
+        _line_defects[_slice_line] = _line_defects.get(_slice_line, 0) + _slice['defects_qty']
+    _g['total_qty'] = sum(_line_totals.values())
+    # QTY Checked stays cumulative inspection effort, so it can exceed Order QTY on a
+    # re-inspected order. That is real and the `inspections` count explains it.
     _g['sample_qty'] = sum(x['sample_qty'] for x in _g['inspection_quantities'].values())
-    _g['defects_qty'] = min(sum(x['defects_qty'] for x in _g['inspection_quantities'].values()), _g['total_qty']) if _g['total_qty'] > 0 else sum(x['defects_qty'] for x in _g['inspection_quantities'].values())
+    # Affected pieces are capped per line, not per order: a line inspected twice cannot
+    # have more pieces affected than it has, and one line's cap must not eat another's.
+    _g['defects_qty'] = sum(
+        min(_qty, _line_totals[_line]) if _line_totals[_line] > 0 else _qty
+        for _line, _qty in _line_defects.items()
+    )
     if _row.get('Inspector comment'):
         _g['comments'].append(str(_row['Inspector comment']).strip())
 
