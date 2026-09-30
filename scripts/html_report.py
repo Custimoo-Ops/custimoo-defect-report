@@ -1522,6 +1522,59 @@ if os.path.exists(_missing_path):
         })
         _existing.add(_mo)
 
+# Re-absorb what the team has classified in the live UI. Those annotations are
+# written to the Azure blob and merged in the browser, so they only ever show up
+# on rows this tab already lists — an order the team classified that is not typed
+# R/Ri in the backend and is not in the by-admin export never appears at all, and
+# the export is refreshed by hand. Read the blob here so the annotation store is
+# a build-time source, not just a client-side overlay.
+REMAKE_MGMT_BLOB_URL = os.environ.get(
+    'REMAKE_MGMT_BLOB_URL',
+    'https://custimoolivedata.z13.web.core.windows.net/remake-mgmt-data.json',
+)
+_REMAKE_ANNOTATION_FIELDS = ('category', 'comment', 'flag', 'culprit', 'original_order')
+try:
+    import urllib.request
+    with urllib.request.urlopen(REMAKE_MGMT_BLOB_URL, timeout=30) as _resp:
+        _blob_rows = json.load(_resp)
+    if not isinstance(_blob_rows, list):
+        raise ValueError(f'expected a list, got {type(_blob_rows).__name__}')
+except Exception as _blob_err:
+    # Never fail the build on the annotation store; fall back to the export alone.
+    print(f'WARN remake annotation store unavailable ({_blob_err}) — using committed export only')
+    _blob_rows = []
+
+_remake_by_order = {}
+for _r in REMAKE_MGMT:
+    _remake_by_order.setdefault(str(_r.get('order') or '').replace('#', '').strip(), _r)
+_blob_recovered = 0
+for _b in _blob_rows:
+    _bo = str(_b.get('order') or '').replace('#', '').strip()
+    if not _bo:
+        continue
+    _row = _remake_by_order.get(_bo)
+    if _row is None:
+        if not any(str(_b.get(_f) or '').strip() for _f in _REMAKE_ANNOTATION_FIELDS):
+            continue  # an unannotated blob row tells us nothing the backend has not
+        _row = {
+            'order': _bo, 'qty': int(_b.get('qty') or 0),
+            'admin': _b.get('admin') or '(unknown)',
+            'factory': _b.get('factory') or '(unknown)',
+            'month': str(_b.get('month') or '?')[:7],
+            'customer': '(unknown)', 'customer_ref': '',
+            'category': '', 'culprit': '', 'comment': '', 'original_order': '', 'flag': '',
+            'source': 'Live annotation store',
+            'verification_status': 'Needs verification',
+        }
+        REMAKE_MGMT.append(_row)
+        _remake_by_order[_bo] = _row
+        _blob_recovered += 1
+    for _f in _REMAKE_ANNOTATION_FIELDS:
+        if not str(_row.get(_f) or '').strip():
+            _row[_f] = _b.get(_f) or ''
+print(f'REMAKE_MGMT: {_blob_recovered} order(s) recovered from the live annotation store, '
+      f'{len(REMAKE_MGMT)} row(s) before exclusions')
+
 # Add Bronze customer/company names to every displayed remake row. Some
 # manually/external-listed rows are not currently typed R/Ri, so lookup by the
 # displayed order numbers rather than restricting the enrichment query by type.
