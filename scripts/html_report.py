@@ -940,7 +940,13 @@ def finalize_groups(groups):
 
 # Build remake orders lookup
 remake_cur = conn.cursor()
-remake_cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol IN ('R', 'Ri') AND o.created_at >= %s AND o.created_at < %s AND o.deleted_at IS NULL", (factory_data.REPORT_START, factory_data.REPORT_END))
+# Eligibility is order type only, matching factory_data's remake predicate. Every consumer of
+# REMAKE_ORDERS buckets on all_order_meta[ono]['month'], which is the shipped basis, so windowing
+# this set on created_at made the drill-down and the SKU/sport/admin breakdowns disagree with the
+# headline. No window guard is added here on purpose: all_order_meta's Qarma loop applies no window
+# to the denominator either, so a numerator-only guard would re-create the same asymmetry pointing
+# the other way. The /api/remakes management tab keeps its own created-month basis deliberately.
+remake_cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol IN ('R', 'Ri') AND o.deleted_at IS NULL")
 REMAKE_ORDERS = set(str(r[0]) for r in remake_cur.fetchall()) - remake_backend_actions.EXCLUDED_REMAKE_ORDERS
 remake_cur.close()
 # Don't close main conn — used later
@@ -2235,7 +2241,7 @@ async function doRefresh(){{var b=document.getElementById('refresh-btn'),m=docum
         <li>Factory comparisons use Qarma physical-QC shipment/order quantity and scheduled inspection date when a Qarma row exists; otherwise they fall back to shipped order quantity per factory from the bronze backend database, bucketed by the activity-history <strong>shipped</strong> timestamp, with <strong>status_updated_at</strong> used only as a fallback when no shipped activity exists.</li>
         <li>Qarma physical QC uses the live Qarma <strong>inspections.csv.gz</strong> export, which refreshes roughly hourly. The report run picks up the newest Qarma export automatically.</li>
         <li>Qarma sample quantity is deduplicated by <strong>Report inspection id</strong>; Qarma defects are Minor + Major + Critical defect pieces affected.</li>
-        <li>Remakes are bucketed by backend order month; Qarma is bucketed by inspection month from the Qarma export.</li>
+        <li>Remakes are bucketed by the same <strong>shipped/completed</strong> month as the order volume they are measured against, not by the month the remake was raised. Qarma is bucketed by inspection month from the Qarma export. The <strong>Remakes</strong> management tab is a work queue and counts by the month a remake was raised, so its total is expected to differ from the remake-rate numerator.</li>
         <li>{report_month_labels[-1]} is <span class="in-progress">still in progress</span>.</li>
         <li>Click any number in the report to drill into the specific orders behind it.</li>
       </ul>

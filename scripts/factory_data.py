@@ -81,6 +81,19 @@ def dt_to_month(v):
         return str(v)[:7]
     return None
 
+def report_month_for(date_info):
+    """The month an order is reported in: shipped, else completed, else created.
+
+    Single source of truth for the reporting basis. Both sides of the remake rate --
+    the denominator (order volume) and the numerator (remake orders) -- are derived
+    from this, so they cannot drift onto different date bases again.
+    """
+    d = (date_info or {}).get('shipping') or (date_info or {}).get('completed') or (date_info or {}).get('created')
+    return str(d)[:7] if d else None
+
+def month_in_report_window(month):
+    return bool(month) and REPORT_START[:7] <= month < REPORT_END[:7]
+
 def load_qarma_rows():
     """Fetch Qarma's internal direct csv.gz export. No API key is required."""
     global _QARMA_ROWS_CACHE
@@ -333,7 +346,11 @@ def generate(defects_only=False, customer_company=None):
     seen_order_factories = set()
     seen_remake_order_factories = set()
 
-    cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol IN ('R', 'Ri') AND o.created_at >= %s AND o.created_at < %s AND o.deleted_at IS NULL", (REPORT_START, REPORT_END))
+    # Eligibility is order type only. The reporting window is NOT applied to created_at here:
+    # the denominator buckets orders on the shipped/completed date, so windowing the numerator
+    # on created_at dropped remakes that shipped inside the window but were raised before it.
+    # The window is re-applied below on the same shipped basis via report_month_for().
+    cur.execute("SELECT o.order_no FROM orders o WHERE o.order_type_symbol IN ('R', 'Ri') AND o.deleted_at IS NULL")
     backend_remake_orders = set(str(r[0]) for r in cur.fetchall()) - remake_backend_actions.EXCLUDED_REMAKE_ORDERS
     if customer_order_nums is not None:
         backend_remake_orders &= customer_order_nums
@@ -367,6 +384,14 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
     for _ono, _created, _completed, _shipped, _qty in cur.fetchall():
         completed_order_dates[str(_ono)] = {'created': _created, 'completed': _completed, 'shipping': _shipped, 'qty': int(_qty or 0)}
 
+    def _remake_in_window(ono):
+        """Re-apply the reporting window to a remake on the SAME basis as the denominator.
+
+        The Qarma-first loop below applies no window filter of its own, so without this a
+        remake that shipped before the window would leak into the all-period factory totals.
+        """
+        return month_in_report_window(report_month_for(completed_order_dates.get(ono)))
+
     qarma_shipment_rows = load_qarma_shipment_rows()
     qarma_order_numbers = set()
     qarma_scope = set()
@@ -381,8 +406,7 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
             continue
         _date_info = completed_order_dates[ono]
         qty = _date_info.get('qty', 0)
-        _report_date = _date_info.get('shipping') or _date_info.get('completed') or _date_info.get('created')
-        month = str(_report_date)[:7] if _report_date else qr['month']
+        month = report_month_for(_date_info) or qr['month']
         qarma_order_numbers.add(ono)
         qarma_scope.add((ono, f, month, _date_info.get('qty', 0)))
         key = (f, month, ono)
@@ -390,7 +414,7 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
             seen_order_factories.add(key)
             factory_month_pipe[f][month]['qty'] += qty
             factory_month_pipe[f][month]['orders'] += 1
-        if ono in backend_remake_orders:
+        if ono in backend_remake_orders and _remake_in_window(ono):
             factory_month_pipe[f][month]['remake_qty'] += qty
             key = (f, month, ono)
             if key not in seen_remake_order_factories:
@@ -451,9 +475,8 @@ HAVING bool_and(oi.status::text <> 'order_cancel')
     overall_monthly_pipe = defaultdict(int)
     overall_monthly_orders = defaultdict(int)
     for _ono, _info in completed_order_dates.items():
-        _report_date = _info.get('shipping') or _info.get('completed') or _info.get('created')
-        _month = str(_report_date)[:7] if _report_date else '?'
-        if REPORT_START[:7] <= _month < REPORT_END[:7]:
+        _month = report_month_for(_info) or '?'
+        if month_in_report_window(_month):
             overall_monthly_pipe[_month] += _info.get('qty', 0)
             overall_monthly_orders[_month] += 1
 
